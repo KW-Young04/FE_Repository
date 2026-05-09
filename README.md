@@ -1,73 +1,66 @@
-# React + TypeScript + Vite
+# Github 연동 기반 UI/UX적 문제 분석 및 코드 개선 서비스
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> 정보융합학부 졸업작품
 
-Currently, two official plugins are available:
+GitHub 저장소를 연동하여 **코드와 실제 렌더링된 페이지를 함께 분석**하고,
+UI/UX 문제를 자동으로 진단한 뒤 개선 사항의 코드 제안 및 커밋까지
+한 번에 처리해 주는 웹 서비스의 **프론트엔드(FE) 레포지토리**입니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+<br/>
 
-## React Compiler
+## 기획 배경
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+사이드 프로젝트를 혼자 수행하는 1인 개발자에게 자주 일어나는 일,
+**"상상한 결과물"과 "실제 완성된 모습"의 간극**.
 
-## Expanding the ESLint configuration
+기존 도구들은 대부분 *처음부터 만드는 것*에 초점이 맞춰져 있어,
+이미 만들어진 웹 페이지의 UX/UI 문제를 점검하고 개선하기에는 부족했습니다.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+본 서비스는 **이미 존재하는 웹 페이지를 분석하고 개선하는 것**에 집중하여,
+GitHub 저장소만 연결하면 **분석 → 수정 → 커밋**까지 한 흐름으로 마칠 수 있도록 합니다.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+<br/>
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 핵심 가치
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+|                                      전 과정 자동화 분석                                       |                                 WCAG 기준 평가                                 |                                All-in-One 에디팅                                |
+| :--------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: | :-----------------------------------------------------------------------------: |
+| 코드 추출부터 UI 렌더링까지<br/>전 과정을 자동화하여 분석하고<br/>최적의 UX 개선안을 즉시 제시 | 웹 접근성 지침(WCAG) 기준의<br/>상세 점수·등급을 제공하고<br/>주요 이슈를 요약 | 디자인/코드 에디터와<br/>AI 챗봇을 결합하여<br/>분석·수정·커밋·푸시까지 한 번에 |
+
+<br/>
+
+## 주요 기능 (7단계 흐름)
+
+| Step | 기능                   | 설명                                                               |
+| :--: | ---------------------- | ------------------------------------------------------------------ |
+|  01  | **저장소 연결**        | GitHub API(OAuth)를 통해 브랜치·파일·코드 데이터 수집 및 레포 파싱 |
+|  02  | **코드/구조 분석**     | 파일 구조 트리 파싱, 주요 UI 파일 탐색, 코드 정적 분석             |
+|  03  | **UI/UX 분석 (AI)**    | 렌더링 스냅샷 생성, UX 문제 탐지, 개선안 자동 생성                 |
+|  04  | **결과 시각화**        | WCAG 기준에 따른 점수(등급)·문제사항 요약 리포트 제공              |
+|  05  | **통합 에디터**        | 디자인 모드(GUI 수정) + 코드 모드(직접 수정) 동시 지원             |
+|  06  | **AI 챗봇**            | 1:1 대화형 피드백, 대화 내용 기반 즉시 코드 수정 반영              |
+|  07  | **수정 반영 (Commit)** | GitHub 연동으로 자동 커밋 및 PR 생성까지 한 번에                   |
+
+<br/>
+
+## 기술 스택 (Frontend)
+
+- **Framework**: React
+- **Language**: JavaScript / TypeScript
+
+<br/>
+
+## 시작하기
+
+```bash
+# 1. 의존성 설치
+npm install
+
+# 2. 개발 서버 실행
+npm start
+
+# 3. 프로덕션 빌드
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+<br/>
