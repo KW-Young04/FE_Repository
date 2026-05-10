@@ -1,6 +1,7 @@
 import { useState } from "react";
 import signupImage from "@/assets/signup.png";
 import githubImage from "@/assets/github.png";
+import Button from "@/components/Button";
 
 const features = [
   "코드 + 렌더링 화면 기반 분석",
@@ -38,10 +39,10 @@ export default function MainPage() {
             ))}
           </ul>
 
-          <button
-            type="button"
+          <Button
             onClick={() => setIsErrorModalOpen(true)}
-            className="mt-10 inline-flex h-14 w-full max-w-lg items-center justify-center gap-3 rounded-xl bg-black px-8 text-2xl font-bold text-white transition hover:bg-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-300"
+            variant="default"
+            className="mt-10 inline-flex h-14 w-full max-w-lg items-center justify-center gap-3 px-8 text-2xl"
           >
             <img
               src={githubImage}
@@ -49,7 +50,7 @@ export default function MainPage() {
               className="h-8 w-8 object-contain"
             />
             <span>GitHub으로 로그인</span>
-          </button>
+          </Button>
         </div>
 
         <div className="w-full max-w-2xl">
@@ -75,13 +76,13 @@ export default function MainPage() {
             <p className="mt-4 text-sm text-slate-500">
               GitHub 계정이 없으신가요? 가입 후 이용해 주세요.
             </p>
-            <button
-              type="button"
+            <Button
               onClick={() => setIsErrorModalOpen(false)}
-              className="mt-6 h-12 w-full rounded-lg bg-sky-500 text-lg font-bold text-white transition hover:bg-sky-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
+              variant="blue"
+              className="mt-6 h-12 w-full rounded-lg text-lg"
             >
               확인
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "@/components/Button";
 
 const recentRepositories = [
   {
@@ -68,14 +69,13 @@ export default function MainRepositoryConnect() {
             placeholder="분석할 저장소의 URL을 입력하세요."
             className="h-14 w-full rounded-none border border-slate-300 px-4 text-base font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:border-slate-400"
           />
-          <button
-            type="button"
-            disabled={!isAnalyzeEnabled}
+          <Button
+            variant={isAnalyzeEnabled ? "default" : "disabled"}
             onClick={() => openAnalyzeModal(repositoryUrl.trim())}
-            className="h-14 min-w-40 border border-black bg-black px-6 text-lg font-bold text-white transition enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
+            className="h-14 min-w-40 rounded-none"
           >
             분석 시작 →
-          </button>
+          </Button>
         </div>
 
         <div className="mt-14">
@@ -126,20 +126,20 @@ export default function MainRepositoryConnect() {
               선택한 GitHub 저장소의 UI/UX 문제와 코드 개선 포인트를 분석합니다.
             </p>
             <div className="mt-8 grid grid-cols-2 gap-3">
-              <button
-                type="button"
+              <Button
                 onClick={closeAnalyzeModal}
-                className="h-12 rounded-lg bg-black text-base font-bold text-white transition hover:bg-slate-800"
+                variant="default"
+                className="h-12 rounded-lg text-base"
               >
                 취소
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 onClick={closeAnalyzeModal}
-                className="h-12 rounded-lg bg-sky-500 text-base font-bold text-white transition hover:bg-sky-600"
+                variant="blue"
+                className="h-12 rounded-lg text-base"
               >
                 분석 시작 →
-              </button>
+              </Button>
             </div>
           </div>
         </div>
