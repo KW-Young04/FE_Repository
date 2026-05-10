@@ -1,8 +1,8 @@
-import { useState } from "react";
 import signupImage from "@/assets/signup.png";
 import githubImage from "@/assets/github.png";
 import Button from "@/components/Button";
 import LoginErrorModal from "./LoginErrorModal";
+import { useGithubLogin } from "@/hooks/useGithubLogin";
 
 const features = [
   "코드 + 렌더링 화면 기반 분석",
@@ -12,7 +12,7 @@ const features = [
 ];
 
 export default function MainPage() {
-  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const { isLoginErrorOpen, login, closeLoginError } = useGithubLogin();
 
   return (
     <main className="flex min-h-screen items-center bg-white px-6 md:px-10">
@@ -41,7 +41,7 @@ export default function MainPage() {
           </ul>
 
           <Button
-            onClick={() => setIsErrorModalOpen(true)}
+            onClick={login}
             variant="default"
             className="mt-10 inline-flex h-14 w-full max-w-lg items-center justify-center gap-3 px-8 text-2xl"
           >
@@ -64,8 +64,8 @@ export default function MainPage() {
       </section>
 
       <LoginErrorModal
-        isOpen={isErrorModalOpen}
-        onClose={() => setIsErrorModalOpen(false)}
+        isOpen={isLoginErrorOpen}
+        onClose={closeLoginError}
       />
     </main>
   );
