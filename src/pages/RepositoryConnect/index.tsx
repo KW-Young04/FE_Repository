@@ -1,59 +1,37 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/Button";
+import { repositoryApi } from "@/api/repository";
 
-const recentRepositories = [
-  {
-    id: "1",
-    fullName: "asdasdaad/sadasd/sadasd",
-    updatedAt: "2시간 전",
-    techStack: "React",
-    fileCount: "34개 파일",
-  },
-  {
-    id: "2",
-    fullName: "asdasdaad/sadasd/sadasd",
-    updatedAt: "2시간 전",
-    techStack: "React",
-    fileCount: "34개 파일",
-  },
-  {
-    id: "3",
-    fullName: "asdasdaad/sadasd/sadasd",
-    updatedAt: "2시간 전",
-    techStack: "React",
-    fileCount: "34개 파일",
-  },
-  {
-    id: "4",
-    fullName: "asdasdaad/sadasd/sadasd",
-    updatedAt: "2시간 전",
-    techStack: "React",
-    fileCount: "34개 파일",
-  },
-  {
-    id: "5",
-    fullName: "asdasdaad/sadasd/sadasd",
-    updatedAt: "2시간 전",
-    techStack: "React",
-    fileCount: "34개 파일",
-  },
-];
+const GITHUB_URL_PATTERN = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+/;
 
 export default function RepositoryConnectPage() {
   const navigate = useNavigate();
   const [repositoryUrl, setRepositoryUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const openAnalysisPage = (repositoryName: string) => {
-    const trimmedName = repositoryName.trim();
-    if (!trimmedName) {
-      return;
+  const isValidUrl = GITHUB_URL_PATTERN.test(repositoryUrl.trim());
+  const isAnalyzeEnabled = isValidUrl && !isLoading;
+
+  const handleAnalyze = async (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      await repositoryApi.getTree(trimmed);
+      navigate(`/repository-analysis?repo=${encodeURIComponent(trimmed)}`);
+    } catch {
+      setErrorMessage(
+        "저장소를 찾을 수 없습니다. URL을 확인하거나 공개 저장소인지 확인해 주세요.",
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-    navigate(`/repository-analysis?repo=${encodeURIComponent(trimmedName)}`);
   };
-
-  const isAnalyzeEnabled = repositoryUrl.trim().length > 0;
 
   return (
     <main className="min-h-screen bg-white px-6 py-10 md:px-10">
@@ -67,45 +45,38 @@ export default function RepositoryConnectPage() {
           <input
             type="text"
             value={repositoryUrl}
-            onChange={(event) => setRepositoryUrl(event.target.value)}
-            placeholder="분석할 저장소의 URL을 입력하세요."
+            onChange={(event) => {
+              setRepositoryUrl(event.target.value);
+              setErrorMessage(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && isAnalyzeEnabled) {
+                handleAnalyze(repositoryUrl);
+              }
+            }}
+            placeholder="https://github.com/owner/repository"
             className="h-14 w-full rounded-none border border-slate-300 px-4 text-base font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:border-slate-400"
           />
           <Button
             variant={isAnalyzeEnabled ? "default" : "disabled"}
             disabled={!isAnalyzeEnabled}
-            onClick={() => openAnalysisPage(repositoryUrl)}
+            onClick={() => handleAnalyze(repositoryUrl)}
             className="h-14 min-w-40 rounded-none"
           >
-            분석 시작 →
+            {isLoading ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                확인 중…
+              </span>
+            ) : (
+              "분석 시작 →"
+            )}
           </Button>
         </div>
 
-        <div className="mt-14">
-          <h2 className="text-3xl font-extrabold text-slate-800">최근 저장소</h2>
-          <ul className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            {recentRepositories.map((repository) => (
-              <li key={repository.id} className="border-b border-slate-100 last:border-b-0">
-                <button
-                  type="button"
-                  onClick={() => openAnalysisPage(repository.fullName)}
-                  className="flex w-full items-center gap-4 px-6 py-4 text-left transition hover:bg-slate-50"
-                >
-                  <span className="text-3xl">🗂️</span>
-                  <span>
-                    <strong className="block text-xl font-extrabold text-slate-900">
-                      {repository.fullName}
-                    </strong>
-                    <span className="mt-1 block text-sm font-medium text-slate-500">
-                      {repository.updatedAt} · {repository.techStack} ·{" "}
-                      {repository.fileCount}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {errorMessage && (
+          <p className="mt-3 text-sm font-medium text-red-500">{errorMessage}</p>
+        )}
       </section>
     </main>
   );
