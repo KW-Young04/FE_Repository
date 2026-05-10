@@ -2,6 +2,7 @@ import { useState } from "react";
 import signupImage from "@/assets/signup.png";
 import githubImage from "@/assets/github.png";
 import Button from "@/components/Button";
+import LoginErrorModal from "./LoginErrorModal";
 
 const features = [
   "코드 + 렌더링 화면 기반 분석",
@@ -62,30 +63,10 @@ export default function MainPage() {
         </div>
       </section>
 
-      {isErrorModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <h2 className="text-2xl font-extrabold text-slate-900">
-              GitHub에 로그인 할 수 없습니다.
-            </h2>
-            <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">
-              GitHub 로그인 중 오류가 발생해 로그인을 완료하지 못했습니다.
-              <br />
-              잠시 후 다시 시도해 보시고, 같은 문제가 지속되면 문의해 주세요.
-            </p>
-            <p className="mt-4 text-sm text-slate-500">
-              GitHub 계정이 없으신가요? 가입 후 이용해 주세요.
-            </p>
-            <Button
-              onClick={() => setIsErrorModalOpen(false)}
-              variant="blue"
-              className="mt-6 h-12 w-full rounded-lg text-lg"
-            >
-              확인
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <LoginErrorModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+      />
     </main>
   );
 }
