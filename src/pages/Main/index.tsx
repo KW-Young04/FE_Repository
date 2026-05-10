@@ -69,4 +69,6 @@ export default function MainPage() {
       />
     </main>
   );
-}
+};
+
+export default Main;
