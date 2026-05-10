@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Button from "@/components/Button";
 
 const recentRepositories = [
@@ -40,15 +41,15 @@ const recentRepositories = [
 ];
 
 export default function MainRepositoryConnect() {
+  const navigate = useNavigate();
   const [repositoryUrl, setRepositoryUrl] = useState("");
-  const [selectedRepository, setSelectedRepository] = useState("");
+  const openAnalysisPage = (repositoryName: string) => {
+    const trimmedName = repositoryName.trim();
+    if (!trimmedName) {
+      return;
+    }
 
-  const openAnalyzeModal = (repositoryName: string) => {
-    setSelectedRepository(repositoryName);
-  };
-
-  const closeAnalyzeModal = () => {
-    setSelectedRepository("");
+    navigate(`/repository-analysis?repo=${encodeURIComponent(trimmedName)}`);
   };
 
   const isAnalyzeEnabled = repositoryUrl.trim().length > 0;
@@ -71,7 +72,8 @@ export default function MainRepositoryConnect() {
           />
           <Button
             variant={isAnalyzeEnabled ? "default" : "disabled"}
-            onClick={() => openAnalyzeModal(repositoryUrl.trim())}
+            disabled={!isAnalyzeEnabled}
+            onClick={() => openAnalysisPage(repositoryUrl)}
             className="h-14 min-w-40 rounded-none"
           >
             분석 시작 →
@@ -85,7 +87,7 @@ export default function MainRepositoryConnect() {
               <li key={repository.id} className="border-b border-slate-100 last:border-b-0">
                 <button
                   type="button"
-                  onClick={() => openAnalyzeModal(repository.fullName)}
+                  onClick={() => openAnalysisPage(repository.fullName)}
                   className="flex w-full items-center gap-4 px-6 py-4 text-left transition hover:bg-slate-50"
                 >
                   <span className="text-3xl">🗂️</span>
@@ -105,45 +107,6 @@ export default function MainRepositoryConnect() {
         </div>
       </section>
 
-      {selectedRepository ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white p-8 shadow-2xl">
-            <button
-              type="button"
-              onClick={closeAnalyzeModal}
-              className="absolute right-5 top-4 text-3xl leading-none text-slate-500 transition hover:text-slate-700"
-              aria-label="닫기"
-            >
-              ×
-            </button>
-            <h2 className="text-center text-2xl font-extrabold text-sky-600">
-              해당 저장소를 분석할까요?
-            </h2>
-            <p className="mt-5 rounded-md bg-slate-100 px-4 py-3 text-center text-lg font-semibold text-slate-700">
-              {selectedRepository}
-            </p>
-            <p className="mt-4 text-center text-sm text-slate-600">
-              선택한 GitHub 저장소의 UI/UX 문제와 코드 개선 포인트를 분석합니다.
-            </p>
-            <div className="mt-8 grid grid-cols-2 gap-3">
-              <Button
-                onClick={closeAnalyzeModal}
-                variant="default"
-                className="h-12 rounded-lg text-base"
-              >
-                취소
-              </Button>
-              <Button
-                onClick={closeAnalyzeModal}
-                variant="blue"
-                className="h-12 rounded-lg text-base"
-              >
-                분석 시작 →
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }
