@@ -1,53 +1,73 @@
-import React from 'react';
-import './style.css';
-import codeeIllust from '../../assets/images/Codee_illust.png';
+import signupImage from "@/assets/signup.png";
+import githubImage from "@/assets/github.png";
+import Button from "@/components/Button";
+import LoginErrorModal from "./LoginErrorModal";
+import { useGithubLogin } from "@/hooks/useGithubLogin";
 
-const Main = () => {
+const features = [
+  "코드 + 렌더링 화면 기반 분석",
+  "바로 적용 가능한 코드 제안",
+  "WCAG 기준 평가 제공",
+  "GitHub 연동",
+];
+
+export default function MainPage() {
+  const { isLoginErrorOpen, login, closeLoginError } = useGithubLogin();
+
   return (
-    <div className="main-container">
-      <div className="content-wrapper">
-        {/* 왼쪽 텍스트 섹션 */}
-        <section className="text-section">
-          <h1 className="title">
-            GitHub 기반<br />
-            UI/UX 분석 & 코드 개선
+    <main className="flex min-h-screen items-center bg-white px-6 md:px-10">
+      <section className="mx-auto flex w-full max-w-7xl flex-col items-center gap-12 py-10 md:py-14 lg:flex-row lg:justify-between">
+        <div className="w-full max-w-2xl">
+          <h1 className="text-4xl font-extrabold leading-tight text-slate-900 md:text-6xl">
+            GitHub 기반
+            <br />
+            UI/UX 분석 &amp; 코드 개선
           </h1>
-          <p className="description">
-            저장소를 연결하면 실제 화면과 코드를 함께 분석해<br />
+          <p className="mt-6 text-lg leading-relaxed text-slate-700">
+            저장소를 연결하면 실제 화면과 코드를 함께 분석해
+            <br />
             접근성 문제를 찾아드립니다.
           </p>
 
-          <div className="feature-grid">
-            <div className="feature-item">
-              <span className="check-icon">✓</span> 코드 + 렌더링 화면 기반 분석
-            </div>
-            <div className="feature-item">
-              <span className="check-icon">✓</span> WCAG 기준 평가 제공
-            </div>
-            <div className="feature-item">
-              <span className="check-icon">✓</span> 바로 적용 가능한 코드 제안
-            </div>
-            <div className="feature-item">
-              <span className="check-icon">✓</span> GitHub 연동
-            </div>
-          </div>
+          <ul className="mt-8 grid grid-cols-1 gap-y-3 text-base font-medium text-slate-800 sm:grid-cols-2 sm:gap-x-8">
+            {features.map((feature) => (
+              <li key={feature} className="flex items-center gap-3">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  ✓
+                </span>
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
 
-          <button className="github-login-btn">
-            <img 
-              src="https://cdn-icons-png.flaticon.com/512/25/25231.png" 
-              alt="Github Logo" 
-              className="btn-icon" 
+          <Button
+            onClick={login}
+            variant="default"
+            className="mt-10 inline-flex h-14 w-full max-w-lg items-center justify-center gap-3 px-8 text-2xl"
+          >
+            <img
+              src={githubImage}
+              alt="GitHub 아이콘"
+              className="h-8 w-8 object-contain"
             />
-            GitHub으로 로그인
-          </button>
-        </section>
+            <span>GitHub으로 로그인</span>
+          </Button>
+        </div>
 
-        {/* 오른쪽 일러스트 섹션 */}
-        <section className="image-section">
-          <img src={codeeIllust} alt="Codee Illustration" className="main-illust" />
-        </section>
-      </div>
-    </div>
+        <div className="w-full max-w-2xl">
+          <img
+            src={signupImage}
+            alt="Codee GitHub 회원가입 소개 이미지"
+            className="h-auto w-full object-contain"
+          />
+        </div>
+      </section>
+
+      <LoginErrorModal
+        isOpen={isLoginErrorOpen}
+        onClose={closeLoginError}
+      />
+    </main>
   );
 };
 
