@@ -40,9 +40,10 @@ const recentRepositories = [
   },
 ];
 
-export default function MainRepositoryConnect() {
+export default function RepositoryConnectPage() {
   const navigate = useNavigate();
   const [repositoryUrl, setRepositoryUrl] = useState("");
+
   const openAnalysisPage = (repositoryName: string) => {
     const trimmedName = repositoryName.trim();
     if (!trimmedName) {
@@ -106,7 +107,6 @@ export default function MainRepositoryConnect() {
           </ul>
         </div>
       </section>
-
     </main>
   );
 }
