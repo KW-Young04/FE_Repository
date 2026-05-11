@@ -63,12 +63,7 @@ export default function MainPage() {
         </div>
       </section>
 
-      <LoginErrorModal
-        isOpen={isLoginErrorOpen}
-        onClose={closeLoginError}
-      />
+      <LoginErrorModal isOpen={isLoginErrorOpen} onClose={closeLoginError} />
     </main>
   );
-};
-
-export default Main;
+}
