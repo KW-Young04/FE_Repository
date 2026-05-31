@@ -195,7 +195,9 @@ export default function AnalysisProgressPage() {
           <Button
             variant={isComplete ? "default" : "disabled"}
             disabled={!isComplete}
-            onClick={() => navigate("/")}
+            onClick={() =>
+              navigate(`/repository-workspace?repo=${encodeURIComponent(repositoryUrl)}`)
+            }
             className="h-14 w-full rounded-none text-xl"
           >
             결과 확인하기 →
