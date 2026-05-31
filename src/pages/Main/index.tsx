@@ -11,7 +11,7 @@ const features = [
   "GitHub 연동",
 ];
 
-export default function MainPage() {
+function Main() {
   const { isLoginErrorOpen, login, closeLoginError } = useGithubLogin();
 
   return (
@@ -63,12 +63,9 @@ export default function MainPage() {
         </div>
       </section>
 
-      <LoginErrorModal
-        isOpen={isLoginErrorOpen}
-        onClose={closeLoginError}
-      />
+      <LoginErrorModal isOpen={isLoginErrorOpen} onClose={closeLoginError} />
     </main>
   );
-};
+}
 
 export default Main;
