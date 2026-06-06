@@ -40,6 +40,7 @@ export interface RepositoryWorkspaceViewProps {
   diagnostics: LoadDiagnostics;
   previewStatus: PreviewStatus;
   previewUrl: string;
+  previewRevision: number;
   runtimeLog: string[];
   runtimeError: string | null;
   isRestarting: boolean;

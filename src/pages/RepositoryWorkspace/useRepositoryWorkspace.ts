@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RepositoryTreeResponse } from "@/api/repository";
 import { acquireWebContainer } from "@/utils/webContainerRuntime";
 import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
-import { MAX_PREVIEW_FILE_BYTES, PREVIEW_PORT, SERVER_READY_TIMEOUT_MS } from "./constants";
+import { MAX_PREVIEW_FILE_BYTES, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS } from "./constants";
 import type { LoadDiagnostics, LoadedFile, PreviewStatus, RepositoryWorkspaceViewProps } from "./types";
 import {
   buildFileSystemTree,
@@ -16,6 +16,7 @@ import {
   ensurePreviewFilesLoaded,
   runBatched,
   selectInitialActivePath,
+  isPreviewAffectingPath,
   toDisplayError,
 } from "./utils";
 
@@ -46,6 +47,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
 
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [previewRevision, setPreviewRevision] = useState(0);
   const [runtimeLog, setRuntimeLog] = useState<string[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
@@ -59,6 +61,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const previewReadyRef = useRef(false);
   const serverReadyTimeoutRef = useRef<number | null>(null);
   const runtimeGenerationRef = useRef(0);
+  const previewEntryPathRef = useRef<string | null>(null);
 
   const activeFile = useMemo(() => {
     if (!activePath) return null;
@@ -101,6 +104,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     async (files: Record<string, LoadedFile>) => {
       setPreviewStatus("loading");
       previewReadyRef.current = false;
+      setPreviewRevision(0);
       setRuntimeError(null);
       setPreviewUrl("");
       setRuntimeLog([]);
@@ -123,6 +127,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       } else {
         logEvent(`프리뷰 진입점: ${entryPath}`);
       }
+      previewEntryPathRef.current = entryPath;
 
       if (!serverReadySubscribedRef.current) {
         container.on("server-ready", (port, url) => {
@@ -245,6 +250,22 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     });
   }, []);
 
+  const syncFileToPreviewRuntime = useCallback(async (path: string, content: string) => {
+    const container = webContainerRef.current;
+    if (!container) return;
+
+    await container.fs.writeFile(path, content);
+
+    const entryPath = previewEntryPathRef.current;
+    if (entryPath && entryPath !== "index.html" && entryPath !== "index.htm" && path === entryPath) {
+      await container.fs.writeFile("index.html", content);
+    }
+
+    if (isPreviewAffectingPath(path) || path === entryPath) {
+      setPreviewRevision((revision) => revision + 1);
+    }
+  }, []);
+
   const handleEditorChange = useCallback(
     (nextValue: string | undefined) => {
       if (!activePath || nextValue === undefined) return;
@@ -269,19 +290,17 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       }
 
       const timerId = window.setTimeout(async () => {
-        const container = webContainerRef.current;
-        if (!container) return;
-
+        pendingWriteTimersRef.current.delete(activePath);
         try {
-          await container.fs.writeFile(activePath, nextValue);
+          await syncFileToPreviewRuntime(activePath, nextValue);
         } catch (error) {
           setRuntimeError(`실시간 반영 중 오류가 발생했습니다: ${toDisplayError(error)}`);
         }
-      }, 220);
+      }, PREVIEW_SYNC_DEBOUNCE_MS);
 
       pendingWriteTimersRef.current.set(activePath, timerId);
     },
-    [activePath],
+    [activePath, syncFileToPreviewRuntime],
   );
 
   const handleRestartPreview = useCallback(async () => {
@@ -466,6 +485,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     diagnostics,
     previewStatus,
     previewUrl,
+    previewRevision,
     runtimeLog,
     runtimeError,
     isRestarting,

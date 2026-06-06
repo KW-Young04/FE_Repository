@@ -4,6 +4,7 @@ import {
   BATCH_SIZE,
   EDITOR_LANGUAGE_BY_EXT,
   FILE_FETCH_TIMEOUT_MS,
+  PREVIEW_AFFECTING_EXTENSIONS,
   PREVIEW_PORT,
 } from "./constants";
 import type { LoadedFile, TreeItem } from "./types";
@@ -48,6 +49,11 @@ export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: 
 export function inferLanguage(path: string): string {
   const extension = getFileExtension(path);
   return EDITOR_LANGUAGE_BY_EXT[extension] ?? "plaintext";
+}
+
+export function isPreviewAffectingPath(path: string): boolean {
+  const extension = getFileExtension(path);
+  return PREVIEW_AFFECTING_EXTENSIONS.has(extension);
 }
 
 export function buildTree(paths: string[]): TreeItem[] {

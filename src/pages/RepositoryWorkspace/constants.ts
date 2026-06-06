@@ -4,6 +4,21 @@ export const FILE_FETCH_TIMEOUT_MS = 15000;
 export const MAX_PREVIEW_FILE_BYTES = 500 * 1024;
 export const PREVIEW_PORT = 4173;
 export const SERVER_READY_TIMEOUT_MS = 30000;
+export const PREVIEW_SYNC_DEBOUNCE_MS = 300;
+
+export const PREVIEW_AFFECTING_EXTENSIONS = new Set([
+  ".html",
+  ".htm",
+  ".css",
+  ".js",
+  ".svg",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+]);
 
 export const EDITOR_LANGUAGE_BY_EXT: Record<string, string> = {
   ".html": "html",
