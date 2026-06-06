@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "@/components/Button";
-import { repositoryApi, type RepositoryTreeResponse } from "@/api/repository";
+import { type RepositoryTreeResponse } from "@/api/repository";
+import { prewarmWebContainer } from "@/utils/webContainerRuntime";
+import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
 
 type StepStatus = "pending" | "running" | "done";
 
@@ -70,6 +72,10 @@ export default function AnalysisProgressPage() {
 
     if (!repositoryUrl) return;
 
+    // 워크스페이스 진입 전, iframe 준비에 필요한 자원들을 선행 로드한다.
+    void getOrStartWorkspaceWarmup(repositoryUrl);
+    void prewarmWebContainer();
+
     const runSteps = async () => {
       setStepStatuses((prev) => {
         const next = [...prev];
@@ -78,8 +84,8 @@ export default function AnalysisProgressPage() {
       });
 
       try {
-        const treeData = await repositoryApi.getTree(repositoryUrl);
-        setTree(treeData);
+        const warmed = await getOrStartWorkspaceWarmup(repositoryUrl);
+        setTree(warmed.tree);
       } catch {
         setFetchError(true);
       }
