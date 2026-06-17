@@ -3,10 +3,12 @@ import MainPage from '@/pages/Main';
 import RepositoryConnectPage from '@/pages/RepositoryConnect';
 import AnalysisProgressPage from '@/pages/AnalysisProgress';
 import OAuthCallbackPage from '@/pages/OAuthCallback';
+import RepositoryWorkspacePage from '@/pages/RepositoryWorkspace';
 
 export const router = createBrowserRouter([
   { path: '/', element: <MainPage /> },
   { path: '/oauth/callback', element: <OAuthCallbackPage /> },
   { path: '/repository-connect', element: <RepositoryConnectPage /> },
   { path: '/repository-analysis', element: <AnalysisProgressPage /> },
+  { path: '/repository-workspace', element: <RepositoryWorkspacePage /> },
 ]);
