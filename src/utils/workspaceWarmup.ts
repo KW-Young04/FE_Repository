@@ -34,7 +34,32 @@ const EDITABLE_EXTENSIONS = [
   ".svelte",
 ];
 
-const ALWAYS_INCLUDE = new Set(["index.html", "index.htm", "public/index.html", "public/index.htm"]);
+const ALWAYS_INCLUDE = new Set([
+  "package.json",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "pnpm-workspace.yml",
+  "index.html",
+  "index.htm",
+  "public/index.html",
+  "public/index.htm",
+  "vite.config.ts",
+  "vite.config.js",
+  "vite.config.mjs",
+  "vite.config.cjs",
+  "tailwind.config.ts",
+  "tailwind.config.js",
+  "tailwind.config.cjs",
+  "tailwind.config.mjs",
+  "postcss.config.js",
+  "postcss.config.mjs",
+  "postcss.config.cjs",
+  "tsconfig.json",
+  "tsconfig.app.json",
+  "tsconfig.node.json",
+]);
 
 const SKIP_PATH_PARTS = [
   "node_modules/",
@@ -49,7 +74,7 @@ const SKIP_PATH_PARTS = [
 ];
 
 const MAX_INITIAL_FILES = 180;
-const FAST_PREVIEW_FILE_COUNT = 60;
+const FAST_PREVIEW_FILE_COUNT = 100;
 const BATCH_SIZE = 10;
 const FILE_FETCH_TIMEOUT_MS = 15000;
 const MAX_PREVIEW_FILE_BYTES = 500 * 1024;
@@ -91,13 +116,24 @@ function isEditablePath(path: string): boolean {
 }
 
 function getPathPriority(path: string): number {
+  if (path.match(/^apps\/[^/]+\/package\.json$/)) return -6;
+  if (path.match(/^apps\/[^/]+\/next\.config\.(ts|js|mjs)$/)) return -5;
+  if (path.match(/^apps\/[^/]+\/vite\.config\.(ts|js|mjs|cjs)$/)) return -5;
+  if (path === "package.json") return -4;
+  if (path === "package-lock.json" || path === "yarn.lock" || path === "pnpm-lock.yaml") return -3;
+  if (/^vite\.config\.(ts|js|mjs|cjs)$/.test(path)) return -2;
+  if (/^(postcss|tailwind)\.config\.(ts|js|mjs|cjs)$/.test(path)) return -2;
+  if (path === "tsconfig.json" || path === "tsconfig.app.json" || path === "tsconfig.node.json") return -1;
+  if (path.startsWith("apps/")) return 3;
   if (path === "index.html" || path === "index.htm") return 0;
   if (path.endsWith(".html") || path.endsWith(".htm")) return 1;
-  if (path.endsWith(".css")) return 2;
-  if (path.endsWith(".js")) return 3;
-  if (path.startsWith("public/")) return 4;
-  if (path.startsWith("assets/")) return 5;
-  return 6;
+  if (path.endsWith(".tsx") || path.endsWith(".jsx")) return 2;
+  if (path.endsWith(".css")) return 3;
+  if (path.endsWith(".ts") || path.endsWith(".js")) return 4;
+  if (path.startsWith("src/")) return 5;
+  if (path.startsWith("public/")) return 6;
+  if (path.startsWith("assets/")) return 7;
+  return 8;
 }
 
 function splitFastPreviewPaths(paths: string[]): { corePaths: string[]; deferredPaths: string[] } {
@@ -109,10 +145,18 @@ function splitFastPreviewPaths(paths: string[]): { corePaths: string[]; deferred
 
   const mustIncludePaths = sorted.filter(
     (path) =>
+      /^apps\/[^/]+\/package\.json$/.test(path) ||
+      /^apps\/[^/]+\/next\.config\.(ts|js|mjs)$/.test(path) ||
+      path === "package.json" ||
+      path === "package-lock.json" ||
+      path === "yarn.lock" ||
+      path === "pnpm-lock.yaml" ||
       path === "index.html" ||
       path === "index.htm" ||
       path.endsWith("/index.html") ||
-      path.endsWith("/index.htm"),
+      path.endsWith("/index.htm") ||
+      /^vite\.config\.(ts|js|mjs|cjs)$/.test(path) ||
+      /^(postcss|tailwind)\.config\.(ts|js|mjs|cjs)$/.test(path),
   );
 
   const coreSet = new Set<string>(mustIncludePaths);
@@ -193,6 +237,10 @@ async function buildWarmup(repositoryUrl: string): Promise<WorkspaceWarmupResult
   };
 }
 
+export function invalidateWorkspaceWarmup(repositoryUrl: string): void {
+  warmupCache.delete(repositoryUrl.trim());
+}
+
 export function getOrStartWorkspaceWarmup(repositoryUrl: string): Promise<WorkspaceWarmupResult> {
   const key = repositoryUrl.trim();
   if (!key) {
@@ -204,10 +252,22 @@ export function getOrStartWorkspaceWarmup(repositoryUrl: string): Promise<Worksp
     return cached;
   }
 
-  const warmupPromise = buildWarmup(key).catch((error) => {
-    warmupCache.delete(key);
-    throw error;
-  });
+  const warmupPromise = buildWarmup(key)
+    .then((result) => {
+      const hasCandidates = result.corePaths.length > 0;
+      const hasFiles = Object.keys(result.files).length > 0;
+      if (hasCandidates && !hasFiles) {
+        warmupCache.delete(key);
+        throw new Error(
+          `핵심 파일을 불러오지 못했습니다. (${result.coreFailedPaths.length}개 실패) API 서버 상태를 확인해 주세요.`,
+        );
+      }
+      return result;
+    })
+    .catch((error) => {
+      warmupCache.delete(key);
+      throw error;
+    });
   warmupCache.set(key, warmupPromise);
   return warmupPromise;
 }

@@ -41,6 +41,7 @@ export interface RepositoryWorkspaceViewProps {
   previewStatus: PreviewStatus;
   previewUrl: string;
   previewRevision: number;
+  previewProjectLabel: string;
   runtimeLog: string[];
   runtimeError: string | null;
   isRestarting: boolean;

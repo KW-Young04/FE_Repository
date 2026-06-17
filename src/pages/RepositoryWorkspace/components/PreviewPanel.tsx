@@ -4,6 +4,7 @@ interface PreviewPanelProps {
   previewStatus: PreviewStatus;
   previewUrl: string;
   previewRevision: number;
+  previewProjectLabel: string;
   runtimeError: string | null;
   runtimeLog: string[];
 }
@@ -12,6 +13,7 @@ export default function PreviewPanel({
   previewStatus,
   previewUrl,
   previewRevision,
+  previewProjectLabel,
   runtimeError,
   runtimeLog,
 }: PreviewPanelProps) {
@@ -23,7 +25,10 @@ export default function PreviewPanel({
   return (
     <div className="col-span-4 flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-3 py-2">
-        <strong className="text-sm text-slate-800">실시간 프리뷰</strong>
+        <div className="min-w-0">
+          <strong className="text-sm text-slate-800">실시간 프리뷰</strong>
+          <p className="truncate text-[11px] font-medium text-slate-500">{previewProjectLabel}</p>
+        </div>
         <span
           className={[
             "text-xs font-bold",

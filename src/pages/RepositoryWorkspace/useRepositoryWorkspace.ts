@@ -2,10 +2,12 @@ import { WebContainer, type WebContainerProcess } from "@webcontainer/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RepositoryTreeResponse } from "@/api/repository";
-import { acquireWebContainer } from "@/utils/webContainerRuntime";
-import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
-import { MAX_PREVIEW_FILE_BYTES, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS } from "./constants";
+import { acquireWebContainer, teardownWebContainer } from "@/utils/webContainerRuntime";
+import { mountOrSyncWorkspace, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
+import { getOrStartWorkspaceWarmup, invalidateWorkspaceWarmup } from "@/utils/workspaceWarmup";
+import { MAX_PREVIEW_FILE_BYTES, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS, BUNDLER_SERVER_READY_TIMEOUT_MS, NPM_INSTALL_TIMEOUT_MS } from "./constants";
 import type { LoadDiagnostics, LoadedFile, PreviewStatus, RepositoryWorkspaceViewProps } from "./types";
+import { resolvePreviewProject, type PreviewProjectProfile, type PreviewRuntimeKind } from "./previewProject";
 import {
   buildFileSystemTree,
   buildTree,
@@ -18,6 +20,14 @@ import {
   selectInitialActivePath,
   isPreviewAffectingPath,
   toDisplayError,
+  normalizeRepositoryUrl,
+  consumeTerminalOutput,
+  flushTerminalBuffer,
+  withTimeout,
+  ensurePackageJsonDiscovery,
+  preloadRepositoryPaths,
+  getBundlerPreloadPaths,
+  getBundlerBackgroundPaths,
 } from "./utils";
 
 const INITIAL_DIAGNOSTICS: LoadDiagnostics = {
@@ -33,7 +43,7 @@ const INITIAL_DIAGNOSTICS: LoadDiagnostics = {
 export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const repositoryUrl = searchParams.get("repo") ?? "";
+  const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
 
   const [tree, setTree] = useState<RepositoryTreeResponse | null>(null);
   const [filesByPath, setFilesByPath] = useState<Record<string, LoadedFile>>({});
@@ -48,6 +58,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [previewRevision, setPreviewRevision] = useState(0);
+  const [previewProjectLabel, setPreviewProjectLabel] = useState("정적 HTML");
   const [runtimeLog, setRuntimeLog] = useState<string[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
@@ -62,6 +73,10 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const serverReadyTimeoutRef = useRef<number | null>(null);
   const runtimeGenerationRef = useRef(0);
   const previewEntryPathRef = useRef<string | null>(null);
+  const previewRuntimeKindRef = useRef<PreviewRuntimeKind>("static");
+  const runtimeStartInFlightRef = useRef<Promise<void> | null>(null);
+  const previewRuntimeTokenRef = useRef(0);
+  const installProcessRef = useRef<WebContainerProcess | null>(null);
 
   const activeFile = useMemo(() => {
     if (!activePath) return null;
@@ -94,44 +109,68 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     outputPumpAbortRef.current?.abort();
     outputPumpAbortRef.current = null;
     runtimeGenerationRef.current += 1;
+    previewRuntimeTokenRef.current += 1;
+    if (installProcessRef.current) {
+      installProcessRef.current.kill();
+      installProcessRef.current = null;
+    }
     if (runtimeProcessRef.current) {
       runtimeProcessRef.current.kill();
       runtimeProcessRef.current = null;
     }
   }, []);
 
-  const startRuntime = useCallback(
-    async (files: Record<string, LoadedFile>) => {
-      setPreviewStatus("loading");
-      previewReadyRef.current = false;
-      setPreviewRevision(0);
-      setRuntimeError(null);
-      setPreviewUrl("");
-      setRuntimeLog([]);
-      logEvent("정적 프리뷰 런타임 시작");
+  const resetPreviewRuntimeSession = useCallback(() => {
+    previewReadyRef.current = false;
+    serverReadySubscribedRef.current = false;
+    if (serverReadyTimeoutRef.current) {
+      window.clearTimeout(serverReadyTimeoutRef.current);
+      serverReadyTimeoutRef.current = null;
+    }
+    webContainerRef.current = null;
+  }, []);
 
-      const container = await acquireWebContainer();
-      webContainerRef.current = container;
+  const attachProcessOutputPump = useCallback(
+    (process: WebContainerProcess, generation: number, reportExitError: boolean = true) => {
+      const reader = process.output.getReader();
+      const abortController = new AbortController();
+      outputPumpAbortRef.current = abortController;
+      void (async () => {
+        let lineBuffer = "";
+        while (true) {
+          if (abortController.signal.aborted) return;
+          const { done, value } = await reader.read();
+          if (done) {
+            const flushed = flushTerminalBuffer(lineBuffer);
+            if (flushed) appendRuntimeLog(flushed);
+            return;
+          }
+          if (!value) continue;
 
-      const fsTree = buildFileSystemTree(files);
-      await container.mount(fsTree);
-      logEvent(`WebContainer mount 완료 (파일 ${Object.keys(files).length}개)`);
+          const { lines, buffer } = consumeTerminalOutput(value, lineBuffer);
+          lineBuffer = buffer;
+          lines.forEach((line) => appendRuntimeLog(line));
+        }
+      })();
 
-      const entryPath = findPreviewEntryPath(files);
-      if (!entryPath) {
-        throw new Error("프리뷰할 HTML 파일을 찾을 수 없습니다. index.html이 포함된 저장소인지 확인해 주세요.");
-      }
-      if (entryPath !== "index.html" && entryPath !== "index.htm") {
-        await container.fs.writeFile("index.html", files[entryPath].content);
-        logEvent(`프리뷰 진입점: ${entryPath} → index.html`);
-      } else {
-        logEvent(`프리뷰 진입점: ${entryPath}`);
-      }
-      previewEntryPathRef.current = entryPath;
+      void process.exit.then((exitCode) => {
+        if (!reportExitError) return;
+        if (runtimeProcessRef.current !== process) return;
+        if (exitCode === 0 || exitCode === 143 || exitCode === 137) return;
+        const message = `프리뷰 프로세스가 종료되었습니다. (exit: ${exitCode})`;
+        setPreviewStatus("error");
+        setRuntimeError(message);
+        logEvent(message);
+      });
+    },
+    [appendRuntimeLog, logEvent],
+  );
 
+  const subscribeServerReady = useCallback(
+    (container: WebContainer, timeoutMs: number) => {
       if (!serverReadySubscribedRef.current) {
         container.on("server-ready", (port, url) => {
-          if (port !== PREVIEW_PORT) return;
+          if (previewReadyRef.current) return;
           previewReadyRef.current = true;
           if (serverReadyTimeoutRef.current) {
             window.clearTimeout(serverReadyTimeoutRef.current);
@@ -140,15 +179,144 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
           setRuntimeError(null);
           setPreviewUrl(url.endsWith("/") ? url : `${url}/`);
           setPreviewStatus("ready");
-          logEvent(`server-ready 수신: ${url}`);
+          logEvent(`server-ready 수신 (port ${port}): ${url}`);
         });
         serverReadySubscribedRef.current = true;
       }
 
+      if (serverReadyTimeoutRef.current) {
+        window.clearTimeout(serverReadyTimeoutRef.current);
+      }
+      serverReadyTimeoutRef.current = window.setTimeout(() => {
+        if (!previewReadyRef.current) {
+          logEvent(
+            `server-ready 이벤트가 ${timeoutMs / 1000}초 내 오지 않았습니다. 런타임 로그를 확인해 주세요.`,
+          );
+        }
+        serverReadyTimeoutRef.current = null;
+      }, timeoutMs);
+    },
+    [logEvent],
+  );
+
+  const startBundlerRuntime = useCallback(
+    async (container: WebContainer, profile: PreviewProjectProfile) => {
+      previewRuntimeKindRef.current = "bundler";
+      previewEntryPathRef.current = null;
+      logEvent(`${profile.label} 개발 서버 준비 중`);
+
+      await stopRuntimeProcess();
+
+      const installEnv = {
+        CI: "true",
+        NPM_CONFIG_PROGRESS: "false",
+        PNPM_IGNORE_ENGINES: "true",
+      };
+
+      let installSucceeded = false;
+      for (const installCommand of profile.installCommands) {
+        appendRuntimeLog(`의존성 설치 중 (${installCommand.join(" ")})...`);
+        logEvent(`의존성 설치 시도: ${installCommand.join(" ")}`);
+        const installGeneration = runtimeGenerationRef.current + 1;
+        runtimeGenerationRef.current = installGeneration;
+        const installProcess = await container.spawn(installCommand[0], installCommand.slice(1), {
+          env: installEnv,
+        });
+        installProcessRef.current = installProcess;
+        attachProcessOutputPump(installProcess, installGeneration, false);
+        const installExitCode = await withTimeout(
+          installProcess.exit,
+          NPM_INSTALL_TIMEOUT_MS,
+          `의존성 설치 타임아웃(${NPM_INSTALL_TIMEOUT_MS / 60000}분). 네트워크 상태를 확인한 뒤 프리뷰를 재시작해 주세요.`,
+        );
+        installProcessRef.current = null;
+        if (installExitCode === 0) {
+          installSucceeded = true;
+          break;
+        }
+        logEvent(`의존성 설치 실패 (exit: ${installExitCode}): ${installCommand.join(" ")}`);
+      }
+
+      if (!installSucceeded) {
+        throw new Error("의존성 설치에 실패했습니다. 로그의 설치 오류 메시지를 확인해 주세요.");
+      }
+      logEvent("의존성 설치 완료");
+
+      const devCwd = profile.workspaceRoot || undefined;
+      if (devCwd) {
+        logEvent(`개발 서버 작업 디렉터리: ${devCwd}`);
+      }
+
+      appendRuntimeLog("개발 서버 실행 중...");
+      const devCommands = [profile.devCommand, ...profile.devCommandFallbacks];
+      let devStarted = false;
+
+      for (let index = 0; index < devCommands.length; index++) {
+        const devCommand = devCommands[index];
+        if (index > 0) {
+          await stopRuntimeProcess();
+        }
+        const devGeneration = runtimeGenerationRef.current + 1;
+        runtimeGenerationRef.current = devGeneration;
+
+        logEvent(`개발 서버 시도: ${devCommand.join(" ")}`);
+        const devProcess = await container.spawn(devCommand[0], devCommand.slice(1), {
+          cwd: devCwd,
+          env: { CI: "true", ...profile.devEnv },
+        });
+        runtimeProcessRef.current = devProcess;
+        attachProcessOutputPump(devProcess, devGeneration);
+
+        const earlyExit = await Promise.race([
+          devProcess.exit.then((code) => ({ type: "exit" as const, code })),
+          new Promise<{ type: "timeout" }>((resolve) => {
+            window.setTimeout(() => resolve({ type: "timeout" }), 8000);
+          }),
+        ]);
+
+        if (earlyExit.type === "timeout") {
+          devStarted = true;
+          logEvent(`개발 서버 프로세스 시작 (${devCommand.join(" ")})`);
+          break;
+        }
+
+        if (earlyExit.code === 0 || earlyExit.code === 143 || earlyExit.code === 137) {
+          devStarted = true;
+          logEvent(`개발 서버 프로세스 시작 (${devCommand.join(" ")})`);
+          break;
+        }
+
+        logEvent(`개발 서버 시작 실패 (exit: ${earlyExit.code}): ${devCommand.join(" ")}`);
+        runtimeProcessRef.current = null;
+      }
+
+      if (!devStarted) {
+        throw new Error("개발 서버를 시작하지 못했습니다. 로그의 Next.js 오류 메시지를 확인해 주세요.");
+      }
+    },
+    [appendRuntimeLog, attachProcessOutputPump, logEvent, stopRuntimeProcess],
+  );
+
+  const startStaticRuntime = useCallback(
+    async (container: WebContainer, files: Record<string, LoadedFile>) => {
+      previewRuntimeKindRef.current = "static";
+
+      const entryPath = findPreviewEntryPath(files);
+      if (!entryPath) {
+        throw new Error("프리뷰할 HTML 파일을 찾을 수 없습니다. index.html이 포함된 저장소인지 확인해 주세요.");
+      }
+      if (entryPath !== "index.html" && entryPath !== "index.htm") {
+        await writeWorkspaceFile(container, "index.html", files[entryPath].content);
+        logEvent(`프리뷰 진입점: ${entryPath} → index.html`);
+      } else {
+        logEvent(`프리뷰 진입점: ${entryPath}`);
+      }
+      previewEntryPathRef.current = entryPath;
+
       await stopRuntimeProcess();
 
       appendRuntimeLog("정적 프리뷰 서버 실행 중...");
-      await container.fs.writeFile(".cursor-preview-static-server.mjs", createStaticServerScript());
+      await writeWorkspaceFile(container, ".cursor-preview-static-server.mjs", createStaticServerScript());
       const generation = runtimeGenerationRef.current + 1;
       runtimeGenerationRef.current = generation;
       const process = await container.spawn("node", [".cursor-preview-static-server.mjs"], {
@@ -158,45 +326,88 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       });
       runtimeProcessRef.current = process;
       logEvent("정적 서버 프로세스 시작");
-      void process.exit.then((exitCode) => {
-        if (runtimeGenerationRef.current !== generation) return;
-        // 143(SIGTERM), 137(SIGKILL)은 재시작/정리 시 의도적 종료
-        if (exitCode === 0 || exitCode === 143 || exitCode === 137) return;
-        const message = `정적 서버 프로세스가 종료되었습니다. (exit: ${exitCode})`;
-        setPreviewStatus("error");
-        setRuntimeError(message);
-        logEvent(message);
-      });
-      const reader = process.output.getReader();
-      const abortController = new AbortController();
-      outputPumpAbortRef.current = abortController;
-      void (async () => {
-        while (true) {
-          if (abortController.signal.aborted) return;
-          const { done, value } = await reader.read();
-          if (done) return;
-          if (!value) continue;
-          value
-            .split("\n")
-            .filter((line) => line.trim())
-            .forEach((line) => appendRuntimeLog(line));
-        }
-      })();
+      attachProcessOutputPump(process, generation);
+    },
+    [appendRuntimeLog, attachProcessOutputPump, logEvent, stopRuntimeProcess],
+  );
 
-      if (serverReadyTimeoutRef.current) {
-        window.clearTimeout(serverReadyTimeoutRef.current);
+  const startRuntime = useCallback(
+    async (files: Record<string, LoadedFile>) => {
+      if (runtimeStartInFlightRef.current) {
+        logEvent("진행 중인 프리뷰 런타임 시작을 재사용합니다.");
+        return runtimeStartInFlightRef.current;
       }
-      serverReadyTimeoutRef.current = window.setTimeout(() => {
-        if (!previewReadyRef.current) {
-          logEvent(
-            `server-ready 이벤트가 ${SERVER_READY_TIMEOUT_MS / 1000}초 내 오지 않았습니다. 정적 서버 로그를 확인해 주세요.`,
+
+      const run = async () => {
+        const runtimeToken = ++previewRuntimeTokenRef.current;
+        const fileCount = Object.keys(files).length;
+
+        setPreviewStatus("loading");
+        previewReadyRef.current = false;
+        setPreviewRevision(0);
+        setRuntimeError(null);
+        setPreviewUrl("");
+
+        if (fileCount === 0) {
+          throw new Error(
+            "저장소 파일이 로드되지 않았습니다. 분석 페이지부터 다시 진행하거나 API 서버 상태를 확인해 주세요.",
           );
         }
-        serverReadyTimeoutRef.current = null;
-      }, SERVER_READY_TIMEOUT_MS);
+
+        appendRuntimeLog("=== 프리뷰 런타임 ===");
+
+        const projectProfile = resolvePreviewProject(files);
+        const isBundler = projectProfile.kind === "bundler";
+        setPreviewProjectLabel(projectProfile.label);
+        logEvent(isBundler ? `${projectProfile.label} 프리뷰 런타임 시작` : "정적 프리뷰 런타임 시작");
+        if (isBundler) {
+          logEvent(`설치: ${projectProfile.installCommands[0]?.join(" ") ?? "-"}`);
+          logEvent(`실행: ${projectProfile.devCommand.join(" ")}`);
+          if (projectProfile.workspaceRoot) {
+            logEvent(`작업 디렉터리: ${projectProfile.workspaceRoot}`);
+          }
+        }
+
+        logEvent("WebContainer 인스턴스 확보 중...");
+        const container = await acquireWebContainer();
+        if (runtimeToken !== previewRuntimeTokenRef.current) return;
+        webContainerRef.current = container;
+        logEvent("WebContainer 인스턴스 확보 완료");
+
+        const fsTree = buildFileSystemTree(files);
+        const flatFiles = Object.fromEntries(Object.entries(files).map(([path, file]) => [path, file.content]));
+        logEvent(`파일 시스템 준비 중 (${Object.keys(files).length}개)...`);
+        const mountMode = await mountOrSyncWorkspace(container, fsTree, flatFiles);
+        if (runtimeToken !== previewRuntimeTokenRef.current) return;
+        logEvent(
+          mountMode === "mounted"
+            ? `WebContainer 최초 마운트 완료 (파일 ${Object.keys(files).length}개)`
+            : `WebContainer 파일 동기화 완료 (파일 ${Object.keys(files).length}개)`,
+        );
+
+        const serverReadyTimeoutMs = isBundler ? BUNDLER_SERVER_READY_TIMEOUT_MS : SERVER_READY_TIMEOUT_MS;
+        subscribeServerReady(container, serverReadyTimeoutMs);
+
+        if (isBundler) {
+          await startBundlerRuntime(container, projectProfile);
+        } else {
+          await startStaticRuntime(container, files);
+        }
+      };
+
+      const task = run().finally(() => {
+        if (runtimeStartInFlightRef.current === task) {
+          runtimeStartInFlightRef.current = null;
+        }
+      });
+      runtimeStartInFlightRef.current = task;
+      return task;
     },
-    [appendRuntimeLog, logEvent, stopRuntimeProcess],
+    [logEvent, appendRuntimeLog, startBundlerRuntime, startStaticRuntime, subscribeServerReady],
   );
+
+  const startRuntimeRef = useRef(startRuntime);
+  startRuntimeRef.current = startRuntime;
 
   const loadSingleFile = useCallback(
     async (path: string) => {
@@ -214,7 +425,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       }));
       const container = webContainerRef.current;
       if (container) {
-        await container.fs.writeFile(path, response.content);
+        await writeWorkspaceFile(container, path, response.content);
       }
       logEvent(`지연 로드 완료: ${path}`);
     },
@@ -254,14 +465,18 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     const container = webContainerRef.current;
     if (!container) return;
 
-    await container.fs.writeFile(path, content);
+    await writeWorkspaceFile(container, path, content);
+
+    if (previewRuntimeKindRef.current === "bundler") {
+      return;
+    }
 
     const entryPath = previewEntryPathRef.current;
     if (entryPath && entryPath !== "index.html" && entryPath !== "index.htm" && path === entryPath) {
-      await container.fs.writeFile("index.html", content);
+      await writeWorkspaceFile(container, "index.html", content);
     }
 
-    if (isPreviewAffectingPath(path) || path === entryPath) {
+    if (isPreviewAffectingPath(path, "static") || path === entryPath) {
       setPreviewRevision((revision) => revision + 1);
     }
   }, []);
@@ -307,7 +522,13 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     if (!Object.keys(filesByPath).length) return;
     setIsRestarting(true);
     setRuntimeError(null);
+    setRuntimeLog([]);
     try {
+      logEvent("프리뷰 재시작: 실행 중인 프로세스 종료 중...");
+      await stopRuntimeProcess();
+      resetPreviewRuntimeSession();
+      logEvent("프리뷰 재시작: WebContainer 인스턴스 종료 중...");
+      await teardownWebContainer();
       await startRuntime(filesByPath);
     } catch (error) {
       setPreviewStatus("error");
@@ -315,7 +536,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     } finally {
       setIsRestarting(false);
     }
-  }, [filesByPath, startRuntime]);
+  }, [filesByPath, logEvent, resetPreviewRuntimeSession, startRuntime, stopRuntimeProcess]);
 
   useEffect(() => {
     if (!repositoryUrl) {
@@ -335,6 +556,12 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
         const bootPromise = acquireWebContainer();
         const warmupStart = Date.now();
         const warmed = await getOrStartWorkspaceWarmup(repositoryUrl);
+        if (Object.keys(warmed.files).length === 0) {
+          invalidateWorkspaceWarmup(repositoryUrl);
+          throw new Error(
+            "저장소 파일을 불러오지 못했습니다. 백엔드 API가 실행 중인지 확인한 뒤, 연결 페이지에서 다시 시도해 주세요.",
+          );
+        }
         const treeMs = Date.now() - warmupStart;
         setTree(warmed.tree);
         logEvent(`사전 워밍업 데이터 확보 완료 (${formatDuration(treeMs)})`);
@@ -383,50 +610,95 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
         logEvent("WebContainer 부팅 완료 대기 중...");
         await bootPromise;
         logEvent("WebContainer 부팅 완료");
+        const allTreePaths = warmed.tree.nodes
+          .filter((node) => node.type === "blob")
+          .map((node) => node.path);
         const allPaths = [...loaded.corePaths, ...loaded.deferredPaths];
-        const previewFiles = await ensurePreviewFilesLoaded(loaded.files, allPaths, repositoryUrl);
+        let previewFiles = await ensurePreviewFilesLoaded(loaded.files, allPaths, repositoryUrl);
+        previewFiles = await ensurePackageJsonDiscovery(previewFiles, allTreePaths, repositoryUrl);
+
+        const bundlerProfile = resolvePreviewProject(previewFiles);
+        let bundlerBackgroundPaths: string[] = [];
+        if (bundlerProfile.kind === "bundler") {
+          const preloadPaths = getBundlerPreloadPaths(
+            bundlerProfile.workspaceRoot,
+            loaded.deferredPaths,
+            allTreePaths,
+          );
+          const missingCount = preloadPaths.filter((path) => !previewFiles[path]).length;
+          if (missingCount > 0) {
+            logEvent(`번들러 핵심 소스 로드 중 (${missingCount}개, registry 제외)...`);
+            previewFiles = await preloadRepositoryPaths(previewFiles, preloadPaths, repositoryUrl);
+            logEvent(`번들러 핵심 소스 로드 완료 (총 ${Object.keys(previewFiles).length}개)`);
+          }
+          bundlerBackgroundPaths = getBundlerBackgroundPaths(
+            bundlerProfile.workspaceRoot,
+            loaded.deferredPaths,
+            allTreePaths,
+            new Set(Object.keys(previewFiles)),
+          );
+        }
+
         if (Object.keys(previewFiles).length > Object.keys(loaded.files).length) {
           setFilesByPath((prev) => ({ ...prev, ...previewFiles }));
         }
-        await startRuntime(previewFiles);
+        await startRuntimeRef.current(previewFiles);
         const runtimeMs = Date.now() - runtimeStart;
         logEvent(`프리뷰 런타임 준비 완료 (${formatDuration(runtimeMs)})`);
         setDiagnostics((prev) => ({ ...prev, runtimeMs }));
 
-        if (loaded.deferredPaths.length > 0) {
+        const backgroundPaths =
+          bundlerProfile.kind === "bundler"
+            ? bundlerBackgroundPaths
+            : loaded.deferredPaths;
+
+        if (backgroundPaths.length > 0) {
           setIsBackgroundLoading(true);
-          setLoadingMessage("나머지 파일을 백그라운드에서 불러오는 중...");
+          setLoadingMessage(
+            bundlerProfile.kind === "bundler"
+              ? "registry 등 나머지 파일을 백그라운드에서 불러오는 중..."
+              : "나머지 파일을 백그라운드에서 불러오는 중...",
+          );
           const backgroundFailedPaths: string[] = [];
           const bgStart = Date.now();
-          await runBatched(loaded.deferredPaths, async (path) => {
-            if (loadSessionIdRef.current !== sessionId) return;
-            let response;
-            try {
-              response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
-            } catch (error) {
-              backgroundFailedPaths.push(path);
-              logEvent(`백그라운드 파일 로드 실패: ${path} (${toDisplayError(error)})`);
-              return;
-            }
-            setFilesByPath((prev) => {
-              const existing = prev[path];
-              if (existing?.dirty) return prev;
-              if (existing && existing.content === response.content) return prev;
-              return {
-                ...prev,
-                [path]: {
-                  path,
-                  content: response.content,
-                  dirty: existing?.dirty ?? false,
-                },
-              };
-            });
+          await runBatched(
+            backgroundPaths,
+            async (path) => {
+              if (loadSessionIdRef.current !== sessionId) return;
+              let response;
+              try {
+                response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
+              } catch (error) {
+                backgroundFailedPaths.push(path);
+                logEvent(`백그라운드 파일 로드 실패: ${path} (${toDisplayError(error)})`);
+                return;
+              }
+              setFilesByPath((prev) => {
+                const existing = prev[path];
+                if (existing?.dirty) return prev;
+                if (existing && existing.content === response.content) return prev;
+                return {
+                  ...prev,
+                  [path]: {
+                    path,
+                    content: response.content,
+                    dirty: existing?.dirty ?? false,
+                  },
+                };
+              });
 
-            const container = webContainerRef.current;
-            if (container) {
-              await container.fs.writeFile(path, response.content);
-            }
-          });
+              const container = webContainerRef.current;
+              if (!container) return;
+
+              try {
+                await writeWorkspaceFile(container, path, response.content);
+              } catch (error) {
+                backgroundFailedPaths.push(path);
+                logEvent(`백그라운드 WebContainer 동기화 실패: ${path} (${toDisplayError(error)})`);
+              }
+            },
+            PRELOAD_BATCH_SIZE,
+          );
           if (loadSessionIdRef.current === sessionId) {
             const backgroundMs = Date.now() - bgStart;
             logEvent(
@@ -453,20 +725,24 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     return () => {
       loadSessionIdRef.current = 0;
     };
-  }, [repositoryUrl, startRuntime, logEvent]);
+  }, [repositoryUrl, logEvent]);
 
   useEffect(() => {
     const pendingTimers = pendingWriteTimersRef.current;
     return () => {
       loadSessionIdRef.current = 0;
       previewReadyRef.current = false;
+      serverReadySubscribedRef.current = false;
       if (serverReadyTimeoutRef.current) {
         window.clearTimeout(serverReadyTimeoutRef.current);
         serverReadyTimeoutRef.current = null;
       }
       pendingTimers.forEach((id) => window.clearTimeout(id));
       pendingTimers.clear();
-      void stopRuntimeProcess();
+      void (async () => {
+        await stopRuntimeProcess();
+        await teardownWebContainer();
+      })();
     };
   }, [stopRuntimeProcess]);
 
@@ -486,6 +762,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     previewStatus,
     previewUrl,
     previewRevision,
+    previewProjectLabel,
     runtimeLog,
     runtimeError,
     isRestarting,
