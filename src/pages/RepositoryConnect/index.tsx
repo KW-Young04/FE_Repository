@@ -5,25 +5,33 @@ import { repositoryApi } from "@/api/repository";
 
 const GITHUB_URL_PATTERN = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+/;
 
+function normalizeRepositoryUrl(url: string): string {
+  let normalized = url.trim().replace(/\/+$/, "");
+  if (normalized.endsWith(".git")) {
+    normalized = normalized.slice(0, -4);
+  }
+  return normalized;
+}
+
 export default function RepositoryConnectPage() {
   const navigate = useNavigate();
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const isValidUrl = GITHUB_URL_PATTERN.test(repositoryUrl.trim());
+  const isValidUrl = GITHUB_URL_PATTERN.test(normalizeRepositoryUrl(repositoryUrl));
   const isAnalyzeEnabled = isValidUrl && !isLoading;
 
   const handleAnalyze = async (url: string) => {
-    const trimmed = url.trim();
-    if (!trimmed) return;
+    const normalized = normalizeRepositoryUrl(url);
+    if (!normalized) return;
 
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      await repositoryApi.getTree(trimmed);
-      navigate(`/repository-analysis?repo=${encodeURIComponent(trimmed)}`);
+      await repositoryApi.getTree(normalized);
+      navigate(`/repository-analysis?repo=${encodeURIComponent(normalized)}`);
     } catch {
       setErrorMessage(
         "저장소를 찾을 수 없습니다. URL을 확인하거나 공개 저장소인지 확인해 주세요.",
