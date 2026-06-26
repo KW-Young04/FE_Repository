@@ -5,7 +5,7 @@ import type { RepositoryTreeResponse } from "@/api/repository";
 import { acquireWebContainer, teardownWebContainer } from "@/utils/webContainerRuntime";
 import { mountOrSyncWorkspace, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
 import { getOrStartWorkspaceWarmup, invalidateWorkspaceWarmup } from "@/utils/workspaceWarmup";
-import { MAX_PREVIEW_FILE_BYTES, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS, BUNDLER_SERVER_READY_TIMEOUT_MS, NPM_INSTALL_TIMEOUT_MS } from "./constants";
+import { MAX_PREVIEW_FILE_BYTES, PRELOAD_BATCH_SIZE, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS, BUNDLER_SERVER_READY_TIMEOUT_MS, NPM_INSTALL_TIMEOUT_MS } from "./constants";
 import type { LoadDiagnostics, LoadedFile, PreviewStatus, RepositoryWorkspaceViewProps } from "./types";
 import { resolvePreviewProject, type PreviewProjectProfile, type PreviewRuntimeKind } from "./previewProject";
 import {
