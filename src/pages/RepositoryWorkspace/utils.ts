@@ -2,8 +2,10 @@ import type { FileSystemTree } from "@webcontainer/api";
 import { repositoryApi, type RepositoryFileResponse } from "@/api/repository";
 import {
   BATCH_SIZE,
+  BUNDLER_CONFIG_PATHS,
   EDITOR_LANGUAGE_BY_EXT,
   FILE_FETCH_TIMEOUT_MS,
+  PRELOAD_BATCH_SIZE,
   PREVIEW_AFFECTING_EXTENSIONS,
   PREVIEW_PORT,
 } from "./constants";
@@ -20,6 +22,61 @@ export function toDisplayError(error: unknown): string {
     return error.message;
   }
   return "알 수 없는 오류가 발생했습니다.";
+}
+
+export function normalizeRepositoryUrl(url: string): string {
+  let normalized = decodeURIComponent(url).trim().replace(/\/+$/, "");
+  if (normalized.endsWith(".git")) {
+    normalized = normalized.slice(0, -4);
+  }
+  return normalized;
+}
+
+const ANSI_ESCAPE_PATTERN = /\x1b(?:[@-Z\\-_]|\[[0-9?]*[ -/]*[@-~])/g;
+
+export function stripAnsiEscapes(text: string): string {
+  return text.replace(ANSI_ESCAPE_PATTERN, "");
+}
+
+function isImportantTerminalLine(line: string): boolean {
+  return /error|ERR!|failed|ENOENT|cannot|missing|warn|exception|✘|×/i.test(line);
+}
+
+function isTerminalNoiseLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return true;
+  if (isImportantTerminalLine(trimmed)) return false;
+  return /^[\\|/-]+$/.test(trimmed);
+}
+
+export function consumeTerminalOutput(
+  chunk: string,
+  buffer: string,
+): { lines: string[]; buffer: string } {
+  const combined = buffer + chunk;
+  const completeLines = combined.split("\n");
+  const nextBuffer = completeLines.pop() ?? "";
+  const lines: string[] = [];
+
+  for (const rawLine of completeLines) {
+    const withoutCarriage = rawLine.split("\r").pop() ?? rawLine;
+    const cleaned = stripAnsiEscapes(withoutCarriage).trim();
+    if (!isTerminalNoiseLine(cleaned)) {
+      lines.push(cleaned);
+    }
+  }
+
+  const pendingWithoutCarriage = nextBuffer.split("\r").pop() ?? nextBuffer;
+  return {
+    lines,
+    buffer: stripAnsiEscapes(pendingWithoutCarriage),
+  };
+}
+
+export function flushTerminalBuffer(buffer: string): string | null {
+  const cleaned = stripAnsiEscapes(buffer).trim();
+  if (isTerminalNoiseLine(cleaned)) return null;
+  return cleaned;
 }
 
 export function formatDuration(ms: number | null): string {
@@ -51,7 +108,13 @@ export function inferLanguage(path: string): string {
   return EDITOR_LANGUAGE_BY_EXT[extension] ?? "plaintext";
 }
 
-export function isPreviewAffectingPath(path: string): boolean {
+export function isPreviewAffectingPath(path: string, runtimeKind: "static" | "bundler" = "static"): boolean {
+  if (runtimeKind === "bundler") {
+    const extension = getFileExtension(path);
+    if (PREVIEW_AFFECTING_EXTENSIONS.has(extension)) return true;
+    return BUNDLER_CONFIG_PATHS.has(path);
+  }
+
   const extension = getFileExtension(path);
   return PREVIEW_AFFECTING_EXTENSIONS.has(extension);
 }
@@ -265,9 +328,11 @@ export async function ensurePreviewFilesLoaded(
   candidatePaths: readonly string[],
   repositoryUrl: string,
 ): Promise<Record<string, LoadedFile>> {
-  if (findPreviewEntryPath(files)) return files;
+  let nextFiles = files;
 
-  const entryCandidates = [
+  const requiredPaths = [
+    "package.json",
+    "package-lock.json",
     "index.html",
     "index.htm",
     "public/index.html",
@@ -275,13 +340,13 @@ export async function ensurePreviewFilesLoaded(
     ...candidatePaths.filter((path) => path.endsWith(".html") || path.endsWith(".htm")),
   ];
 
-  for (const path of entryCandidates) {
-    if (files[path]) return files;
-    if (!candidatePaths.includes(path)) continue;
+  for (const path of requiredPaths) {
+    if (nextFiles[path]) continue;
+    if (!candidatePaths.includes(path) && path !== "package.json") continue;
     try {
       const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
-      return {
-        ...files,
+      nextFiles = {
+        ...nextFiles,
         [path]: {
           path,
           content: response.content,
@@ -293,7 +358,145 @@ export async function ensurePreviewFilesLoaded(
     }
   }
 
-  return files;
+  if (findPreviewEntryPath(nextFiles) || nextFiles["package.json"]) {
+    return nextFiles;
+  }
+
+  return nextFiles;
+}
+
+const BUNDLER_PRELOAD_MAX_FILES = 150;
+
+const BUNDLER_PRELOAD_SKIP_PARTS = [
+  "/registry/",
+  "/content/",
+  "/fixtures/",
+  "/__snapshots__/",
+  "/.next/",
+  "/node_modules/",
+];
+
+function shouldSkipBundlerPreloadPath(path: string): boolean {
+  return BUNDLER_PRELOAD_SKIP_PARTS.some((part) => path.includes(part));
+}
+
+function getBundlerPathPriority(path: string): number {
+  if (path.endsWith("package.json")) return 0;
+  if (/next\.config\./.test(path)) return 1;
+  if (/\/app\//.test(path) && /\.(tsx|ts|jsx|js)$/.test(path)) return 2;
+  if (path.endsWith(".css")) return 3;
+  if (/\.(tsx|ts|jsx|js)$/.test(path)) return 4;
+  if (path.endsWith(".json")) return 5;
+  if (path.endsWith(".mdx") && /\/app\//.test(path)) return 6;
+  return 7;
+}
+
+function collectBundlerCandidatePaths(
+  workspaceRoot: string,
+  deferredPaths: readonly string[],
+  allTreePaths: readonly string[],
+  includeSkipped: boolean,
+): string[] {
+  if (workspaceRoot) {
+    const prefix = `${workspaceRoot}/`;
+    return allTreePaths.filter((path) => {
+      if (!path.startsWith(prefix)) return false;
+      if (!includeSkipped && shouldSkipBundlerPreloadPath(path)) return false;
+      return true;
+    });
+  }
+
+  return deferredPaths.filter((path) => includeSkipped || !shouldSkipBundlerPreloadPath(path));
+}
+
+function sortAndCapBundlerPaths(paths: readonly string[], maxFiles: number): string[] {
+  return [...paths]
+    .sort((a, b) => {
+      const byPriority = getBundlerPathPriority(a) - getBundlerPathPriority(b);
+      if (byPriority !== 0) return byPriority;
+      return a.localeCompare(b);
+    })
+    .slice(0, maxFiles);
+}
+
+export function getBundlerPreloadPaths(
+  workspaceRoot: string,
+  deferredPaths: readonly string[],
+  allTreePaths: readonly string[],
+): string[] {
+  const candidates = collectBundlerCandidatePaths(workspaceRoot, deferredPaths, allTreePaths, false);
+  return sortAndCapBundlerPaths(candidates, BUNDLER_PRELOAD_MAX_FILES);
+}
+
+export function getBundlerBackgroundPaths(
+  workspaceRoot: string,
+  deferredPaths: readonly string[],
+  allTreePaths: readonly string[],
+  loadedPaths: ReadonlySet<string>,
+): string[] {
+  const candidates = collectBundlerCandidatePaths(workspaceRoot, deferredPaths, allTreePaths, true);
+  return candidates.filter((path) => !loadedPaths.has(path));
+}
+
+export async function ensurePackageJsonDiscovery(
+  files: Record<string, LoadedFile>,
+  allTreePaths: readonly string[],
+  repositoryUrl: string,
+): Promise<Record<string, LoadedFile>> {
+  let nextFiles = files;
+  const discoveryPaths = allTreePaths.filter(
+    (path) =>
+      path === "package.json" ||
+      path.endsWith("/package.json") ||
+      path === "pnpm-lock.yaml" ||
+      path === "pnpm-workspace.yaml" ||
+      path === "pnpm-workspace.yml" ||
+      path === "yarn.lock" ||
+      path === "package-lock.json",
+  );
+
+  for (const path of discoveryPaths) {
+    if (nextFiles[path]) continue;
+    try {
+      const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
+      nextFiles = {
+        ...nextFiles,
+        [path]: { path, content: response.content, dirty: false },
+      };
+    } catch {
+      continue;
+    }
+  }
+
+  return nextFiles;
+}
+
+export async function preloadRepositoryPaths(
+  files: Record<string, LoadedFile>,
+  paths: readonly string[],
+  repositoryUrl: string,
+  maxFiles: number = BUNDLER_PRELOAD_MAX_FILES,
+): Promise<Record<string, LoadedFile>> {
+  let nextFiles = files;
+  const pending = paths.filter((path) => !nextFiles[path]).slice(0, maxFiles);
+
+  await runBatched(
+    pending,
+    async (path) => {
+      try {
+        const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
+        nextFiles = {
+          ...nextFiles,
+          [path]: { path, content: response.content, dirty: false },
+        };
+      } catch {
+        // 개별 파일 실패는 무시
+      }
+    },
+    PRELOAD_BATCH_SIZE,
+  );
+
+  return nextFiles;
 }
 
 export async function fetchRepositoryFileWithTimeout(

@@ -21,6 +21,7 @@ export default function RepositoryWorkspaceView({
   previewStatus,
   previewUrl,
   previewRevision,
+  previewProjectLabel,
   runtimeLog,
   runtimeError,
   isRestarting,
@@ -72,6 +73,7 @@ export default function RepositoryWorkspaceView({
           previewStatus={previewStatus}
           previewUrl={previewUrl}
           previewRevision={previewRevision}
+          previewProjectLabel={previewProjectLabel}
           runtimeError={runtimeError}
           runtimeLog={runtimeLog}
         />
