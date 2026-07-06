@@ -13,7 +13,7 @@ export default function AccessibilityDetailSection({
   onSelectIssue,
 }: AccessibilityDetailSectionProps) {
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto">
+    <section className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto pr-1">
       <h2 className="px-1 text-sm font-bold text-slate-900">상세보기</h2>
 
       <div className="mt-3 space-y-3 pb-2">
