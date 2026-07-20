@@ -2,6 +2,7 @@
  * Injected into preview HTML.
  * Works without query params (WebContainer often cannot navigate to ?__cursor_capture=... URLs).
  * Parent origin is learned from the first CAPTURE_REQUEST message.
+ * html2canvas must be same-origin (COEP blocks CDN scripts in WebContainer).
  */
 export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   if (window.__CURSOR_CAPTURE_BRIDGE__) return;
@@ -10,6 +11,7 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   var allowedParentOrigin = null;
   var defaultWaitMs = 800;
   var readyNotified = false;
+  var capturing = false;
 
   try {
     var params = new URLSearchParams(window.location.search || "");
@@ -18,7 +20,18 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   } catch (_error) {}
 
   function postToParent(payload) {
-    window.parent.postMessage(payload, allowedParentOrigin || "*");
+    try {
+      window.parent.postMessage(payload, allowedParentOrigin || "*");
+    } catch (_error) {}
+  }
+
+  function postStatus(stage, detail) {
+    postToParent({
+      type: "CURSOR_PREVIEW_CAPTURE_STATUS",
+      stage: stage,
+      detail: detail || null,
+      href: String(window.location.href || ""),
+    });
   }
 
   function wait(ms) {
@@ -47,10 +60,46 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
       }
       var script = document.createElement("script");
       script.src = src;
-      script.onload = function () { resolve(); };
-      script.onerror = function () { reject(new Error("Failed to load " + src)); };
+      var done = false;
+      var timer = window.setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error("Script load timeout: " + src));
+      }, 8000);
+      script.onload = function () {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        resolve();
+      };
+      script.onerror = function () {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        reject(new Error("Failed to load " + src));
+      };
       document.head.appendChild(script);
     });
+  }
+
+  async function ensureHtml2Canvas() {
+    if (window.html2canvas) return;
+    var candidates = [
+      "/__cursor__/html2canvas.min.js",
+      "./__cursor__/html2canvas.min.js",
+      "html2canvas.min.js",
+    ];
+    var lastError = null;
+    for (var i = 0; i < candidates.length; i += 1) {
+      try {
+        postStatus("html2canvas_load", candidates[i]);
+        await loadScript(candidates[i]);
+        if (window.html2canvas) return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("html2canvas unavailable");
   }
 
   function stripFontResources(rootDoc) {
@@ -68,9 +117,28 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
     });
   }
 
+  async function waitForAppContent(maxMs) {
+    var started = Date.now();
+    while (Date.now() - started < maxMs) {
+      var root = document.getElementById("root") || document.getElementById("app") || document.getElementById("__next");
+      if (root && root.children && root.children.length > 0) {
+        postStatus("app_ready", { elapsedMs: Date.now() - started });
+        return;
+      }
+      if (!root && document.body && document.body.children.length > 1) {
+        postStatus("app_ready_body", { elapsedMs: Date.now() - started });
+        return;
+      }
+      await wait(250);
+    }
+    postStatus("app_wait_timeout", { maxMs: maxMs });
+  }
+
   async function captureNow(requestId, waitMs) {
+    postStatus("capture_start", { requestId: requestId, waitMs: waitMs });
     stripFontResources(document);
-    await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+    await ensureHtml2Canvas();
+    postStatus("html2canvas_ready");
 
     try {
       var styleLinks = Array.prototype.slice.call(
@@ -102,9 +170,13 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
       );
     } catch (_error) {}
 
+    await waitForAppContent(Math.max(waitMs, 4000));
     await wait(waitMs);
 
     var target = document.body || document.documentElement;
+    postStatus("html2canvas_run", {
+      bodyChildren: target ? target.children.length : 0,
+    });
     var canvas = await withTimeout(
       window.html2canvas(target, {
         width: 1280,
@@ -122,7 +194,7 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
           stripFontResources(clonedDoc);
         },
       }),
-      8000,
+      12000,
       "html2canvas timed out"
     );
 
@@ -130,6 +202,7 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
     var base64 = dataUrl.indexOf(",") >= 0 ? dataUrl.split(",")[1] : dataUrl;
     if (!base64) throw new Error("Captured image is empty");
 
+    postStatus("capture_done", { width: canvas.width, height: canvas.height });
     return {
       type: "CURSOR_PREVIEW_CAPTURE_RESULT",
       requestId: requestId,
@@ -141,8 +214,6 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
     };
   }
 
-  var capturing = false;
-
   window.addEventListener("message", function (event) {
     var data = event.data;
     if (!data || data.type !== "CURSOR_PREVIEW_CAPTURE_REQUEST") return;
@@ -153,11 +224,15 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
       return;
     }
 
-    if (capturing) return;
+    if (capturing) {
+      postStatus("capture_busy");
+      return;
+    }
 
     var requestId = data.requestId;
     var waitMs = typeof data.waitMs === "number" ? data.waitMs : defaultWaitMs;
     capturing = true;
+    postStatus("request_received", { requestId: requestId });
 
     captureNow(requestId, waitMs)
       .then(function (result) {
@@ -178,13 +253,12 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   });
 
   function notifyReady() {
-    if (readyNotified) {
-      postToParent({ type: "CURSOR_PREVIEW_CAPTURE_READY" });
-      return;
-    }
-    readyNotified = true;
     stripFontResources(document);
     postToParent({ type: "CURSOR_PREVIEW_CAPTURE_READY" });
+    if (!readyNotified) {
+      readyNotified = true;
+      postStatus("ready");
+    }
   }
 
   if (document.readyState === "loading") {
@@ -197,4 +271,5 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   window.setTimeout(notifyReady, 500);
   window.setTimeout(notifyReady, 1500);
   window.setTimeout(notifyReady, 3000);
+  window.setTimeout(notifyReady, 6000);
 })();`;

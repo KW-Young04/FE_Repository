@@ -13,6 +13,7 @@ export interface PreviewProjectProfile {
 }
 
 interface PackageJson {
+  name?: string;
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -73,10 +74,27 @@ function buildFrameworkLabel(deps: Record<string, string>): string {
   return parts.length > 0 ? parts.join(" + ") : "번들러";
 }
 
+function packageRequiresPnpm(files: FileContentLookup): boolean {
+  if (files["pnpm-lock.yaml"] || files["pnpm-lock.yml"] || files["pnpm-workspace.yaml"] || files["pnpm-workspace.yml"]) {
+    return true;
+  }
+
+  const root = files["package.json"]?.content;
+  if (!root) return false;
+  try {
+    const pkg = JSON.parse(root) as PackageJson & { scripts?: Record<string, string> };
+    const scripts = Object.values(pkg.scripts ?? {}).join("\n");
+    return /\bonly-allow\s+pnpm\b/i.test(scripts) || /\bpreinstall\b[\s\S]*\bpnpm\b/i.test(JSON.stringify(pkg.scripts ?? {}));
+  } catch {
+    return false;
+  }
+}
+
 function resolveInstallCommands(files: FileContentLookup): string[][] {
-  if (files["pnpm-lock.yaml"] || files["pnpm-lock.yml"]) {
+  if (packageRequiresPnpm(files) || files["pnpm-lock.yaml"] || files["pnpm-lock.yml"]) {
     return [
       ["pnpm", "install", "--no-frozen-lockfile", "--ignore-scripts", "--config.engine-strict=false"],
+      // Fallbacks for environments without pnpm; may still fail if package enforces only-allow pnpm.
       ["npm", "install", "--no-audit", "--no-fund", "--legacy-peer-deps", "--ignore-scripts"],
     ];
   }
@@ -84,6 +102,44 @@ function resolveInstallCommands(files: FileContentLookup): string[][] {
     return [["yarn", "install", "--non-interactive", "--ignore-scripts"]];
   }
   return [["npm", "install", "--no-audit", "--no-fund", "--legacy-peer-deps"]];
+}
+
+/** Library / plugin monorepos that are poor WebContainer preview targets. */
+export function explainUnsupportedPreviewRepo(files: FileContentLookup): string | null {
+  const rootContent = files["package.json"]?.content;
+  if (!rootContent) return null;
+
+  const pkg = readPackageJson(rootContent);
+  if (!pkg) return null;
+
+  const name = pkg.name ?? "";
+  const scripts = Object.values(pkg.scripts ?? {}).join("\n");
+  const onlyAllowPnpm = /\bonly-allow\s+pnpm\b/i.test(scripts);
+  const playgroundHtmlCount = Object.keys(files).filter((path) =>
+    /(?:^|\/)playground\/[^/]+\/index\.html$/i.test(path),
+  ).length;
+  const hasApps = Object.keys(files).some((path) => path.startsWith("apps/") && path.endsWith("package.json"));
+  const looksLikePlugin =
+    /plugin|monorepo/i.test(name) ||
+    Boolean(pkg.workspaces) ||
+    Boolean(files["pnpm-workspace.yaml"] || files["pnpm-workspace.yml"]);
+
+  if (playgroundHtmlCount >= 2 && !hasApps && looksLikePlugin) {
+    return (
+      "이 저장소는 앱이 아니라 플러그인/라이브러리 모노레포(playground 위주)라서 " +
+      "WebContainer에서 의존성 설치·프리뷰가 거의 불가능합니다. " +
+      "단일 UI 앱 저장소로 다시 시도해 주세요. 예: mdn/beginner-html-site-styled, ahfarmer/calculator"
+    );
+  }
+
+  if (onlyAllowPnpm && playgroundHtmlCount >= 2 && !hasApps) {
+    return (
+      "이 저장소는 pnpm 전용 모노레포이며 프리뷰용 단일 앱 루트가 없습니다. " +
+      "단일 UI 앱 저장소를 사용해 주세요."
+    );
+  }
+
+  return null;
 }
 
 function resolveRunCommand(files: FileContentLookup, script: string, extraArgs: string[] = []): string[] {
@@ -248,9 +304,14 @@ function scoreBundlerCandidate(
   if (deps.vite) score += 15;
   if (workspaceRoot.startsWith("apps/")) score += 35;
   if (hasAppEntryFiles(files, workspaceRoot)) score += 30;
+  if (/(?:^|\/)playground\//i.test(workspaceRoot)) score -= 40;
+  if (/(?:^|\/)packages\//i.test(workspaceRoot) && !hasAppEntryFiles(files, workspaceRoot)) score -= 25;
 
   if (packagePath === "package.json" && isMonorepoRoot(files, pkg)) {
     score -= 30;
+  }
+  if (packagePath === "package.json" && /\bonly-allow\s+pnpm\b/i.test(Object.values(pkg.scripts ?? {}).join("\n"))) {
+    score -= 20;
   }
 
   const profile: PreviewProjectProfile = {

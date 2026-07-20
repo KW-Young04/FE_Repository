@@ -1,7 +1,7 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 import { uploadWcagAnalysis } from "@/api/analysis";
 import type { RepositoryTreeResponse } from "@/api/repository";
-import { resolvePreviewProject, type PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
+import { resolvePreviewProject, explainUnsupportedPreviewRepo, type PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
   NPM_INSTALL_TIMEOUT_MS,
@@ -12,6 +12,7 @@ import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
 import {
   buildFileSystemTree,
   createStaticServerScript,
+  ensurePreviewFilesLoaded,
   findPreviewEntryPath,
   withTimeout,
 } from "@/pages/RepositoryWorkspace/utils";
@@ -109,6 +110,44 @@ async function startStaticPreview(
   return entryPath;
 }
 
+async function collectProcessOutput(process: WebContainerProcess, maxChars = 4000): Promise<string> {
+  const reader = process.output.getReader();
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      text += value;
+      if (text.length > maxChars) {
+        text = text.slice(text.length - maxChars);
+      }
+    }
+  } catch {
+    // ignore stream errors after process exit
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
+    }
+  }
+  return text.trim();
+}
+
+function summarizeInstallLog(log: string): string {
+  if (!log) return "";
+  const lines = log
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const interesting = lines.filter((line) =>
+    /err!|error|only-allow|ELIFECYCLE|ENOENT|ERESOLVE|unsupported|forbidden|preinstall/i.test(line),
+  );
+  const picked = (interesting.length > 0 ? interesting : lines).slice(-8);
+  return picked.join(" | ");
+}
+
 async function startBundlerPreview(
   container: WebContainer,
   profile: PreviewProjectProfile,
@@ -121,6 +160,8 @@ async function startBundlerPreview(
   };
 
   let installSucceeded = false;
+  let lastInstallSummary = "";
+
   for (const installCommand of profile.installCommands) {
     onProgress?.(`의존성 설치 중 (${installCommand.join(" ")})…`);
     snapshotLog("의존성 설치 시작", { command: installCommand.join(" ") });
@@ -128,25 +169,37 @@ async function startBundlerPreview(
     const installProcess = await container.spawn(installCommand[0], installCommand.slice(1), {
       env: installEnv,
     });
+    const outputPromise = collectProcessOutput(installProcess);
     const installExitCode = await withTimeout(
       installProcess.exit,
       NPM_INSTALL_TIMEOUT_MS,
       `의존성 설치 타임아웃(${NPM_INSTALL_TIMEOUT_MS / 60000}분)`,
     );
+    const installLog = await outputPromise;
+    lastInstallSummary = summarizeInstallLog(installLog);
     snapshotLog("의존성 설치 종료", {
       command: installCommand.join(" "),
       exitCode: installExitCode,
       elapsedMs: Date.now() - installStartedAt,
+      logTail: lastInstallSummary || undefined,
     });
     if (installExitCode === 0) {
       installSucceeded = true;
       break;
     }
+    snapshotWarn("의존성 설치 커맨드 실패", {
+      command: installCommand.join(" "),
+      exitCode: installExitCode,
+      logTail: lastInstallSummary || "(로그 없음)",
+    });
   }
 
   if (!installSucceeded) {
-    snapshotError("의존성 설치 실패 — 모든 설치 커맨드 실패");
-    throw new Error("의존성 설치에 실패했습니다.");
+    snapshotError("의존성 설치 실패 — 모든 설치 커맨드 실패", { logTail: lastInstallSummary });
+    const detail = lastInstallSummary
+      ? ` 원인 요약: ${lastInstallSummary}`
+      : " (설치 로그가 비어 있습니다. pnpm 전용 모노레포이거나 WebContainer에서 지원되지 않는 저장소일 수 있습니다.)";
+    throw new Error(`의존성 설치에 실패했습니다.${detail}`);
   }
 
   const devCwd = profile.workspaceRoot || undefined;
@@ -220,6 +273,12 @@ export async function runAnalysisSnapshotPipeline(
     workspaceRoot: provisionalProfile.workspaceRoot || "(root)",
   });
 
+  const unsupported = explainUnsupportedPreviewRepo(toLoadedFiles(textFiles));
+  if (unsupported) {
+    snapshotError("프리뷰 비지원 저장소", { message: unsupported });
+    throw new Error(unsupported);
+  }
+
   if (provisionalProfile.kind === "static") {
     reportProgress(onProgress, "CSS/이미지 자산 로드 중…");
     const ensured = await ensureStaticPreviewAssets({
@@ -237,7 +296,19 @@ export async function runAnalysisSnapshotPipeline(
     });
   }
 
-  const files = toLoadedFiles(textFiles);
+  let files = toLoadedFiles(textFiles);
+  const candidatePaths = tree.nodes
+    .filter((node) => node.type === "blob")
+    .map((node) => node.path);
+
+  reportProgress(onProgress, "캡처용 HTML 엔트리 확인 중…");
+  files = await ensurePreviewFilesLoaded(files, candidatePaths, repositoryUrl);
+  snapshotLog("캡처용 HTML 엔트리 로드 후", {
+    hasIndex: Boolean(files["index.html"] || files["index.htm"]),
+    hasPublicIndex: Boolean(files["public/index.html"] || files["public/index.htm"]),
+    htmlPaths: Object.keys(files).filter((path) => path.endsWith(".html") || path.endsWith(".htm")),
+  });
+
   const projectProfile = resolvePreviewProject(files);
   const isBundler = projectProfile.kind === "bundler";
 
@@ -272,9 +343,12 @@ export async function runAnalysisSnapshotPipeline(
   reportProgress(onProgress, "캡처 브리지 주입 중…");
   const injected = await injectCaptureAssets(container, projectProfile, files);
   snapshotLog("캡처 에셋 주입 완료", injected);
-  if (injected.patchedHtmlPaths.length > 0) {
-    reportProgress(onProgress, `HTML 캡처 브리지 주입: ${injected.patchedHtmlPaths.join(", ")}`);
+  if (injected.patchedHtmlPaths.length === 0) {
+    throw new Error(
+      "캡처 브리지를 주입할 HTML(index.html / public/index.html)을 찾지 못했습니다. 프리뷰 엔트리 HTML이 있는 저장소인지 확인해 주세요.",
+    );
   }
+  reportProgress(onProgress, `HTML 캡처 브리지 주입: ${injected.patchedHtmlPaths.join(", ")}`);
 
   const readyTimeoutMs = isBundler ? BUNDLER_SERVER_READY_TIMEOUT_MS : SERVER_READY_TIMEOUT_MS;
   snapshotLog("server-ready 대기 시작", { timeoutMs: readyTimeoutMs, isBundler });
@@ -292,12 +366,16 @@ export async function runAnalysisSnapshotPipeline(
   snapshotLog("server-ready 수신", { previewUrl, elapsedMs: Date.now() - pipelineStartedAt });
 
   reportProgress(onProgress, "렌더링 스냅샷 캡처 중…");
+  // Give CRA/Vite a short settle window after server-ready before opening capture iframe.
+  await new Promise<void>((resolve) => {
+    window.setTimeout(resolve, isBundler ? 2500 : 400);
+  });
   const captureStartedAt = Date.now();
   const captured = await capturePreviewSnapshot({
     previewUrl,
     mode: "direct",
-    waitMs: isBundler ? 2000 : 1000,
-    timeoutMs: isBundler ? 45_000 : 25_000,
+    waitMs: isBundler ? 2500 : 1000,
+    timeoutMs: isBundler ? 60_000 : 30_000,
   });
   snapshotLog("스냅샷 캡처 완료", {
     width: captured.width,

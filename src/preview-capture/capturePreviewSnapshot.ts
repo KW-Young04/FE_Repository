@@ -18,6 +18,9 @@ interface CaptureHostMessage {
   base64?: string;
   code?: string;
   message?: string;
+  stage?: string;
+  detail?: unknown;
+  href?: string;
 }
 
 function base64ToBlob(base64: string, mimeType: string): Blob {
@@ -60,20 +63,24 @@ export function capturePreviewSnapshot(
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.title = "preview-capture";
+    // Keep iframe in the layout viewport so browsers still paint (off-screen can stall capture).
     iframe.style.cssText = [
       "position:fixed",
-      "left:-10000px",
+      "left:0",
       "top:0",
       `width:${CAPTURE_VIEWPORT.width}px`,
       `height:${CAPTURE_VIEWPORT.height}px`,
-      "opacity:0",
+      "opacity:0.01",
       "pointer-events:none",
       "border:0",
+      "z-index:-1",
     ].join(";");
     iframe.sandbox = "allow-scripts allow-same-origin allow-forms allow-modals allow-popups";
 
     let settled = false;
     let attempts = 0;
+    let sawReady = false;
+    let lastStatus: string | null = null;
 
     const cleanup = () => {
       window.removeEventListener("message", onMessage);
@@ -88,6 +95,8 @@ export function capturePreviewSnapshot(
       snapshotError("캡처 실패", {
         message: error.message,
         attempts,
+        sawReady,
+        lastStatus,
         elapsedMs: Date.now() - startedAt,
       });
       cleanup();
@@ -109,20 +118,29 @@ export function capturePreviewSnapshot(
     };
 
     const sendCaptureRequest = () => {
-      if (settled || attempts >= 8) return;
+      if (settled || attempts >= 12) return;
+      const win = iframe.contentWindow;
+      if (!win) {
+        snapshotWarn("CAPTURE_REQUEST 스킵 — contentWindow 없음", { attempts });
+        return;
+      }
       attempts += 1;
-      snapshotLog("CAPTURE_REQUEST 전송", { attempt: attempts, requestId, previewOrigin });
-      iframe.contentWindow?.postMessage(
-        {
-          type: CAPTURE_MESSAGE.REQUEST,
-          requestId,
-          targetPath: options.targetPath ?? "/",
-          viewport: CAPTURE_VIEWPORT,
-          waitMs,
-          parentOrigin: window.location.origin,
-        },
-        previewOrigin,
-      );
+      snapshotLog("CAPTURE_REQUEST 전송", { attempt: attempts, requestId, previewOrigin, sawReady });
+      try {
+        win.postMessage(
+          {
+            type: CAPTURE_MESSAGE.REQUEST,
+            requestId,
+            targetPath: options.targetPath ?? "/",
+            viewport: CAPTURE_VIEWPORT,
+            waitMs,
+            parentOrigin: window.location.origin,
+          },
+          "*",
+        );
+      } catch (error) {
+        snapshotWarn("CAPTURE_REQUEST postMessage 실패", error);
+      }
     };
 
     const onMessage = (event: MessageEvent<CaptureHostMessage>) => {
@@ -131,7 +149,19 @@ export function capturePreviewSnapshot(
       const data = event.data;
       if (!data?.type) return;
 
+      if (data.type === "CURSOR_PREVIEW_CAPTURE_STATUS") {
+        lastStatus = data.stage ?? null;
+        snapshotLog("CAPTURE_STATUS", {
+          stage: data.stage,
+          detail: data.detail,
+          href: data.href,
+          elapsedMs: Date.now() - startedAt,
+        });
+        return;
+      }
+
       if (data.type === CAPTURE_MESSAGE.READY) {
+        sawReady = true;
         snapshotLog("CAPTURE_READY 수신", { origin: event.origin, elapsedMs: Date.now() - startedAt });
         sendCaptureRequest();
         return;
@@ -160,15 +190,23 @@ export function capturePreviewSnapshot(
     };
 
     const timeoutId = window.setTimeout(() => {
-      fail(new Error(`프리뷰 스냅샷 캡처 시간이 초과되었습니다. (${timeoutMs / 1000}초)`));
+      const hint = sawReady
+        ? `READY는 왔지만 RESULT가 없습니다 (lastStatus=${lastStatus ?? "none"}). html2canvas/렌더 대기 실패 가능성이 큽니다.`
+        : `READY가 오지 않았습니다 (lastStatus=${lastStatus ?? "none"}). 프리뷰 HTML에 캡처 브리지가 없거나 iframe이 로드되지 않았을 수 있습니다.`;
+      fail(new Error(`프리뷰 스냅샷 캡처 시간이 초과되었습니다. (${timeoutMs / 1000}초) ${hint}`));
     }, timeoutMs);
 
     const retryId = window.setInterval(() => {
       if (!settled) {
-        snapshotLog("CAPTURE_REQUEST 재시도 타이머", { attempts, elapsedMs: Date.now() - startedAt });
+        snapshotLog("CAPTURE_REQUEST 재시도 타이머", {
+          attempts,
+          sawReady,
+          lastStatus,
+          elapsedMs: Date.now() - startedAt,
+        });
         sendCaptureRequest();
       }
-    }, 2000);
+    }, 2500);
 
     window.addEventListener("message", onMessage);
     document.body.appendChild(iframe);
