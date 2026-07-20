@@ -10,7 +10,7 @@ interface FileTreePanelProps {
 
 export default function FileTreePanel({ treeItems, fileCount, activePath, onFileClick }: FileTreePanelProps) {
   return (
-    <aside className="col-span-3 flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white">
+    <aside className="col-span-2 flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white">
       <div className="shrink-0 border-b border-slate-100 px-3 py-2 text-sm font-bold text-slate-800">
         파일 트리 ({fileCount})
       </div>
