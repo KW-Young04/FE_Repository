@@ -409,6 +409,12 @@ const server = http.createServer((req, res) => {
 
   if (ext === ".html" || ext === ".htm") {
     let html = readFileSync(target, "utf8");
+    const relativePath = relative(rootDir, target).replace(/\\\\/g, "/");
+    // Do not rewrite capture-host / vendor pages — they ship their own scripts.
+    if (relativePath.includes("__cursor__/")) {
+      res.end(html);
+      return;
+    }
     html = stripExternalFontsFromHtml(html);
     // Always inject bridge so clean preview URLs can be captured without query params.
     html = injectCaptureBridge(html, rootDir);

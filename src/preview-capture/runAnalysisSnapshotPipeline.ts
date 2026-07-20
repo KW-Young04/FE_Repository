@@ -22,6 +22,7 @@ import {
   writeWorkspaceBinaryFile,
   writeWorkspaceFile,
 } from "@/utils/webContainerFilesystem";
+import { buildCaptureHostUrl } from "./buildCaptureHostUrl";
 import { buildSnapshotMeta } from "./buildSnapshotMeta";
 import { capturePreviewSnapshot } from "./capturePreviewSnapshot";
 import { ensureStaticPreviewAssets } from "./ensureStaticPreviewAssets";
@@ -371,9 +372,13 @@ export async function runAnalysisSnapshotPipeline(
     window.setTimeout(resolve, isBundler ? 2500 : 400);
   });
   const captureStartedAt = Date.now();
+  const hostStrategy = isBundler ? "hash" : "file";
+  const captureHostUrl = buildCaptureHostUrl(previewUrl, { strategy: hostStrategy });
+  snapshotLog("캡처 호스트 URL", { captureHostUrl, previewUrl, hostStrategy });
   const captured = await capturePreviewSnapshot({
     previewUrl,
-    mode: "direct",
+    mode: "host",
+    hostStrategy,
     waitMs: isBundler ? 2500 : 1000,
     timeoutMs: isBundler ? 60_000 : 30_000,
   });

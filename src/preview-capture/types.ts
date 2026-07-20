@@ -11,6 +11,8 @@ export interface CapturePreviewSnapshotOptions {
   timeoutMs?: number;
   /** static HTML: inject bridge into page. bundler: nested capture-host */
   mode?: "direct" | "host";
+  /** file path vs hash takeover (CRA/Vite SPA fallback 우회) */
+  hostStrategy?: "file" | "hash";
 }
 
 export type SnapshotCaptureStatus = "idle" | "capturing" | "uploading" | "done" | "error";

@@ -23,31 +23,25 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
   <iframe id="preview-target" title="preview-target"></iframe>
   <script>
 (function () {
-  var params = new URLSearchParams(window.location.search);
-  var parentOrigin = params.get("parentOrigin");
-  var targetPath = params.get("target") || "/";
-  var defaultWaitMs = Number(params.get("waitMs") || "1500");
+  // No query params — WebContainer often cannot navigate to ?parentOrigin=... URLs.
+  var allowedParentOrigin = null;
+  var defaultWaitMs = 1500;
   var frame = document.getElementById("preview-target");
-  var hostReady = false;
-
-  if (!parentOrigin) {
-    console.error("[capture-host] parentOrigin is required");
-    return;
-  }
+  var capturing = false;
+  var readyNotified = false;
 
   function postToParent(payload) {
-    window.parent.postMessage(payload, parentOrigin);
+    try {
+      window.parent.postMessage(payload, allowedParentOrigin || "*");
+    } catch (_error) {}
   }
 
-  function loadScript(src) {
-    return new Promise(function (resolve, reject) {
-      var script = document.createElement("script");
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = function () {
-        reject(new Error("Failed to load script: " + src));
-      };
-      document.head.appendChild(script);
+  function postStatus(stage, detail) {
+    postToParent({
+      type: "CURSOR_PREVIEW_CAPTURE_STATUS",
+      stage: stage,
+      detail: detail || null,
+      href: String(window.location.href || ""),
     });
   }
 
@@ -58,99 +52,153 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
   }
 
   function withTimeout(promise, ms, message) {
-    return Promise.race([
-      promise,
-      wait(ms).then(function () {
-        throw new Error(message);
-      }),
-    ]);
+    var timeoutId;
+    var timeoutPromise = new Promise(function (_, reject) {
+      timeoutId = window.setTimeout(function () {
+        reject(new Error(message));
+      }, ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(function () {
+      window.clearTimeout(timeoutId);
+    });
   }
 
-  function isAbsoluteHttpUrl(url) {
-    return url.indexOf("http://") === 0 || url.indexOf("https://") === 0;
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      if (window.html2canvas) {
+        resolve();
+        return;
+      }
+      var script = document.createElement("script");
+      script.src = src;
+      var done = false;
+      var timer = window.setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error("Script load timeout: " + src));
+      }, 8000);
+      script.onload = function () {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        resolve();
+      };
+      script.onerror = function () {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        reject(new Error("Failed to load " + src));
+      };
+      document.head.appendChild(script);
+    });
   }
 
-  function sanitizeCloneDocument(clonedDoc) {
-    if (!clonedDoc) return;
+  async function ensureHtml2Canvas() {
+    if (window.html2canvas) return;
+    var candidates = [
+      "/__cursor__/html2canvas.min.js",
+      "/html2canvas.min.js",
+      "./html2canvas.min.js",
+      "html2canvas.min.js",
+    ];
+    var lastError = null;
+    for (var i = 0; i < candidates.length; i += 1) {
+      try {
+        postStatus("html2canvas_load", candidates[i]);
+        await loadScript(candidates[i]);
+        if (window.html2canvas) return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("html2canvas unavailable");
+  }
 
-    var links = clonedDoc.querySelectorAll('link[rel="stylesheet"], link[as="style"]');
+  function stripFontResources(rootDoc) {
+    if (!rootDoc) return;
+    var links = rootDoc.querySelectorAll("link");
     links.forEach(function (link) {
-      var href = link.getAttribute("href") || "";
+      var href = (link.getAttribute("href") || "").toLowerCase();
       if (
         href.indexOf("fonts.googleapis.com") >= 0 ||
         href.indexOf("fonts.gstatic.com") >= 0 ||
-        isAbsoluteHttpUrl(href)
+        href.indexOf("fonts.adobe.com") >= 0 ||
+        href.indexOf("use.typekit.net") >= 0
       ) {
         link.remove();
       }
     });
+  }
 
-    var images = clonedDoc.querySelectorAll("img");
-    images.forEach(function (img) {
-      var src = img.getAttribute("src") || "";
-      if (isAbsoluteHttpUrl(src) && src.indexOf(location.origin) !== 0) {
-        img.setAttribute("crossorigin", "anonymous");
+  function loadPreview(targetPath) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = window.setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error("Preview iframe load timeout"));
+      }, 20000);
+
+      function onLoad() {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        frame.removeEventListener("load", onLoad);
+        resolve();
       }
+
+      frame.addEventListener("load", onLoad);
+      var nextSrc = targetPath && targetPath.charAt(0) === "/" ? targetPath : "/" + (targetPath || "");
+      // Force reload even if same path.
+      frame.src = "about:blank";
+      window.setTimeout(function () {
+        frame.src = nextSrc;
+      }, 0);
     });
   }
 
-  async function captureFrame(requestId, waitMs) {
-    if (!window.html2canvas) {
-      throw new Error("html2canvas is not available");
-    }
+  async function captureFrame(requestId, waitMs, targetPath) {
+    postStatus("capture_start", { requestId: requestId, targetPath: targetPath });
+    await ensureHtml2Canvas();
+    postStatus("html2canvas_ready");
 
-    await wait(waitMs);
+    await loadPreview(targetPath || "/");
+    postStatus("preview_loaded");
 
     var doc = frame.contentDocument;
     if (!doc || !doc.documentElement) {
       throw new Error("Preview document is not available (cross-origin or not loaded)");
     }
 
-    if (doc.fonts && doc.fonts.ready) {
-      try {
-        await withTimeout(doc.fonts.ready, 2000, "font ready timeout");
-      } catch (_error) {
-        // External fonts (e.g. Google Fonts) often fail under WebContainer COEP.
-      }
-    }
+    stripFontResources(doc);
+    await wait(waitMs);
 
-    await new Promise(function (resolve) {
-      window.requestAnimationFrame(function () {
-        window.requestAnimationFrame(resolve);
-      });
-    });
+    var canvas = await withTimeout(
+      window.html2canvas(doc.documentElement, {
+        width: 1280,
+        height: 720,
+        windowWidth: 1280,
+        windowHeight: 720,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        scale: 1,
+        backgroundColor: "#ffffff",
+        imageTimeout: 1500,
+        removeContainer: true,
+        onclone: function (clonedDoc) {
+          stripFontResources(clonedDoc);
+        },
+      }),
+      12000,
+      "html2canvas timed out"
+    );
 
-    var canvas = await window.html2canvas(doc.documentElement, {
-      width: 1280,
-      height: 720,
-      windowWidth: 1280,
-      windowHeight: 720,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      scale: 1,
-      backgroundColor: "#ffffff",
-      onclone: function (_document, element) {
-        var clonedDoc = element && element.ownerDocument ? element.ownerDocument : null;
-        sanitizeCloneDocument(clonedDoc);
-      },
-    });
-
-    var dataUrl;
-    try {
-      dataUrl = canvas.toDataURL("image/png");
-    } catch (error) {
-      throw new Error(
-        "Canvas export failed (likely tainted by external resources): " +
-          (error && error.message ? error.message : String(error))
-      );
-    }
-
+    var dataUrl = canvas.toDataURL("image/png");
     var base64 = dataUrl.indexOf(",") >= 0 ? dataUrl.split(",")[1] : dataUrl;
-    if (!base64) {
-      throw new Error("Captured image is empty");
-    }
+    if (!base64) throw new Error("Captured image is empty");
 
+    postStatus("capture_done", { width: canvas.width, height: canvas.height });
     return {
       type: "CURSOR_PREVIEW_CAPTURE_RESULT",
       requestId: requestId,
@@ -163,15 +211,27 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
   }
 
   window.addEventListener("message", function (event) {
-    if (event.origin !== parentOrigin) return;
-
     var data = event.data;
     if (!data || data.type !== "CURSOR_PREVIEW_CAPTURE_REQUEST") return;
 
+    if (!allowedParentOrigin) {
+      allowedParentOrigin = event.origin;
+    } else if (event.origin !== allowedParentOrigin) {
+      return;
+    }
+
+    if (capturing) {
+      postStatus("capture_busy");
+      return;
+    }
+
     var requestId = data.requestId;
     var waitMs = typeof data.waitMs === "number" ? data.waitMs : defaultWaitMs;
+    var targetPath = typeof data.targetPath === "string" ? data.targetPath : "/";
+    capturing = true;
+    postStatus("request_received", { requestId: requestId, targetPath: targetPath });
 
-    captureFrame(requestId, waitMs)
+    captureFrame(requestId, waitMs, targetPath)
       .then(function (result) {
         postToParent(result);
       })
@@ -183,32 +243,25 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
           code: "RENDER_FAILED",
           message: error && error.message ? error.message : String(error),
         });
+      })
+      .finally(function () {
+        capturing = false;
       });
   });
 
-  async function boot() {
-    try {
-      await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
-
-      frame.addEventListener("load", function () {
-        if (hostReady) return;
-        hostReady = true;
-        postToParent({ type: "CURSOR_PREVIEW_CAPTURE_READY" });
-      });
-
-      frame.src = targetPath.startsWith("/") ? targetPath : "/" + targetPath;
-    } catch (error) {
-      postToParent({
-        type: "CURSOR_PREVIEW_CAPTURE_ERROR",
-        requestId: null,
-        ok: false,
-        code: "BOOT_FAILED",
-        message: error && error.message ? error.message : String(error),
-      });
+  function notifyReady() {
+    postToParent({ type: "CURSOR_PREVIEW_CAPTURE_READY" });
+    if (!readyNotified) {
+      readyNotified = true;
+      postStatus("ready", { href: String(window.location.href || "") });
     }
   }
 
-  boot();
+  // Host page itself is ready immediately — do not wait for preview iframe.
+  notifyReady();
+  window.setTimeout(notifyReady, 500);
+  window.setTimeout(notifyReady, 1500);
+  window.setTimeout(notifyReady, 3000);
 })();
   </script>
 </body>

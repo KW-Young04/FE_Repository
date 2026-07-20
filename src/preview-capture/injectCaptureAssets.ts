@@ -2,6 +2,7 @@ import type { WebContainer } from "@webcontainer/api";
 import type { PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
 import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
 import { writeWorkspaceBinaryFile, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
+import { buildCaptureHostBootScript } from "./buildCaptureHostBootScript";
 import { CAPTURE_HOST_HTML } from "./captureHostTemplate";
 import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "./capturePageBridgeScript";
 import { snapshotLog, snapshotWarn } from "./snapshotLogger";
@@ -17,14 +18,16 @@ function resolveCaptureHostPath(profile: PreviewProjectProfile): string {
   return "__cursor__/capture-host.html";
 }
 
-function resolveHtml2CanvasPath(profile: PreviewProjectProfile): string {
+function resolveHtml2CanvasPaths(profile: PreviewProjectProfile): string[] {
   if (profile.kind === "bundler") {
     const root = profile.workspaceRoot;
-    return root
-      ? `${root}/public/__cursor__/html2canvas.min.js`
-      : "public/__cursor__/html2canvas.min.js";
+    const prefix = root ? `${root}/` : "";
+    return [
+      `${prefix}public/__cursor__/html2canvas.min.js`,
+      `${prefix}public/html2canvas.min.js`,
+    ];
   }
-  return "__cursor__/html2canvas.min.js";
+  return ["__cursor__/html2canvas.min.js", "html2canvas.min.js"];
 }
 
 function unique(paths: string[]): string[] {
@@ -48,15 +51,31 @@ function resolveHtmlEntryCandidates(
   const existing = preferred.filter((path) => Boolean(files[path]));
   if (existing.length > 0) return existing;
 
-  // Fall back to any html file already loaded.
   return Object.keys(files)
     .filter((path) => path.endsWith(".html") || path.endsWith(".htm"))
+    .filter((path) => !path.includes("playground/"))
     .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b))
     .slice(0, 3);
 }
 
+function injectHostBootIntoHtml(html: string): string {
+  if (html.includes("data-cursor-capture-host-boot")) {
+    return html;
+  }
+
+  const boot = buildCaptureHostBootScript(CAPTURE_HOST_HTML);
+  const snippet = `<script data-cursor-capture-host-boot="1">${boot}</script>`;
+  if (html.includes("<head>")) {
+    return html.replace("<head>", `<head>${snippet}`);
+  }
+  if (html.includes("<HEAD>")) {
+    return html.replace("<HEAD>", `<HEAD>${snippet}`);
+  }
+  return `${snippet}\n${html}`;
+}
+
 function injectBridgeIntoHtml(html: string): string {
-  if (html.includes('data-cursor-capture="1"') || html.includes("CURSOR_PREVIEW_CAPTURE")) {
+  if (html.includes('data-cursor-capture="1"') || html.includes("__CURSOR_CAPTURE_BRIDGE__")) {
     return html;
   }
 
@@ -94,14 +113,26 @@ export async function injectCaptureAssets(
   files: Record<string, LoadedFile> = {},
 ): Promise<{ captureHostPath: string; patchedHtmlPaths: string[]; html2CanvasPath: string }> {
   const captureHostPath = resolveCaptureHostPath(profile);
-  const html2CanvasPath = resolveHtml2CanvasPath(profile);
+  const html2CanvasPaths = resolveHtml2CanvasPaths(profile);
+  const html2CanvasPath = html2CanvasPaths[0];
 
   await writeWorkspaceFile(container, captureHostPath, CAPTURE_HOST_HTML);
+  // Extra copy at public root — some bundlers resolve this more reliably.
+  if (profile.kind === "bundler") {
+    const root = profile.workspaceRoot;
+    const alt = root ? `${root}/public/capture-host.html` : "public/capture-host.html";
+    await writeWorkspaceFile(container, alt, CAPTURE_HOST_HTML);
+  }
 
   try {
     const bytes = await loadHtml2CanvasBytes();
-    await writeWorkspaceBinaryFile(container, html2CanvasPath, bytes);
-    snapshotLog("html2canvas 동일 출처 주입", { html2CanvasPath, bytes: bytes.byteLength });
+    for (const path of html2CanvasPaths) {
+      await writeWorkspaceBinaryFile(container, path, bytes);
+    }
+    snapshotLog("html2canvas 동일 출처 주입", {
+      html2CanvasPaths,
+      bytes: bytes.byteLength,
+    });
   } catch (error) {
     snapshotWarn("html2canvas vendor 주입 실패 — CDN 폴백 불가(COEP)", error);
     throw new Error(
@@ -112,7 +143,6 @@ export async function injectCaptureAssets(
   const patchedHtmlPaths: string[] = [];
   const htmlCandidates = resolveHtmlEntryCandidates(profile, files);
 
-  // Prefer in-memory content, otherwise read from already-mounted workspace.
   const candidateSet = unique([
     ...htmlCandidates,
     ...(profile.kind === "bundler"
@@ -126,12 +156,14 @@ export async function injectCaptureAssets(
     const current = fromMemory ?? fromDisk;
     if (!current) continue;
 
-    const patched = injectBridgeIntoHtml(current);
-    if (patched === current && current.includes("CURSOR_PREVIEW_CAPTURE")) {
-      patchedHtmlPaths.push(htmlPath);
+    let patched = injectHostBootIntoHtml(current);
+    patched = injectBridgeIntoHtml(patched);
+    if (patched === current) {
+      if (current.includes("data-cursor-capture-host-boot") || current.includes("__CURSOR_CAPTURE_BRIDGE__")) {
+        patchedHtmlPaths.push(htmlPath);
+      }
       continue;
     }
-    if (patched === current) continue;
 
     await writeWorkspaceFile(container, htmlPath, patched);
     if (files[htmlPath]) {

@@ -32,10 +32,30 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
+function isWebContainerOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname;
+    return (
+      host.endsWith(".webcontainer-api.io") ||
+      host.endsWith(".webcontainer.io") ||
+      host.endsWith(".local-corp.webcontainer-api.io")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedMessageOrigin(eventOrigin: string, expectedOrigin: string): boolean {
+  if (eventOrigin === expectedOrigin) return true;
+  // WebContainer preview URLs can remap hostnames between server-ready and iframe load.
+  if (isWebContainerOrigin(eventOrigin) && isWebContainerOrigin(expectedOrigin)) return true;
+  return false;
+}
+
 export function capturePreviewSnapshot(
   options: CapturePreviewSnapshotOptions,
 ): Promise<CapturedPreviewSnapshot> {
-  const previewOrigin = new URL(options.previewUrl).origin;
+  let previewOrigin = new URL(options.previewUrl).origin;
   const waitMs = options.waitMs ?? CAPTURE_WAIT_MS;
   const mode = options.mode ?? "host";
   const captureUrl =
@@ -44,6 +64,7 @@ export function capturePreviewSnapshot(
       : buildCaptureHostUrl(options.previewUrl, {
           targetPath: options.targetPath,
           waitMs,
+          strategy: options.hostStrategy ?? "file",
         });
   const requestId = crypto.randomUUID();
   const timeoutMs = options.timeoutMs ?? CAPTURE_TIMEOUT_MS;
@@ -63,7 +84,6 @@ export function capturePreviewSnapshot(
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.title = "preview-capture";
-    // Keep iframe in the layout viewport so browsers still paint (off-screen can stall capture).
     iframe.style.cssText = [
       "position:fixed",
       "left:0",
@@ -144,10 +164,21 @@ export function capturePreviewSnapshot(
     };
 
     const onMessage = (event: MessageEvent<CaptureHostMessage>) => {
-      if (event.origin !== previewOrigin) return;
-
       const data = event.data;
-      if (!data?.type) return;
+      if (!data?.type || typeof data.type !== "string") return;
+      if (!data.type.startsWith("CURSOR_PREVIEW_CAPTURE")) return;
+
+      if (!isAllowedMessageOrigin(event.origin, previewOrigin)) {
+        snapshotWarn("캡처 메시지 origin 불일치", {
+          eventOrigin: event.origin,
+          previewOrigin,
+          type: data.type,
+        });
+        return;
+      }
+
+      // Learn the live iframe origin (may differ slightly from server-ready URL).
+      previewOrigin = event.origin;
 
       if (data.type === "CURSOR_PREVIEW_CAPTURE_STATUS") {
         lastStatus = data.stage ?? null;
@@ -191,8 +222,8 @@ export function capturePreviewSnapshot(
 
     const timeoutId = window.setTimeout(() => {
       const hint = sawReady
-        ? `READY는 왔지만 RESULT가 없습니다 (lastStatus=${lastStatus ?? "none"}). html2canvas/렌더 대기 실패 가능성이 큽니다.`
-        : `READY가 오지 않았습니다 (lastStatus=${lastStatus ?? "none"}). 프리뷰 HTML에 캡처 브리지가 없거나 iframe이 로드되지 않았을 수 있습니다.`;
+        ? `READY는 왔지만 RESULT가 없습니다 (lastStatus=${lastStatus ?? "none"}). html2canvas/프리뷰 로드 실패 가능성이 큽니다.`
+        : `READY가 오지 않았습니다 (lastStatus=${lastStatus ?? "none"}). capture-host 미로드 또는 origin 불일치일 수 있습니다.`;
       fail(new Error(`프리뷰 스냅샷 캡처 시간이 초과되었습니다. (${timeoutMs / 1000}초) ${hint}`));
     }, timeoutMs);
 
