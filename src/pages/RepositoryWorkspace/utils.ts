@@ -1,5 +1,6 @@
 import type { FileSystemTree } from "@webcontainer/api";
 import { repositoryApi, type RepositoryFileResponse } from "@/api/repository";
+import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "@/preview-capture/capturePageBridgeScript";
 import {
   BATCH_SIZE,
   BUNDLER_CONFIG_PATHS,
@@ -206,12 +207,15 @@ export function findPreviewEntryPath(files: Record<string, LoadedFile>): string 
 }
 
 export function createStaticServerScript(): string {
+  const captureBridgeLiteral = JSON.stringify(CAPTURE_PAGE_BRIDGE_SCRIPT);
+
   return `import http from "node:http";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, normalize, relative, resolve } from "node:path";
 
 const rootDir = resolve(process.cwd());
 const port = Number(process.env.PORT || ${PREVIEW_PORT});
+const captureBridge = ${captureBridgeLiteral};
 const mimeByExt = {
   ".html": "text/html; charset=utf-8",
   ".htm": "text/html; charset=utf-8",
@@ -265,12 +269,124 @@ function resolveRequestPath(rawPath) {
     }
   }
 
-  const rootIndex = join(rootDir, "index.html");
-  if (existsSync(rootIndex)) {
-    return rootIndex;
+  // Only fall back to index.html for navigations without a file extension.
+  const requestExt = extname(trimmed).toLowerCase();
+  if (!requestExt || requestExt === ".html" || requestExt === ".htm") {
+    const rootIndex = join(rootDir, "index.html");
+    if (existsSync(rootIndex)) {
+      return rootIndex;
+    }
   }
 
   return null;
+}
+
+function shouldInjectCapture(rawUrl) {
+  return String(rawUrl ?? "").includes("__cursor_capture=1");
+}
+
+function stripExternalFontsFromHtml(html) {
+  return html
+    .replace(/<link\\b[^>]*fonts\\.googleapis\\.com[^>]*>/gi, "")
+    .replace(/<link\\b[^>]*fonts\\.gstatic\\.com[^>]*>/gi, "")
+    .replace(/<link\\b[^>]*fonts\\.adobe\\.com[^>]*>/gi, "")
+    .replace(/<link\\b[^>]*use\\.typekit\\.net[^>]*>/gi, "")
+    .replace(/@import\\s+(?:url\\()?['"]?https?:\\/\\/fonts\\.googleapis\\.com[^;]+;?/gi, "");
+}
+
+function stripExternalFontsFromCss(css) {
+  return css.replace(/@import\\s+(?:url\\()?['"]?https?:\\/\\/fonts\\.googleapis\\.com[^;]+;?/gi, "");
+}
+
+function resolveLocalAsset(rootDir, href) {
+  if (!href || href.startsWith("data:") || href.startsWith("blob:")) return null;
+  if (/^https?:\\/\\//i.test(href) || href.startsWith("//")) return null;
+
+  const cleaned = decodeURIComponent(href.split("?")[0].split("#")[0]).replace(/^\\/+/, "");
+  const candidates = [
+    resolve(rootDir, cleaned),
+    resolve(rootDir, "public", cleaned),
+  ];
+
+  for (const candidate of candidates) {
+    if (!isWithinRoot(candidate)) continue;
+    if (existsSync(candidate) && statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function mimeFromPath(filePath) {
+  const ext = extname(filePath).toLowerCase();
+  return mimeByExt[ext] ?? "application/octet-stream";
+}
+
+function inlineLocalAssets(html, rootDir) {
+  let next = html;
+
+  next = next.replace(/<link\\b([^>]*?)href=["']([^"']+)["']([^>]*)>/gi, function (match, pre, href, post) {
+    const rel = ((pre + post).match(/rel=["']([^"']+)["']/i) || [])[1] || "";
+    if (rel && rel.toLowerCase().indexOf("stylesheet") === -1) {
+      return match;
+    }
+    if (/fonts\\.googleapis|fonts\\.gstatic|fonts\\.adobe|typekit/i.test(href)) {
+      return "";
+    }
+    const assetPath = resolveLocalAsset(rootDir, href);
+    if (!assetPath || extname(assetPath).toLowerCase() !== ".css") {
+      return match;
+    }
+    try {
+      const css = stripExternalFontsFromCss(readFileSync(assetPath, "utf8"));
+      console.log("STATIC_INLINE_CSS", href, "->", relative(rootDir, assetPath));
+      return "<style data-cursor-inlined=\\"1\\">" + css + "</style>";
+    } catch (error) {
+      console.log("STATIC_INLINE_CSS_FAIL", href, error instanceof Error ? error.message : String(error));
+      return match;
+    }
+  });
+
+  next = next.replace(/<img\\b([^>]*?)\\bsrc=["']([^"']+)["']([^>]*)>/gi, function (match, pre, src, post) {
+    const assetPath = resolveLocalAsset(rootDir, src);
+    if (!assetPath) return match;
+    try {
+      const bytes = readFileSync(assetPath);
+      const mime = mimeFromPath(assetPath);
+      const base64 = Buffer.from(bytes).toString("base64");
+      console.log("STATIC_INLINE_IMG", src, "->", relative(rootDir, assetPath));
+      return "<img" + pre + "src=\\"data:" + mime + ";base64," + base64 + "\\"" + post + ">";
+    } catch (error) {
+      console.log("STATIC_INLINE_IMG_FAIL", src, error instanceof Error ? error.message : String(error));
+      return match;
+    }
+  });
+
+  return next;
+}
+
+function injectCaptureBridge(html, rootDir) {
+  var cleaned = stripExternalFontsFromHtml(html);
+  cleaned = inlineLocalAssets(cleaned, rootDir);
+
+  var fontOverride =
+    "<style data-cursor-font-override=\\"1\\">html,body{font-family:Arial,Helvetica,sans-serif;}</style>";
+  if (cleaned.includes("</head>")) {
+    cleaned = cleaned.replace("</head>", fontOverride + "</head>");
+  } else if (cleaned.includes("</HEAD>")) {
+    cleaned = cleaned.replace("</HEAD>", fontOverride + "</HEAD>");
+  } else {
+    cleaned = fontOverride + cleaned;
+  }
+
+  var snippet = "<script data-cursor-capture=\\"1\\">" + captureBridge + "</script>";
+  if (cleaned.includes("</body>")) {
+    return cleaned.replace("</body>", snippet + "</body>");
+  }
+  if (cleaned.includes("</BODY>")) {
+    return cleaned.replace("</BODY>", snippet + "</BODY>");
+  }
+  return cleaned + snippet;
 }
 
 const server = http.createServer((req, res) => {
@@ -278,6 +394,9 @@ const server = http.createServer((req, res) => {
 
   if (!target) {
     console.log("STATIC_NOT_FOUND", req.url ?? "/");
+    try {
+      console.log("STATIC_ROOT_LIST", readdirSync(rootDir).join(", "));
+    } catch {}
     res.statusCode = 404;
     res.end("Not Found");
     return;
@@ -287,6 +406,23 @@ const server = http.createServer((req, res) => {
   const ext = extname(target).toLowerCase();
   const mime = mimeByExt[ext] ?? "text/plain; charset=utf-8";
   res.setHeader("Content-Type", mime);
+
+  if (ext === ".html" || ext === ".htm") {
+    let html = readFileSync(target, "utf8");
+    html = stripExternalFontsFromHtml(html);
+    if (shouldInjectCapture(req.url)) {
+      html = injectCaptureBridge(html, rootDir);
+    }
+    res.end(html);
+    return;
+  }
+
+  if (ext === ".css") {
+    const css = stripExternalFontsFromCss(readFileSync(target, "utf8"));
+    res.end(css);
+    return;
+  }
+
   res.end(readFileSync(target));
 });
 

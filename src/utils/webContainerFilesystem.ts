@@ -49,6 +49,18 @@ export async function writeWorkspaceFile(
   await container.fs.writeFile(path, content);
 }
 
+export async function writeWorkspaceBinaryFile(
+  container: WebContainer,
+  path: string,
+  content: Uint8Array,
+): Promise<void> {
+  const parent = getParentDirectory(path);
+  if (parent) {
+    await container.fs.mkdir(parent, { recursive: true });
+  }
+  await container.fs.writeFile(path, content);
+}
+
 async function mountTree(container: WebContainer, fsTree: FileSystemTree): Promise<void> {
   if (mountState === "mounted") return;
 

@@ -1,3 +1,4 @@
+import type { SnapshotCaptureStatus } from "@/preview-capture/types";
 import type { PreviewStatus } from "../types";
 
 interface PreviewPanelProps {
@@ -7,6 +8,8 @@ interface PreviewPanelProps {
   previewProjectLabel: string;
   runtimeError: string | null;
   runtimeLog: string[];
+  snapshotCaptureStatus: SnapshotCaptureStatus;
+  analysisResultId: number | null;
 }
 
 export default function PreviewPanel({
@@ -16,7 +19,19 @@ export default function PreviewPanel({
   previewProjectLabel,
   runtimeError,
   runtimeLog,
+  snapshotCaptureStatus,
+  analysisResultId,
 }: PreviewPanelProps) {
+  const snapshotStatusLabel =
+    snapshotCaptureStatus === "capturing"
+      ? "스냅샷 캡처 중"
+      : snapshotCaptureStatus === "uploading"
+        ? "분석 전송 중"
+        : snapshotCaptureStatus === "done"
+          ? `분석 완료 #${analysisResultId ?? ""}`
+          : snapshotCaptureStatus === "error"
+            ? "스냅샷/분석 실패"
+            : null;
   const previewSrc =
     previewUrl && previewStatus === "ready"
       ? `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}_rev=${previewRevision}`
@@ -29,24 +44,40 @@ export default function PreviewPanel({
           <strong className="text-sm text-slate-800">실시간 프리뷰</strong>
           <p className="truncate text-[11px] font-medium text-slate-500">{previewProjectLabel}</p>
         </div>
-        <span
-          className={[
-            "text-xs font-bold",
-            previewStatus === "ready"
-              ? "text-green-600"
-              : previewStatus === "error"
-                ? "text-rose-600"
-                : "text-slate-500",
-          ].join(" ")}
-        >
-          {previewStatus === "ready"
-            ? "연결됨"
-            : previewStatus === "loading"
-              ? "준비 중"
-              : previewStatus === "error"
-                ? "오류"
-                : "대기"}
-        </span>
+        <div className="flex flex-col items-end gap-0.5">
+          <span
+            className={[
+              "text-xs font-bold",
+              previewStatus === "ready"
+                ? "text-green-600"
+                : previewStatus === "error"
+                  ? "text-rose-600"
+                  : "text-slate-500",
+            ].join(" ")}
+          >
+            {previewStatus === "ready"
+              ? "연결됨"
+              : previewStatus === "loading"
+                ? "준비 중"
+                : previewStatus === "error"
+                  ? "오류"
+                  : "대기"}
+          </span>
+          {snapshotStatusLabel ? (
+            <span
+              className={[
+                "text-[10px] font-semibold",
+                snapshotCaptureStatus === "done"
+                  ? "text-sky-600"
+                  : snapshotCaptureStatus === "error"
+                    ? "text-amber-600"
+                    : "text-slate-500",
+              ].join(" ")}
+            >
+              {snapshotStatusLabel}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 bg-slate-100">

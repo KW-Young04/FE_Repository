@@ -9,6 +9,7 @@ export interface TreeNode {
 export interface RepositoryTreeResponse {
   owner: string;
   repo: string;
+  branch?: string;
   nodes: TreeNode[];
 }
 

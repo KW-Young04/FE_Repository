@@ -1,4 +1,5 @@
 import type { RepositoryTreeResponse } from "@/api/repository";
+import type { SnapshotCaptureStatus } from "@/preview-capture/types";
 
 export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 
@@ -44,6 +45,8 @@ export interface RepositoryWorkspaceViewProps {
   previewProjectLabel: string;
   runtimeLog: string[];
   runtimeError: string | null;
+  snapshotCaptureStatus: SnapshotCaptureStatus;
+  analysisResultId: number | null;
   isRestarting: boolean;
   onFileClick: (path: string) => void | Promise<void>;
   onCloseTab: (path: string) => void;

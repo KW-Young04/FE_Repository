@@ -2,6 +2,8 @@ import { WebContainer, type WebContainerProcess } from "@webcontainer/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RepositoryTreeResponse } from "@/api/repository";
+import { injectCaptureAssets } from "@/preview-capture/injectCaptureAssets";
+import type { SnapshotCaptureStatus } from "@/preview-capture/types";
 import { acquireWebContainer, teardownWebContainer } from "@/utils/webContainerRuntime";
 import { mountOrSyncWorkspace, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
 import { getOrStartWorkspaceWarmup, invalidateWorkspaceWarmup } from "@/utils/workspaceWarmup";
@@ -61,6 +63,8 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const [previewProjectLabel, setPreviewProjectLabel] = useState("정적 HTML");
   const [runtimeLog, setRuntimeLog] = useState<string[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [snapshotCaptureStatus, setSnapshotCaptureStatus] = useState<SnapshotCaptureStatus>("idle");
+  const [analysisResultId, setAnalysisResultId] = useState<number | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
 
   const webContainerRef = useRef<WebContainer | null>(null);
@@ -77,6 +81,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const runtimeStartInFlightRef = useRef<Promise<void> | null>(null);
   const previewRuntimeTokenRef = useRef(0);
   const installProcessRef = useRef<WebContainerProcess | null>(null);
+  const captureAttemptedRef = useRef(false);
 
   const activeFile = useMemo(() => {
     if (!activePath) return null;
@@ -131,7 +136,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   }, []);
 
   const attachProcessOutputPump = useCallback(
-    (process: WebContainerProcess, generation: number, reportExitError: boolean = true) => {
+    (process: WebContainerProcess, _generation: number, reportExitError: boolean = true) => {
       const reader = process.output.getReader();
       const abortController = new AbortController();
       outputPumpAbortRef.current = abortController;
@@ -344,6 +349,9 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
 
         setPreviewStatus("loading");
         previewReadyRef.current = false;
+        captureAttemptedRef.current = false;
+        setSnapshotCaptureStatus("idle");
+        setAnalysisResultId(null);
         setPreviewRevision(0);
         setRuntimeError(null);
         setPreviewUrl("");
@@ -384,6 +392,10 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
             ? `WebContainer 최초 마운트 완료 (파일 ${Object.keys(files).length}개)`
             : `WebContainer 파일 동기화 완료 (파일 ${Object.keys(files).length}개)`,
         );
+
+        const captureHostPath = await injectCaptureAssets(container, projectProfile);
+        if (runtimeToken !== previewRuntimeTokenRef.current) return;
+        logEvent(`스냅샷 캡처 호스트 주입 완료 (${captureHostPath})`);
 
         const serverReadyTimeoutMs = isBundler ? BUNDLER_SERVER_READY_TIMEOUT_MS : SERVER_READY_TIMEOUT_MS;
         subscribeServerReady(container, serverReadyTimeoutMs);
@@ -523,6 +535,9 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     setIsRestarting(true);
     setRuntimeError(null);
     setRuntimeLog([]);
+    captureAttemptedRef.current = false;
+    setSnapshotCaptureStatus("idle");
+    setAnalysisResultId(null);
     try {
       logEvent("프리뷰 재시작: 실행 중인 프로세스 종료 중...");
       await stopRuntimeProcess();
@@ -765,6 +780,8 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     previewProjectLabel,
     runtimeLog,
     runtimeError,
+    snapshotCaptureStatus,
+    analysisResultId,
     isRestarting,
     onFileClick: handleFileClick,
     onCloseTab: closeTab,

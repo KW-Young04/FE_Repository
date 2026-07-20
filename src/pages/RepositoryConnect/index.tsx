@@ -30,12 +30,29 @@ export default function RepositoryConnectPage() {
     setErrorMessage(null);
 
     try {
+      if (!localStorage.getItem("access_token")) {
+        setErrorMessage("로그인이 필요합니다. 메인 페이지에서 GitHub 로그인을 먼저 진행해 주세요.");
+        return;
+      }
+
       await repositoryApi.getTree(normalized);
       navigate(`/repository-analysis?repo=${encodeURIComponent(normalized)}`);
-    } catch {
-      setErrorMessage(
-        "저장소를 찾을 수 없습니다. URL을 확인하거나 공개 저장소인지 확인해 주세요.",
-      );
+    } catch (error) {
+      const status =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { status?: number } }).response?.status === "number"
+          ? (error as { response: { status: number } }).response.status
+          : null;
+
+      if (status === 401 || status === 403) {
+        setErrorMessage("로그인이 만료되었거나 권한이 없습니다. 다시 로그인해 주세요.");
+      } else {
+        setErrorMessage(
+          "저장소를 찾을 수 없습니다. URL을 확인하거나 공개 저장소인지 확인해 주세요.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }

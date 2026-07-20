@@ -32,7 +32,23 @@ const EDITABLE_EXTENSIONS = [
   ".less",
   ".vue",
   ".svelte",
+  ".svg",
 ];
+
+// Preview assets that should be prioritized into the initial warmup set.
+const PREVIEW_ASSET_EXTENSIONS = new Set([
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".svg",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+]);
 
 const ALWAYS_INCLUDE = new Set([
   "package.json",
@@ -128,6 +144,7 @@ function getPathPriority(path: string): number {
   if (path === "index.html" || path === "index.htm") return 0;
   if (path.endsWith(".html") || path.endsWith(".htm")) return 1;
   if (path.endsWith(".tsx") || path.endsWith(".jsx")) return 2;
+  if (PREVIEW_ASSET_EXTENSIONS.has(getFileExtension(path))) return 2;
   if (path.endsWith(".css")) return 3;
   if (path.endsWith(".ts") || path.endsWith(".js")) return 4;
   if (path.startsWith("src/")) return 5;
@@ -156,7 +173,8 @@ function splitFastPreviewPaths(paths: string[]): { corePaths: string[]; deferred
       path.endsWith("/index.html") ||
       path.endsWith("/index.htm") ||
       /^vite\.config\.(ts|js|mjs|cjs)$/.test(path) ||
-      /^(postcss|tailwind)\.config\.(ts|js|mjs|cjs)$/.test(path),
+      /^(postcss|tailwind)\.config\.(ts|js|mjs|cjs)$/.test(path) ||
+      PREVIEW_ASSET_EXTENSIONS.has(getFileExtension(path)),
   );
 
   const coreSet = new Set<string>(mustIncludePaths);

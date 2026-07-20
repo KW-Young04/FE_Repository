@@ -24,6 +24,8 @@ export default function RepositoryWorkspaceView({
   previewProjectLabel,
   runtimeLog,
   runtimeError,
+  snapshotCaptureStatus,
+  analysisResultId,
   isRestarting,
   onFileClick,
   onCloseTab,
@@ -76,6 +78,8 @@ export default function RepositoryWorkspaceView({
           previewProjectLabel={previewProjectLabel}
           runtimeError={runtimeError}
           runtimeLog={runtimeLog}
+          snapshotCaptureStatus={snapshotCaptureStatus}
+          analysisResultId={analysisResultId}
         />
       </section>
     </main>
