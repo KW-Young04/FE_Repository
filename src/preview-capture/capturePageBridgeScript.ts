@@ -1,22 +1,24 @@
 /**
- * Injected into preview HTML when ?__cursor_capture=1 is present.
- * Runs inside the preview page (same origin) and posts PNG back to the parent.
+ * Injected into preview HTML.
+ * Works without query params (WebContainer often cannot navigate to ?__cursor_capture=... URLs).
+ * Parent origin is learned from the first CAPTURE_REQUEST message.
  */
 export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   if (window.__CURSOR_CAPTURE_BRIDGE__) return;
   window.__CURSOR_CAPTURE_BRIDGE__ = true;
 
-  var params = new URLSearchParams(window.location.search);
-  var parentOrigin = params.get("parentOrigin");
-  var defaultWaitMs = Number(params.get("waitMs") || "500");
+  var allowedParentOrigin = null;
+  var defaultWaitMs = 800;
+  var readyNotified = false;
 
-  if (!parentOrigin) {
-    console.error("[capture-bridge] parentOrigin is required");
-    return;
-  }
+  try {
+    var params = new URLSearchParams(window.location.search || "");
+    if (params.get("parentOrigin")) allowedParentOrigin = params.get("parentOrigin");
+    if (params.get("waitMs")) defaultWaitMs = Number(params.get("waitMs")) || defaultWaitMs;
+  } catch (_error) {}
 
   function postToParent(payload) {
-    window.parent.postMessage(payload, parentOrigin);
+    window.parent.postMessage(payload, allowedParentOrigin || "*");
   }
 
   function wait(ms) {
@@ -70,7 +72,6 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
     stripFontResources(document);
     await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
 
-    // Wait for stylesheets/images so the snapshot is not an unstyled DOM dump.
     try {
       var styleLinks = Array.prototype.slice.call(
         document.querySelectorAll('link[rel="stylesheet"]')
@@ -81,7 +82,7 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
           return new Promise(function (resolve) {
             link.addEventListener("load", resolve, { once: true });
             link.addEventListener("error", resolve, { once: true });
-            window.setTimeout(resolve, 2000);
+            window.setTimeout(resolve, 1500);
           });
         })
       );
@@ -95,7 +96,7 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
           return new Promise(function (resolve) {
             img.addEventListener("load", resolve, { once: true });
             img.addEventListener("error", resolve, { once: true });
-            window.setTimeout(resolve, 2000);
+            window.setTimeout(resolve, 1500);
           });
         })
       );
@@ -143,9 +144,15 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   var capturing = false;
 
   window.addEventListener("message", function (event) {
-    if (event.origin !== parentOrigin) return;
     var data = event.data;
     if (!data || data.type !== "CURSOR_PREVIEW_CAPTURE_REQUEST") return;
+
+    if (!allowedParentOrigin) {
+      allowedParentOrigin = event.origin;
+    } else if (event.origin !== allowedParentOrigin) {
+      return;
+    }
+
     if (capturing) return;
 
     var requestId = data.requestId;
@@ -170,9 +177,12 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
       });
   });
 
-  // IMPORTANT: do NOT wait for window "load".
-  // External fonts (Google Fonts) often hang under WebContainer COEP and delay load forever.
   function notifyReady() {
+    if (readyNotified) {
+      postToParent({ type: "CURSOR_PREVIEW_CAPTURE_READY" });
+      return;
+    }
+    readyNotified = true;
     stripFontResources(document);
     postToParent({ type: "CURSOR_PREVIEW_CAPTURE_READY" });
   }
@@ -182,4 +192,9 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   } else {
     notifyReady();
   }
+
+  // Parent may attach late; re-announce readiness a few times.
+  window.setTimeout(notifyReady, 500);
+  window.setTimeout(notifyReady, 1500);
+  window.setTimeout(notifyReady, 3000);
 })();`;

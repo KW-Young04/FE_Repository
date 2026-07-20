@@ -222,8 +222,11 @@ export async function runAnalysisSnapshotPipeline(
     console.warn("[runAnalysisSnapshotPipeline] readdir failed:", error);
   }
 
-  onProgress?.("캡처 호스트 주입 중…");
-  await injectCaptureAssets(container, projectProfile);
+  onProgress?.("캡처 브리지 주입 중…");
+  const injected = await injectCaptureAssets(container, projectProfile, files);
+  if (injected.patchedHtmlPaths.length > 0) {
+    onProgress?.(`HTML 캡처 브리지 주입: ${injected.patchedHtmlPaths.join(", ")}`);
+  }
 
   const readyPromise = waitForServerReady(
     container,
@@ -243,10 +246,11 @@ export async function runAnalysisSnapshotPipeline(
   onProgress?.("렌더링 스냅샷 캡처 중…");
   const captured = await capturePreviewSnapshot({
     previewUrl,
-    mode: isBundler ? "host" : "direct",
-    // CSS/이미지 적용 대기
-    waitMs: isBundler ? 1200 : 1000,
-    timeoutMs: 25_000,
+    // Bundler(CRA/Vite)도 capture-host 대신 앱 HTML direct 캡처를 사용한다.
+    // capture-host.html 은 WebContainer에서 자주 로드 실패한다.
+    mode: "direct",
+    waitMs: isBundler ? 2000 : 1000,
+    timeoutMs: isBundler ? 45_000 : 25_000,
   });
   const snapshotId = `snap-${Date.now()}`;
   const renderedFilePaths = buildSnapshotMeta(files, previewEntryPath);

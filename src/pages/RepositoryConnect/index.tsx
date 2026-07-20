@@ -47,7 +47,13 @@ export default function RepositoryConnectPage() {
           : null;
 
       if (status === 401 || status === 403) {
-        setErrorMessage("로그인이 만료되었거나 권한이 없습니다. 다시 로그인해 주세요.");
+        localStorage.removeItem("access_token");
+        setErrorMessage("로그인이 만료되었거나 권한이 없습니다. 메인에서 GitHub 로그인을 다시 해주세요.");
+      } else if (!status) {
+        // CORS / Network Error (OAuth 리다이렉트 추종 실패 등)
+        setErrorMessage(
+          "서버 인증에 실패했습니다. 백엔드가 실행 중인지 확인하고, 메인에서 다시 로그인해 주세요.",
+        );
       } else {
         setErrorMessage(
           "저장소를 찾을 수 없습니다. URL을 확인하거나 공개 저장소인지 확인해 주세요.",

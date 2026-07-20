@@ -410,9 +410,8 @@ const server = http.createServer((req, res) => {
   if (ext === ".html" || ext === ".htm") {
     let html = readFileSync(target, "utf8");
     html = stripExternalFontsFromHtml(html);
-    if (shouldInjectCapture(req.url)) {
-      html = injectCaptureBridge(html, rootDir);
-    }
+    // Always inject bridge so clean preview URLs can be captured without query params.
+    html = injectCaptureBridge(html, rootDir);
     res.end(html);
     return;
   }

@@ -28,23 +28,17 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
-function buildDirectCaptureUrl(previewUrl: string, waitMs: number): string {
-  const url = new URL(previewUrl);
-  url.searchParams.set("__cursor_capture", "1");
-  url.searchParams.set("parentOrigin", window.location.origin);
-  url.searchParams.set("waitMs", String(waitMs));
-  return url.toString();
-}
-
 export function capturePreviewSnapshot(
   options: CapturePreviewSnapshotOptions,
 ): Promise<CapturedPreviewSnapshot> {
   const previewOrigin = new URL(options.previewUrl).origin;
   const waitMs = options.waitMs ?? CAPTURE_WAIT_MS;
   const mode = options.mode ?? "host";
+  // Direct mode must use the clean preview URL.
+  // WebContainer rejects navigation to ?__cursor_capture=... query URLs.
   const captureUrl =
     mode === "direct"
-      ? buildDirectCaptureUrl(options.previewUrl, waitMs)
+      ? options.previewUrl
       : buildCaptureHostUrl(options.previewUrl, {
           targetPath: options.targetPath,
           waitMs,
@@ -93,7 +87,7 @@ export function capturePreviewSnapshot(
     };
 
     const sendCaptureRequest = () => {
-      if (settled || attempts >= 6) return;
+      if (settled || attempts >= 8) return;
       attempts += 1;
       iframe.contentWindow?.postMessage(
         {
@@ -102,6 +96,7 @@ export function capturePreviewSnapshot(
           targetPath: options.targetPath ?? "/",
           viewport: CAPTURE_VIEWPORT,
           waitMs,
+          parentOrigin: window.location.origin,
         },
         previewOrigin,
       );
@@ -140,14 +135,14 @@ export function capturePreviewSnapshot(
 
     const retryId = window.setInterval(() => {
       if (!settled) sendCaptureRequest();
-    }, 2500);
+    }, 2000);
 
     window.addEventListener("message", onMessage);
     document.body.appendChild(iframe);
     iframe.addEventListener("load", () => {
       window.setTimeout(() => {
         if (!settled) sendCaptureRequest();
-      }, 500);
+      }, 400);
     });
     iframe.src = captureUrl;
   });
