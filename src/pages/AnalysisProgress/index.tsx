@@ -143,6 +143,7 @@ export default function AnalysisProgressPage() {
           tree: warmed.tree,
           files: warmed.files,
           onProgress: (message) => {
+            console.log("[렌더링 스냅샷][UI]", message);
             setStepMessages((prev) => {
               const next = [...prev];
               if (prev[2] !== "done" && prev[3] !== "running" && prev[3] !== "done") {
@@ -171,6 +172,12 @@ export default function AnalysisProgressPage() {
 
         setSnapshotImageUrl(result.imageObjectUrl);
         setAnalysisResultId(result.resultId);
+        console.log("[렌더링 스냅샷][UI] 파이프라인 성공", {
+          resultId: result.resultId,
+          snapshotId: result.snapshotId,
+          previewUrl: result.previewUrl,
+          renderedFilePaths: result.renderedFilePaths,
+        });
         sessionStorage.setItem(
           `wcag-analysis:${repositoryUrl}`,
           JSON.stringify({
@@ -194,6 +201,7 @@ export default function AnalysisProgressPage() {
         setIsComplete(true);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        console.error("[렌더링 스냅샷][UI] 파이프라인 실패", error);
         setPipelineError(message);
         setStepStatuses((prev) => {
           const next = [...prev];

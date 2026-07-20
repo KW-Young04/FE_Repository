@@ -5,6 +5,7 @@ import {
   CAPTURE_VIEWPORT,
   CAPTURE_WAIT_MS,
 } from "./constants";
+import { snapshotError, snapshotLog, snapshotWarn } from "./snapshotLogger";
 import type { CapturedPreviewSnapshot, CapturePreviewSnapshotOptions } from "./types";
 
 interface CaptureHostMessage {
@@ -34,8 +35,6 @@ export function capturePreviewSnapshot(
   const previewOrigin = new URL(options.previewUrl).origin;
   const waitMs = options.waitMs ?? CAPTURE_WAIT_MS;
   const mode = options.mode ?? "host";
-  // Direct mode must use the clean preview URL.
-  // WebContainer rejects navigation to ?__cursor_capture=... query URLs.
   const captureUrl =
     mode === "direct"
       ? options.previewUrl
@@ -45,6 +44,17 @@ export function capturePreviewSnapshot(
         });
   const requestId = crypto.randomUUID();
   const timeoutMs = options.timeoutMs ?? CAPTURE_TIMEOUT_MS;
+  const startedAt = Date.now();
+
+  snapshotLog("캡처 클라이언트 시작", {
+    mode,
+    previewUrl: options.previewUrl,
+    captureUrl,
+    previewOrigin,
+    waitMs,
+    timeoutMs,
+    requestId,
+  });
 
   return new Promise((resolve, reject) => {
     const iframe = document.createElement("iframe");
@@ -75,6 +85,11 @@ export function capturePreviewSnapshot(
     const fail = (error: Error) => {
       if (settled) return;
       settled = true;
+      snapshotError("캡처 실패", {
+        message: error.message,
+        attempts,
+        elapsedMs: Date.now() - startedAt,
+      });
       cleanup();
       reject(error);
     };
@@ -82,6 +97,13 @@ export function capturePreviewSnapshot(
     const succeed = (snapshot: CapturedPreviewSnapshot) => {
       if (settled) return;
       settled = true;
+      snapshotLog("캡처 성공", {
+        width: snapshot.width,
+        height: snapshot.height,
+        blobSize: snapshot.blob.size,
+        attempts,
+        elapsedMs: Date.now() - startedAt,
+      });
       cleanup();
       resolve(snapshot);
     };
@@ -89,6 +111,7 @@ export function capturePreviewSnapshot(
     const sendCaptureRequest = () => {
       if (settled || attempts >= 8) return;
       attempts += 1;
+      snapshotLog("CAPTURE_REQUEST 전송", { attempt: attempts, requestId, previewOrigin });
       iframe.contentWindow?.postMessage(
         {
           type: CAPTURE_MESSAGE.REQUEST,
@@ -109,6 +132,7 @@ export function capturePreviewSnapshot(
       if (!data?.type) return;
 
       if (data.type === CAPTURE_MESSAGE.READY) {
+        snapshotLog("CAPTURE_READY 수신", { origin: event.origin, elapsedMs: Date.now() - startedAt });
         sendCaptureRequest();
         return;
       }
@@ -116,6 +140,11 @@ export function capturePreviewSnapshot(
       if (data.requestId !== requestId) return;
 
       if (data.type === CAPTURE_MESSAGE.RESULT && data.ok && data.base64) {
+        snapshotLog("CAPTURE_RESULT 수신", {
+          width: data.width,
+          height: data.height,
+          base64Length: data.base64.length,
+        });
         succeed({
           blob: base64ToBlob(data.base64, data.mimeType ?? "image/png"),
           width: data.width ?? CAPTURE_VIEWPORT.width,
@@ -125,6 +154,7 @@ export function capturePreviewSnapshot(
       }
 
       if (data.type === CAPTURE_MESSAGE.ERROR) {
+        snapshotWarn("CAPTURE_ERROR 수신", data);
         fail(new Error(data.message ?? `Capture failed (${data.code ?? "UNKNOWN"})`));
       }
     };
@@ -134,16 +164,24 @@ export function capturePreviewSnapshot(
     }, timeoutMs);
 
     const retryId = window.setInterval(() => {
-      if (!settled) sendCaptureRequest();
+      if (!settled) {
+        snapshotLog("CAPTURE_REQUEST 재시도 타이머", { attempts, elapsedMs: Date.now() - startedAt });
+        sendCaptureRequest();
+      }
     }, 2000);
 
     window.addEventListener("message", onMessage);
     document.body.appendChild(iframe);
     iframe.addEventListener("load", () => {
+      snapshotLog("캡처 iframe load 이벤트", { captureUrl, elapsedMs: Date.now() - startedAt });
       window.setTimeout(() => {
         if (!settled) sendCaptureRequest();
       }, 400);
     });
+    iframe.addEventListener("error", () => {
+      snapshotWarn("캡처 iframe error 이벤트", { captureUrl });
+    });
     iframe.src = captureUrl;
+    snapshotLog("캡처 iframe src 설정 완료", { captureUrl });
   });
 }
