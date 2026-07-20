@@ -70,6 +70,11 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
         if (done) return;
         done = true;
         window.clearTimeout(timer);
+        // CRA SPA fallback can return index.html with 200 — onload fires but no API.
+        if (!window.html2canvas) {
+          reject(new Error("Script loaded but html2canvas missing (SPA fallback?): " + src));
+          return;
+        }
         resolve();
       };
       script.onerror = function () {
@@ -83,10 +88,15 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   }
 
   async function ensureHtml2Canvas() {
-    if (window.html2canvas) return;
+    if (window.html2canvas) {
+      postStatus("html2canvas_inline");
+      return;
+    }
     var candidates = [
       "/__cursor__/html2canvas.min.js",
+      "/html2canvas.min.js",
       "./__cursor__/html2canvas.min.js",
+      "./html2canvas.min.js",
       "html2canvas.min.js",
     ];
     var lastError = null;
@@ -170,7 +180,7 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
       );
     } catch (_error) {}
 
-    await waitForAppContent(Math.max(waitMs, 4000));
+    await waitForAppContent(Math.max(waitMs * 2, 12000));
     await wait(waitMs);
 
     var target = document.body || document.documentElement;

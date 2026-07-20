@@ -57,10 +57,16 @@ export function capturePreviewSnapshot(
 ): Promise<CapturedPreviewSnapshot> {
   let previewOrigin = new URL(options.previewUrl).origin;
   const waitMs = options.waitMs ?? CAPTURE_WAIT_MS;
-  const mode = options.mode ?? "host";
+  const mode = options.mode ?? "direct";
   const captureUrl =
     mode === "direct"
-      ? options.previewUrl
+      ? (() => {
+          // WebContainer often rejects navigations with query strings; keep URL clean.
+          const url = new URL(options.previewUrl);
+          url.search = "";
+          url.hash = "";
+          return url.toString();
+        })()
       : buildCaptureHostUrl(options.previewUrl, {
           targetPath: options.targetPath,
           waitMs,
@@ -69,6 +75,7 @@ export function capturePreviewSnapshot(
   const requestId = crypto.randomUUID();
   const timeoutMs = options.timeoutMs ?? CAPTURE_TIMEOUT_MS;
   const startedAt = Date.now();
+  const maxAttempts = mode === "direct" ? 24 : 12;
 
   snapshotLog("캡처 클라이언트 시작", {
     mode,
@@ -117,6 +124,8 @@ export function capturePreviewSnapshot(
         attempts,
         sawReady,
         lastStatus,
+        mode,
+        captureUrl,
         elapsedMs: Date.now() - startedAt,
       });
       cleanup();
@@ -138,7 +147,7 @@ export function capturePreviewSnapshot(
     };
 
     const sendCaptureRequest = () => {
-      if (settled || attempts >= 12) return;
+      if (settled || attempts >= maxAttempts) return;
       const win = iframe.contentWindow;
       if (!win) {
         snapshotWarn("CAPTURE_REQUEST 스킵 — contentWindow 없음", { attempts });
@@ -192,9 +201,10 @@ export function capturePreviewSnapshot(
       }
 
       if (data.type === CAPTURE_MESSAGE.READY) {
+        const firstReady = !sawReady;
         sawReady = true;
         snapshotLog("CAPTURE_READY 수신", { origin: event.origin, elapsedMs: Date.now() - startedAt });
-        sendCaptureRequest();
+        if (firstReady) sendCaptureRequest();
         return;
       }
 
@@ -222,8 +232,10 @@ export function capturePreviewSnapshot(
 
     const timeoutId = window.setTimeout(() => {
       const hint = sawReady
-        ? `READY는 왔지만 RESULT가 없습니다 (lastStatus=${lastStatus ?? "none"}). html2canvas/프리뷰 로드 실패 가능성이 큽니다.`
-        : `READY가 오지 않았습니다 (lastStatus=${lastStatus ?? "none"}). capture-host 미로드 또는 origin 불일치일 수 있습니다.`;
+        ? `READY는 왔지만 RESULT가 없습니다 (lastStatus=${lastStatus ?? "none"}). html2canvas/앱 마운트 실패 가능성이 큽니다.`
+        : mode === "direct"
+          ? `READY가 오지 않았습니다 (lastStatus=${lastStatus ?? "none"}). index.html 캡처 브리지 미주입이거나 프리뷰 JS 오류일 수 있습니다.`
+          : `READY가 오지 않았습니다 (lastStatus=${lastStatus ?? "none"}). capture-host 미로드 또는 origin 불일치일 수 있습니다.`;
       fail(new Error(`프리뷰 스냅샷 캡처 시간이 초과되었습니다. (${timeoutMs / 1000}초) ${hint}`));
     }, timeoutMs);
 

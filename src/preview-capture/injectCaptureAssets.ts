@@ -2,7 +2,6 @@ import type { WebContainer } from "@webcontainer/api";
 import type { PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
 import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
 import { writeWorkspaceBinaryFile, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
-import { buildCaptureHostBootScript } from "./buildCaptureHostBootScript";
 import { CAPTURE_HOST_HTML } from "./captureHostTemplate";
 import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "./capturePageBridgeScript";
 import { snapshotLog, snapshotWarn } from "./snapshotLogger";
@@ -58,28 +57,17 @@ function resolveHtmlEntryCandidates(
     .slice(0, 3);
 }
 
-function injectHostBootIntoHtml(html: string): string {
-  if (html.includes("data-cursor-capture-host-boot")) {
+/**
+ * CRA/Vite SPA fallback often serves index.html for /__cursor__/html2canvas.min.js,
+ * so we inline the library before the capture bridge. No network fetch needed.
+ */
+function injectHtml2CanvasInline(html: string, source: string): string {
+  if (html.includes('data-cursor-html2canvas="1"')) {
     return html;
   }
 
-  const boot = buildCaptureHostBootScript(CAPTURE_HOST_HTML);
-  const snippet = `<script data-cursor-capture-host-boot="1">${boot}</script>`;
-  if (html.includes("<head>")) {
-    return html.replace("<head>", `<head>${snippet}`);
-  }
-  if (html.includes("<HEAD>")) {
-    return html.replace("<HEAD>", `<HEAD>${snippet}`);
-  }
-  return `${snippet}\n${html}`;
-}
-
-function injectBridgeIntoHtml(html: string): string {
-  if (html.includes('data-cursor-capture="1"') || html.includes("__CURSOR_CAPTURE_BRIDGE__")) {
-    return html;
-  }
-
-  const snippet = `<script data-cursor-capture="1">${CAPTURE_PAGE_BRIDGE_SCRIPT}</script>`;
+  const safe = source.replace(/<\/script/gi, "<\\/script");
+  const snippet = `<script data-cursor-html2canvas="1">${safe}</script>`;
   if (html.includes("</body>")) {
     return html.replace("</body>", `${snippet}</body>`);
   }
@@ -87,6 +75,23 @@ function injectBridgeIntoHtml(html: string): string {
     return html.replace("</BODY>", `${snippet}</BODY>`);
   }
   return `${html}\n${snippet}`;
+}
+
+function injectBridgeIntoHtml(html: string, html2canvasSource: string): string {
+  let next = injectHtml2CanvasInline(html, html2canvasSource);
+
+  if (next.includes('data-cursor-capture="1"') || next.includes("__CURSOR_CAPTURE_BRIDGE__")) {
+    return next;
+  }
+
+  const snippet = `<script data-cursor-capture="1">${CAPTURE_PAGE_BRIDGE_SCRIPT}</script>`;
+  if (next.includes("</body>")) {
+    return next.replace("</body>", `${snippet}</body>`);
+  }
+  if (next.includes("</BODY>")) {
+    return next.replace("</BODY>", `${snippet}</BODY>`);
+  }
+  return `${next}\n${snippet}`;
 }
 
 async function readWorkspaceText(container: WebContainer, path: string): Promise<string | null> {
@@ -97,14 +102,20 @@ async function readWorkspaceText(container: WebContainer, path: string): Promise
   }
 }
 
-async function loadHtml2CanvasBytes(): Promise<Uint8Array> {
+async function loadHtml2CanvasSource(): Promise<{ bytes: Uint8Array; text: string }> {
   const base = import.meta.env.BASE_URL || "/";
   const url = new URL("vendor/html2canvas.min.js", window.location.origin + base).href;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`html2canvas vendor fetch failed (${response.status}) at ${url}`);
   }
-  return new Uint8Array(await response.arrayBuffer());
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const text = new TextDecoder("utf-8").decode(bytes);
+  if (!text.includes("html2canvas")) {
+    throw new Error(`html2canvas vendor content looks invalid at ${url}`);
+  }
+  return { bytes, text };
 }
 
 export async function injectCaptureAssets(
@@ -117,21 +128,23 @@ export async function injectCaptureAssets(
   const html2CanvasPath = html2CanvasPaths[0];
 
   await writeWorkspaceFile(container, captureHostPath, CAPTURE_HOST_HTML);
-  // Extra copy at public root — some bundlers resolve this more reliably.
   if (profile.kind === "bundler") {
     const root = profile.workspaceRoot;
     const alt = root ? `${root}/public/capture-host.html` : "public/capture-host.html";
     await writeWorkspaceFile(container, alt, CAPTURE_HOST_HTML);
   }
 
+  let html2canvasText = "";
   try {
-    const bytes = await loadHtml2CanvasBytes();
+    const loaded = await loadHtml2CanvasSource();
+    html2canvasText = loaded.text;
     for (const path of html2CanvasPaths) {
-      await writeWorkspaceBinaryFile(container, path, bytes);
+      await writeWorkspaceBinaryFile(container, path, loaded.bytes);
     }
     snapshotLog("html2canvas 동일 출처 주입", {
       html2CanvasPaths,
-      bytes: bytes.byteLength,
+      bytes: loaded.bytes.byteLength,
+      inline: true,
     });
   } catch (error) {
     snapshotWarn("html2canvas vendor 주입 실패 — CDN 폴백 불가(COEP)", error);
@@ -156,10 +169,13 @@ export async function injectCaptureAssets(
     const current = fromMemory ?? fromDisk;
     if (!current) continue;
 
-    let patched = injectHostBootIntoHtml(current);
-    patched = injectBridgeIntoHtml(patched);
+    const patched = injectBridgeIntoHtml(current, html2canvasText);
     if (patched === current) {
-      if (current.includes("data-cursor-capture-host-boot") || current.includes("__CURSOR_CAPTURE_BRIDGE__")) {
+      if (
+        current.includes('data-cursor-capture="1"') ||
+        current.includes("__CURSOR_CAPTURE_BRIDGE__") ||
+        current.includes('data-cursor-html2canvas="1"')
+      ) {
         patchedHtmlPaths.push(htmlPath);
       }
       continue;
@@ -175,7 +191,7 @@ export async function injectCaptureAssets(
   if (patchedHtmlPaths.length === 0) {
     snapshotWarn("캡처 브리지를 넣을 HTML을 찾지 못함", { candidates: candidateSet });
   } else {
-    snapshotLog("캡처 브리지 HTML 패치", { patchedHtmlPaths });
+    snapshotLog("캡처 브리지 HTML 패치", { patchedHtmlPaths, html2canvasInlined: true });
   }
 
   return { captureHostPath, patchedHtmlPaths, html2CanvasPath };

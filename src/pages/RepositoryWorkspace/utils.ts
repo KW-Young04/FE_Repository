@@ -371,12 +371,18 @@ function injectCaptureBridge(html, rootDir) {
 
   var fontOverride =
     "<style data-cursor-font-override=\\"1\\">html,body{font-family:Arial,Helvetica,sans-serif;}</style>";
-  if (cleaned.includes("</head>")) {
-    cleaned = cleaned.replace("</head>", fontOverride + "</head>");
-  } else if (cleaned.includes("</HEAD>")) {
-    cleaned = cleaned.replace("</HEAD>", fontOverride + "</HEAD>");
-  } else {
-    cleaned = fontOverride + cleaned;
+  if (!cleaned.includes("data-cursor-font-override")) {
+    if (cleaned.includes("</head>")) {
+      cleaned = cleaned.replace("</head>", fontOverride + "</head>");
+    } else if (cleaned.includes("</HEAD>")) {
+      cleaned = cleaned.replace("</HEAD>", fontOverride + "</HEAD>");
+    } else {
+      cleaned = fontOverride + cleaned;
+    }
+  }
+
+  if (cleaned.includes('data-cursor-capture="1"') || cleaned.includes("__CURSOR_CAPTURE_BRIDGE__")) {
+    return cleaned;
   }
 
   var snippet = "<script data-cursor-capture=\\"1\\">" + captureBridge + "</script>";

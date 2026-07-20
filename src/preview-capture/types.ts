@@ -9,9 +9,12 @@ export interface CapturePreviewSnapshotOptions {
   targetPath?: string;
   waitMs?: number;
   timeoutMs?: number;
-  /** static HTML: inject bridge into page. bundler: nested capture-host */
+  /**
+   * direct: load previewUrl (bridge already in HTML) — preferred for CRA/Vite/static
+   * host: nested capture-host page (legacy fallback)
+   */
   mode?: "direct" | "host";
-  /** file path vs hash takeover (CRA/Vite SPA fallback 우회) */
+  /** host mode only: file path vs hash takeover */
   hostStrategy?: "file" | "hash";
 }
 

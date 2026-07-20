@@ -22,7 +22,6 @@ import {
   writeWorkspaceBinaryFile,
   writeWorkspaceFile,
 } from "@/utils/webContainerFilesystem";
-import { buildCaptureHostUrl } from "./buildCaptureHostUrl";
 import { buildSnapshotMeta } from "./buildSnapshotMeta";
 import { capturePreviewSnapshot } from "./capturePreviewSnapshot";
 import { ensureStaticPreviewAssets } from "./ensureStaticPreviewAssets";
@@ -367,20 +366,25 @@ export async function runAnalysisSnapshotPipeline(
   snapshotLog("server-ready 수신", { previewUrl, elapsedMs: Date.now() - pipelineStartedAt });
 
   reportProgress(onProgress, "렌더링 스냅샷 캡처 중…");
-  // Give CRA/Vite a short settle window after server-ready before opening capture iframe.
+  // Give CRA/Vite time to finish first compile before opening the capture iframe.
   await new Promise<void>((resolve) => {
-    window.setTimeout(resolve, isBundler ? 2500 : 400);
+    window.setTimeout(resolve, isBundler ? 4000 : 400);
   });
   const captureStartedAt = Date.now();
-  const hostStrategy = isBundler ? "hash" : "file";
-  const captureHostUrl = buildCaptureHostUrl(previewUrl, { strategy: hostStrategy });
-  snapshotLog("캡처 호스트 URL", { captureHostUrl, previewUrl, hostStrategy });
+  // Prefer direct capture on the app page itself.
+  // CRA/Vite SPA fallback breaks /__cursor__/capture-host.html, and WebContainer
+  // often rejects query-string navigations — so we inject a bridge into index.html
+  // and postMessage against a clean previewUrl.
+  snapshotLog("캡처 모드", {
+    mode: "direct",
+    previewUrl,
+    patchedHtmlPaths: injected.patchedHtmlPaths,
+  });
   const captured = await capturePreviewSnapshot({
     previewUrl,
-    mode: "host",
-    hostStrategy,
-    waitMs: isBundler ? 2500 : 1000,
-    timeoutMs: isBundler ? 60_000 : 30_000,
+    mode: "direct",
+    waitMs: isBundler ? 3000 : 1000,
+    timeoutMs: isBundler ? 90_000 : 45_000,
   });
   snapshotLog("스냅샷 캡처 완료", {
     width: captured.width,

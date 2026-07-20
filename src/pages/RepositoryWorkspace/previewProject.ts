@@ -177,8 +177,10 @@ function resolveDevSpawn(
 ): Pick<PreviewProjectProfile, "devCommand" | "devCommandFallbacks" | "devEnv"> | null {
   const baseEnv: Record<string, string> = {
     PORT: String(PREVIEW_PORT),
+    HOST: "0.0.0.0",
     HOSTNAME: "0.0.0.0",
     BROWSER: "none",
+    CHOKIDAR_USEPOLLING: "true",
   };
 
   if (deps.vite || deps["@vitejs/plugin-react"] || deps["@vitejs/plugin-vue"] || deps["@tailwindcss/vite"]) {
@@ -210,7 +212,13 @@ function resolveDevSpawn(
     return {
       devCommand: resolveRunCommand(files, "start"),
       devCommandFallbacks: [],
-      devEnv: baseEnv,
+      // react-scripts 3/4 + Node 17+ OpenSSL 호환, WebContainer 호스트 바인딩
+      devEnv: {
+        ...baseEnv,
+        NODE_OPTIONS: "--openssl-legacy-provider",
+        DANGEROUSLY_DISABLE_HOST_CHECK: "true",
+        WDS_SOCKET_PORT: "0",
+      },
     };
   }
 
@@ -264,9 +272,12 @@ function hasAppEntryFiles(files: FileContentLookup, workspaceRoot: string): bool
   const prefix = workspaceRoot ? `${workspaceRoot}/` : "";
   const entryCandidates = [
     `${prefix}index.html`,
+    `${prefix}public/index.html`,
     `${prefix}src/main.tsx`,
     `${prefix}src/main.jsx`,
     `${prefix}src/index.tsx`,
+    `${prefix}src/index.jsx`,
+    `${prefix}src/index.js`,
     `${prefix}app/layout.tsx`,
     `${prefix}app/page.tsx`,
     `${prefix}pages/index.tsx`,
