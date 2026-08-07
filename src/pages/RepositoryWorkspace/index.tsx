@@ -1,0 +1,7 @@
+import RepositoryWorkspaceView from "./RepositoryWorkspaceView";
+import { useRepositoryWorkspace } from "./useRepositoryWorkspace";
+
+export default function RepositoryWorkspacePage() {
+  const workspace = useRepositoryWorkspace();
+  return <RepositoryWorkspaceView {...workspace} />;
+}
