@@ -20,15 +20,30 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <iframe id="preview-target" title="preview-target"></iframe>
+  <iframe
+    id="preview-target"
+    title="preview-target"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+  ></iframe>
   <script>
 (function () {
   // No query params — WebContainer often cannot navigate to ?parentOrigin=... URLs.
+  // Used as hash-takeover host for CRA/Vite SPA (see buildCaptureHostBootScript).
   var allowedParentOrigin = null;
   var defaultWaitMs = 1500;
   var frame = document.getElementById("preview-target");
   var capturing = false;
   var readyNotified = false;
+  var REACT_ROOT_SELECTORS = [
+    "#root",
+    "#app",
+    "#__next",
+    "#__nuxt",
+    "[data-reactroot]",
+    "[data-react-root]",
+    "#main",
+    "main",
+  ];
 
   function postToParent(payload) {
     try {
@@ -81,6 +96,10 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
         if (done) return;
         done = true;
         window.clearTimeout(timer);
+        if (!window.html2canvas) {
+          reject(new Error("Script loaded but html2canvas missing (SPA fallback?): " + src));
+          return;
+        }
         resolve();
       };
       script.onerror = function () {
@@ -130,6 +149,31 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
     });
   }
 
+  function findReactMount(doc) {
+    if (!doc) return null;
+    for (var i = 0; i < REACT_ROOT_SELECTORS.length; i += 1) {
+      var el = doc.querySelector(REACT_ROOT_SELECTORS[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function isMeaningfulMount(el) {
+    if (!el) return false;
+    if (el.children && el.children.length > 0) return true;
+    var text = (el.innerText || el.textContent || "").trim();
+    return text.length > 0;
+  }
+
+  function hasDevErrorOverlay(doc) {
+    if (!doc) return false;
+    return Boolean(
+      doc.querySelector("vite-error-overlay") ||
+        doc.getElementById("webpack-dev-server-client-overlay") ||
+        doc.getElementById("webpack-dev-server-client-overlay-div")
+    );
+  }
+
   function loadPreview(targetPath) {
     return new Promise(function (resolve, reject) {
       var settled = false;
@@ -137,7 +181,7 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
         if (settled) return;
         settled = true;
         reject(new Error("Preview iframe load timeout"));
-      }, 20000);
+      }, 30000);
 
       function onLoad() {
         if (settled) return;
@@ -149,12 +193,53 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
 
       frame.addEventListener("load", onLoad);
       var nextSrc = targetPath && targetPath.charAt(0) === "/" ? targetPath : "/" + (targetPath || "");
+      // Strip hash so nested React app does not re-enter capture-host boot.
+      if (nextSrc.indexOf("#") >= 0) {
+        nextSrc = nextSrc.split("#")[0] || "/";
+      }
       // Force reload even if same path.
       frame.src = "about:blank";
       window.setTimeout(function () {
         frame.src = nextSrc;
       }, 0);
     });
+  }
+
+  async function waitForPreviewReact(doc, maxMs) {
+    var started = Date.now();
+    var stableHits = 0;
+    var lastChildCount = -1;
+
+    while (Date.now() - started < maxMs) {
+      if (hasDevErrorOverlay(doc)) {
+        throw new Error("Nested preview shows a Vite/Webpack error overlay");
+      }
+
+      var root = findReactMount(doc);
+      if (root && isMeaningfulMount(root)) {
+        var count = root.children ? root.children.length : 0;
+        if (count === lastChildCount) {
+          stableHits += 1;
+        } else {
+          stableHits = 0;
+          lastChildCount = count;
+        }
+        if (stableHits >= 2) {
+          postStatus("preview_react_ready", {
+            elapsedMs: Date.now() - started,
+            childCount: count,
+          });
+          return;
+        }
+      } else if (!root && doc.body && doc.body.children.length > 1) {
+        postStatus("preview_body_ready", { elapsedMs: Date.now() - started });
+        return;
+      }
+
+      await wait(250);
+    }
+
+    postStatus("preview_react_wait_timeout", { maxMs: maxMs });
   }
 
   async function captureFrame(requestId, waitMs, targetPath) {
@@ -171,6 +256,7 @@ export const CAPTURE_HOST_HTML = `<!DOCTYPE html>
     }
 
     stripFontResources(doc);
+    await waitForPreviewReact(doc, Math.max(waitMs * 3, 15000));
     await wait(waitMs);
 
     var canvas = await withTimeout(

@@ -2,6 +2,7 @@ import type { WebContainer } from "@webcontainer/api";
 import type { PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
 import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
 import { writeWorkspaceBinaryFile, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
+import { buildCaptureHostBootScript } from "./buildCaptureHostBootScript";
 import { CAPTURE_HOST_HTML } from "./captureHostTemplate";
 import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "./capturePageBridgeScript";
 import { snapshotLog, snapshotWarn } from "./snapshotLogger";
@@ -40,6 +41,8 @@ function resolveHtmlEntryCandidates(
   const root = profile.workspaceRoot;
   const prefixed = (path: string) => (root ? `${root}/${path}` : path);
 
+  // Vite/React: index.html at workspace root
+  // CRA: public/index.html
   const preferred = unique([
     prefixed("index.html"),
     prefixed("public/index.html"),
@@ -53,6 +56,7 @@ function resolveHtmlEntryCandidates(
   return Object.keys(files)
     .filter((path) => path.endsWith(".html") || path.endsWith(".htm"))
     .filter((path) => !path.includes("playground/"))
+    .filter((path) => !path.includes("__cursor__/"))
     .sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b))
     .slice(0, 3);
 }
@@ -77,8 +81,30 @@ function injectHtml2CanvasInline(html: string, source: string): string {
   return `${html}\n${snippet}`;
 }
 
-function injectBridgeIntoHtml(html: string, html2canvasSource: string): string {
-  let next = injectHtml2CanvasInline(html, html2canvasSource);
+/**
+ * Hash takeover for CRA/Vite: loading previewUrl#__cursor_capture_host replaces the
+ * document with capture-host HTML so SPA fallback cannot swallow /__cursor__/… routes.
+ */
+function injectCaptureHostBoot(html: string, isBundler: boolean): string {
+  if (!isBundler) return html;
+  if (html.includes("data-cursor-capture-host-boot") || html.includes("__cursor_capture_host")) {
+    return html;
+  }
+
+  const boot = buildCaptureHostBootScript(CAPTURE_HOST_HTML);
+  const snippet = `<script data-cursor-capture-host-boot="1">${boot}</script>`;
+  if (html.includes("<head>")) {
+    return html.replace("<head>", `<head>${snippet}`);
+  }
+  if (html.includes("<HEAD>")) {
+    return html.replace("<HEAD>", `<HEAD>${snippet}`);
+  }
+  return `${snippet}\n${html}`;
+}
+
+function injectBridgeIntoHtml(html: string, html2canvasSource: string, isBundler: boolean): string {
+  let next = injectCaptureHostBoot(html, isBundler);
+  next = injectHtml2CanvasInline(next, html2canvasSource);
 
   if (next.includes('data-cursor-capture="1"') || next.includes("__CURSOR_CAPTURE_BRIDGE__")) {
     return next;
@@ -126,10 +152,11 @@ export async function injectCaptureAssets(
   const captureHostPath = resolveCaptureHostPath(profile);
   const html2CanvasPaths = resolveHtml2CanvasPaths(profile);
   const html2CanvasPath = html2CanvasPaths[0];
+  const isBundler = profile.kind === "bundler";
+  const root = profile.workspaceRoot;
 
   await writeWorkspaceFile(container, captureHostPath, CAPTURE_HOST_HTML);
-  if (profile.kind === "bundler") {
-    const root = profile.workspaceRoot;
+  if (isBundler) {
     const alt = root ? `${root}/public/capture-host.html` : "public/capture-host.html";
     await writeWorkspaceFile(container, alt, CAPTURE_HOST_HTML);
   }
@@ -156,10 +183,14 @@ export async function injectCaptureAssets(
   const patchedHtmlPaths: string[] = [];
   const htmlCandidates = resolveHtmlEntryCandidates(profile, files);
 
+  // Always probe common React entry HTMLs on disk (Vite root + CRA public).
   const candidateSet = unique([
     ...htmlCandidates,
-    ...(profile.kind === "bundler"
-      ? [profile.workspaceRoot ? `${profile.workspaceRoot}/public/index.html` : "public/index.html"]
+    ...(isBundler
+      ? [
+          root ? `${root}/index.html` : "index.html",
+          root ? `${root}/public/index.html` : "public/index.html",
+        ]
       : ["index.html"]),
   ]);
 
@@ -169,12 +200,13 @@ export async function injectCaptureAssets(
     const current = fromMemory ?? fromDisk;
     if (!current) continue;
 
-    const patched = injectBridgeIntoHtml(current, html2canvasText);
+    const patched = injectBridgeIntoHtml(current, html2canvasText, isBundler);
     if (patched === current) {
       if (
         current.includes('data-cursor-capture="1"') ||
         current.includes("__CURSOR_CAPTURE_BRIDGE__") ||
-        current.includes('data-cursor-html2canvas="1"')
+        current.includes('data-cursor-html2canvas="1"') ||
+        current.includes("data-cursor-capture-host-boot")
       ) {
         patchedHtmlPaths.push(htmlPath);
       }
@@ -191,7 +223,11 @@ export async function injectCaptureAssets(
   if (patchedHtmlPaths.length === 0) {
     snapshotWarn("캡처 브리지를 넣을 HTML을 찾지 못함", { candidates: candidateSet });
   } else {
-    snapshotLog("캡처 브리지 HTML 패치", { patchedHtmlPaths, html2canvasInlined: true });
+    snapshotLog("캡처 브리지 HTML 패치", {
+      patchedHtmlPaths,
+      html2canvasInlined: true,
+      captureHostBoot: isBundler,
+    });
   }
 
   return { captureHostPath, patchedHtmlPaths, html2CanvasPath };

@@ -3,6 +3,9 @@
  * Works without query params (WebContainer often cannot navigate to ?__cursor_capture=... URLs).
  * Parent origin is learned from the first CAPTURE_REQUEST message.
  * html2canvas must be same-origin (COEP blocks CDN scripts in WebContainer).
+ *
+ * React / CRA / Vite: waits for mount roots (#root, #app, #__next, …) to paint
+ * before running html2canvas so SPA shells are not captured empty.
  */
 export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   if (window.__CURSOR_CAPTURE_BRIDGE__) return;
@@ -12,6 +15,16 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
   var defaultWaitMs = 800;
   var readyNotified = false;
   var capturing = false;
+  var REACT_ROOT_SELECTORS = [
+    "#root",
+    "#app",
+    "#__next",
+    "#__nuxt",
+    "[data-reactroot]",
+    "[data-react-root]",
+    "#main",
+    "main",
+  ];
 
   try {
     var params = new URLSearchParams(window.location.search || "");
@@ -127,29 +140,74 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
     });
   }
 
-  async function waitForAppContent(maxMs) {
-    var started = Date.now();
-    while (Date.now() - started < maxMs) {
-      var root = document.getElementById("root") || document.getElementById("app") || document.getElementById("__next");
-      if (root && root.children && root.children.length > 0) {
-        postStatus("app_ready", { elapsedMs: Date.now() - started });
-        return;
-      }
-      if (!root && document.body && document.body.children.length > 1) {
-        postStatus("app_ready_body", { elapsedMs: Date.now() - started });
-        return;
-      }
-      await wait(250);
+  function findReactMount(doc) {
+    for (var i = 0; i < REACT_ROOT_SELECTORS.length; i += 1) {
+      var el = doc.querySelector(REACT_ROOT_SELECTORS[i]);
+      if (el) return el;
     }
-    postStatus("app_wait_timeout", { maxMs: maxMs });
+    return null;
   }
 
-  async function captureNow(requestId, waitMs) {
-    postStatus("capture_start", { requestId: requestId, waitMs: waitMs });
-    stripFontResources(document);
-    await ensureHtml2Canvas();
-    postStatus("html2canvas_ready");
+  function isMeaningfulMount(el) {
+    if (!el) return false;
+    if (el.children && el.children.length > 0) return true;
+    var text = (el.innerText || el.textContent || "").trim();
+    return text.length > 0;
+  }
 
+  function hasDevErrorOverlay(doc) {
+    return Boolean(
+      doc.querySelector("vite-error-overlay") ||
+        doc.getElementById("webpack-dev-server-client-overlay") ||
+        doc.getElementById("webpack-dev-server-client-overlay-div") ||
+        doc.querySelector("iframe[id^='webpack-dev-server']")
+    );
+  }
+
+  async function waitForAppContent(maxMs) {
+    var started = Date.now();
+    var sawMount = false;
+    var stableHits = 0;
+    var lastChildCount = -1;
+
+    while (Date.now() - started < maxMs) {
+      if (hasDevErrorOverlay(document)) {
+        throw new Error("Dev server error overlay is visible — React/Vite 빌드 오류를 확인하세요.");
+      }
+
+      var root = findReactMount(document);
+      if (root && isMeaningfulMount(root)) {
+        sawMount = true;
+        var count = root.children ? root.children.length : 0;
+        if (count === lastChildCount) {
+          stableHits += 1;
+        } else {
+          stableHits = 0;
+          lastChildCount = count;
+        }
+        // React 18 Strict Mode / concurrent: require a short stability window.
+        if (stableHits >= 2) {
+          postStatus("app_ready", {
+            elapsedMs: Date.now() - started,
+            selector: root.id ? "#" + root.id : root.tagName,
+            childCount: count,
+          });
+          return root;
+        }
+      } else if (!root && document.body && document.body.children.length > 1) {
+        // Non-React / custom mount without #root
+        postStatus("app_ready_body", { elapsedMs: Date.now() - started });
+        return document.body;
+      }
+
+      await wait(250);
+    }
+
+    postStatus("app_wait_timeout", { maxMs: maxMs, sawMount: sawMount });
+    return findReactMount(document) || document.body || document.documentElement;
+  }
+
+  async function waitForAssets() {
     try {
       var styleLinks = Array.prototype.slice.call(
         document.querySelectorAll('link[rel="stylesheet"]')
@@ -179,14 +237,36 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
         })
       );
     } catch (_error) {}
+  }
 
-    await waitForAppContent(Math.max(waitMs * 2, 12000));
+  async function captureNow(requestId, waitMs) {
+    postStatus("capture_start", { requestId: requestId, waitMs: waitMs });
+    stripFontResources(document);
+    await ensureHtml2Canvas();
+    postStatus("html2canvas_ready");
+
+    await waitForAssets();
+
+    // React SPA: first paint often happens well after DOMContentLoaded.
+    var mount = await waitForAppContent(Math.max(waitMs * 3, 15000));
     await wait(waitMs);
 
-    var target = document.body || document.documentElement;
+    // Prefer capturing the React mount so empty chrome outside #root is minimized,
+    // but fall back to body for full-page layouts.
+    var target = mount && isMeaningfulMount(mount) ? mount : document.body || document.documentElement;
+    if (target === mount && mount !== document.body) {
+      // Include body background by capturing documentElement when root is full-bleed.
+      var rootRect = mount.getBoundingClientRect();
+      if (rootRect.width >= window.innerWidth * 0.9 && rootRect.height >= window.innerHeight * 0.5) {
+        target = document.documentElement;
+      }
+    }
+
     postStatus("html2canvas_run", {
-      bodyChildren: target ? target.children.length : 0,
+      target: target && target.id ? "#" + target.id : target ? target.tagName : null,
+      bodyChildren: document.body ? document.body.children.length : 0,
     });
+
     var canvas = await withTimeout(
       window.html2canvas(target, {
         width: 1280,
@@ -202,6 +282,8 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
         removeContainer: true,
         onclone: function (clonedDoc) {
           stripFontResources(clonedDoc);
+          var overlay = clonedDoc.querySelector("vite-error-overlay");
+          if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
         },
       }),
       12000,
@@ -277,9 +359,10 @@ export const CAPTURE_PAGE_BRIDGE_SCRIPT = `(function () {
     notifyReady();
   }
 
-  // Parent may attach late; re-announce readiness a few times.
+  // Parent may attach late; React hydrate may finish later — re-announce readiness.
   window.setTimeout(notifyReady, 500);
   window.setTimeout(notifyReady, 1500);
   window.setTimeout(notifyReady, 3000);
   window.setTimeout(notifyReady, 6000);
+  window.setTimeout(notifyReady, 10000);
 })();`;

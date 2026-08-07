@@ -366,26 +366,42 @@ export async function runAnalysisSnapshotPipeline(
   snapshotLog("server-ready 수신", { previewUrl, elapsedMs: Date.now() - pipelineStartedAt });
 
   reportProgress(onProgress, "렌더링 스냅샷 캡처 중…");
-  // Give CRA/Vite time to finish first compile before opening the capture iframe.
+  // Give CRA/Vite/React time to finish first compile before opening the capture iframe.
   await new Promise<void>((resolve) => {
-    window.setTimeout(resolve, isBundler ? 4000 : 400);
+    window.setTimeout(resolve, isBundler ? 6000 : 400);
   });
   const captureStartedAt = Date.now();
-  // Prefer direct capture on the app page itself.
-  // CRA/Vite SPA fallback breaks /__cursor__/capture-host.html, and WebContainer
-  // often rejects query-string navigations — so we inject a bridge into index.html
-  // and postMessage against a clean previewUrl.
+  // Prefer direct capture on the app page itself (bridge in index.html).
+  // For React SPA (CRA/Vite), if direct fails, fall back to hash capture-host
+  // takeover so SPA fallback cannot swallow /__cursor__/capture-host.html.
   snapshotLog("캡처 모드", {
     mode: "direct",
     previewUrl,
     patchedHtmlPaths: injected.patchedHtmlPaths,
+    projectLabel: projectProfile.label,
   });
-  const captured = await capturePreviewSnapshot({
-    previewUrl,
-    mode: "direct",
-    waitMs: isBundler ? 3000 : 1000,
-    timeoutMs: isBundler ? 90_000 : 45_000,
-  });
+
+  let captured;
+  try {
+    captured = await capturePreviewSnapshot({
+      previewUrl,
+      mode: "direct",
+      waitMs: isBundler ? 3500 : 1000,
+      timeoutMs: isBundler ? 90_000 : 45_000,
+    });
+  } catch (directError) {
+    if (!isBundler) throw directError;
+    snapshotWarn("direct 캡처 실패 — React SPA hash host 폴백 시도", directError);
+    reportProgress(onProgress, "React SPA 캡처 폴백(hash host) 시도 중…");
+    captured = await capturePreviewSnapshot({
+      previewUrl,
+      mode: "host",
+      hostStrategy: "hash",
+      waitMs: 3500,
+      timeoutMs: 90_000,
+    });
+  }
+
   snapshotLog("스냅샷 캡처 완료", {
     width: captured.width,
     height: captured.height,

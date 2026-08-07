@@ -393,9 +393,18 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
             : `WebContainer 파일 동기화 완료 (파일 ${Object.keys(files).length}개)`,
         );
 
-        const captureHostPath = await injectCaptureAssets(container, projectProfile);
+        const injected = await injectCaptureAssets(container, projectProfile, files);
         if (runtimeToken !== previewRuntimeTokenRef.current) return;
-        logEvent(`스냅샷 캡처 호스트 주입 완료 (${captureHostPath})`);
+        logEvent(
+          `스냅샷 캡처 에셋 주입 완료 (host: ${injected.captureHostPath}, html: ${
+            injected.patchedHtmlPaths.join(", ") || "없음"
+          })`,
+        );
+        if (isBundler && injected.patchedHtmlPaths.length === 0) {
+          logEvent(
+            "경고: React/번들러 HTML 엔트리에 캡처 브리지를 넣지 못했습니다. index.html 또는 public/index.html 을 확인하세요.",
+          );
+        }
 
         const serverReadyTimeoutMs = isBundler ? BUNDLER_SERVER_READY_TIMEOUT_MS : SERVER_READY_TIMEOUT_MS;
         subscribeServerReady(container, serverReadyTimeoutMs);

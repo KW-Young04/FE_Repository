@@ -102,7 +102,8 @@ export function capturePreviewSnapshot(
       "border:0",
       "z-index:-1",
     ].join(";");
-    iframe.sandbox = "allow-scripts allow-same-origin allow-forms allow-modals allow-popups";
+    iframe.sandbox =
+      "allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox";
 
     let settled = false;
     let attempts = 0;

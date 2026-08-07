@@ -1,5 +1,5 @@
 /**
- * Boot script injected at the start of <head>.
+ * Boot script injected at the start of <head> for React bundler apps (CRA/Vite/Next).
  * When the preview URL hash is #__cursor_capture_host, it replaces the document
  * with our capture-host page. This avoids CRA/Vite SPA fallback swallowing
  * /__cursor__/capture-host.html as index.html (which caused sawReady=false).

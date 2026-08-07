@@ -87,7 +87,10 @@ export default function PreviewPanel({
             title="repository-preview"
             src={previewSrc}
             className="h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+            // React (CRA/Vite/Next) needs same-origin + scripts for HMR/WebSocket and client routing.
+            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox"
+            allow="fullscreen"
+            referrerPolicy="no-referrer-when-downgrade"
           />
         ) : (
           <div className="flex h-full items-center justify-center px-4 text-center text-sm font-medium text-slate-500">
