@@ -25,10 +25,12 @@ export default function RepositoryWorkspaceView({
   runtimeLog,
   runtimeError,
   isRestarting,
+  designWriteEnabled,
   onFileClick,
   onCloseTab,
   onEditorChange,
   onRestartPreview,
+  onDesignPatch,
   onNavigateToConnect,
 }: RepositoryWorkspaceViewProps) {
   const fileCount = Object.keys(filesByPath).length;
@@ -76,6 +78,8 @@ export default function RepositoryWorkspaceView({
           previewProjectLabel={previewProjectLabel}
           runtimeError={runtimeError}
           runtimeLog={runtimeLog}
+          designWriteEnabled={designWriteEnabled}
+          onDesignPatch={onDesignPatch}
         />
       </section>
     </main>
