@@ -22,7 +22,7 @@ export default function EditorPanel({
   onEditorChange,
 }: EditorPanelProps) {
   return (
-    <div className="col-span-5 flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white">
+    <div className="col-span-4 flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white">
       <div className="flex min-h-11 shrink-0 items-stretch overflow-x-auto border-b border-slate-200">
         {openPaths.length === 0 && (
           <span className="px-3 py-2 text-sm font-medium text-slate-400">열린 파일이 없습니다.</span>
