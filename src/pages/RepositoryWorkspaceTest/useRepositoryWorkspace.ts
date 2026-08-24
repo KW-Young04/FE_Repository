@@ -8,8 +8,8 @@ import { getOrStartWorkspaceWarmup, invalidateWorkspaceWarmup } from "@/utils/wo
 import { MAX_PREVIEW_FILE_BYTES, PRELOAD_BATCH_SIZE, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS, BUNDLER_SERVER_READY_TIMEOUT_MS, NPM_INSTALL_TIMEOUT_MS } from "./constants";
 import type { LoadDiagnostics, LoadedFile, PreviewStatus, RepositoryWorkspaceViewProps } from "./types";
 import { resolvePreviewProject, type PreviewProjectProfile, type PreviewRuntimeKind } from "./previewProject";
-import { createDesignRuntimeScript, injectDesignRuntimeIntoHtml } from "./designRuntime";
-import { applyInlineStyleToSource, instrumentHtmlForDesign } from "./designWriteback";
+import { createDesignRuntimeScript, injectDesignRuntimeIntoHtml } from "../RepositoryWorkspace/designRuntime";
+import { applyInlineStyleToSource, instrumentHtmlForDesign } from "../RepositoryWorkspace/designWriteback";
 import {
   buildFileSystemTree,
   buildTree,
