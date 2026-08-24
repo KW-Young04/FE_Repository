@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "default" | "disabled" | "blue";
+type ButtonVariant = "default" | "disabled" | "blue" | "purple";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -10,6 +10,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   default:
     "bg-slate-900 border-slate-900 text-white hover:bg-slate-800 hover:border-slate-800 cursor-pointer",
   blue: "bg-sky-500 border-sky-500 text-white hover:bg-sky-600 hover:border-sky-600 cursor-pointer",
+  purple:
+    "bg-[#6d3df5] border-[#6d3df5] text-white hover:bg-[#5b2de8] hover:border-[#5b2de8] cursor-pointer",
   disabled:
     "bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed",
 };
