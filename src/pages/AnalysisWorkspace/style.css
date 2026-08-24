@@ -1,4 +1,4 @@
-:root {
+.analysis-workspace {
   --purple: #6d3df5;
   --purple-dark: #5b2de8;
   --purple-soft: #f3efff;
@@ -8,29 +8,21 @@
   --sidebar-width: 298px;
   --detail-width: 248px;
   --header-height: 42px;
-}
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  width: 100%;
   min-width: 1180px;
-  min-height: 100%;
-}
-
-button {
-  border: 0;
-}
-
-.analysis-workspace {
   min-height: 100vh;
   background: #fff;
   color: var(--text);
   overflow: hidden;
+}
+
+.analysis-workspace,
+.analysis-workspace * {
+  box-sizing: border-box;
+}
+
+.analysis-workspace button {
+  border: 0;
 }
 
 .workspace-header {
@@ -862,7 +854,7 @@ button {
 }
 
 @media (max-width: 1360px) {
-  :root {
+  .analysis-workspace {
     --sidebar-width: 270px;
     --detail-width: 225px;
   }
