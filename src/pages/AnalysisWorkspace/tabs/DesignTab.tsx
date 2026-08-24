@@ -32,21 +32,21 @@ export default function DesignTab() {
 
   return (
     <>
-      <main className="design-main">
+      <main className="h-full min-w-0 overflow-y-auto bg-white">
         <BrowserToolbar />
 
         <section
-          className="design-preview"
+          className="relative h-155 w-full overflow-hidden border-b border-[#e6e7ec] bg-white"
           aria-label="디자인 편집 미리보기"
         >
-          <div className="preview-state">
-            <div className="preview-spinner" />
+          <div className="flex h-full min-h-105 w-full flex-col items-center justify-center gap-2.5 bg-[#f8f8fb] text-center">
+            <div className="h-7.5 w-7.5 rounded-full border-[3px] border-[#e2dcff] border-t-[#6d3df5] [animation:spin_0.8s_linear_infinite]" />
 
-            <strong>
+            <strong className="text-base font-bold text-[#202124]">
               프로젝트를 실행하고 있습니다.
             </strong>
 
-            <p>
+            <p className="m-0 text-[13px] text-[#8b8d98]">
               연결한 GitHub 저장소의 웹사이트를
               준비하는 중입니다.
             </p>
@@ -59,36 +59,42 @@ export default function DesignTab() {
             <iframe
               src={previewUrl}
               title="프로젝트 디자인 미리보기"
-              className="design-preview__iframe"
+              className="block h-full w-full border-0 bg-white"
             />
           */}
 
           {/* 접근성 문제 영역 표시 예시 */}
-          <div className="design-issue-overlay design-issue-overlay--hero">
-            <span className="design-issue-label">
-              <strong>A</strong>
+          <div className="pointer-events-none absolute top-[145px] left-[10%] h-77.5 w-[80%] rounded-2xl border-[1.5px] border-dashed border-[#ff5656]">
+            <span className="absolute top-[-39px] left-3 flex h-8.5 items-center gap-1.75 whitespace-nowrap rounded-[9px] bg-[#ff9aa0] px-3 text-xs font-bold text-[#8d1f26]">
+              <strong className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3845] px-1 text-[10px] text-white">
+                A
+              </strong>
               1.1.2 대비 실패
             </span>
           </div>
 
-          <div className="design-issue-overlay design-issue-overlay--button">
-            <span className="design-issue-label">
-              <strong>AA</strong>
+          <div className="pointer-events-none absolute right-0 bottom-[10px] h-27.5 w-37.5 rounded-2xl border-[1.5px] border-dashed border-[#ff5656]">
+            <span className="absolute top-[-39px] left-3 flex h-8.5 items-center gap-1.75 whitespace-nowrap rounded-[9px] bg-[#ff9aa0] px-3 text-xs font-bold text-[#8d1f26]">
+              <strong className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3845] px-1 text-[10px] text-white">
+                AA
+              </strong>
               1.1.3 크기 실패
             </span>
           </div>
         </section>
 
-        <section className="top-issues">
-          <div className="top-issues__heading">
-            <h2>주요 이슈 Top3</h2>
+        <section className="flex-[0_0_239px] border-t border-slate-200 bg-white px-4.25 pt-9.25 pb-3">
+          <div className="mb-3.25 flex items-center justify-between">
+            <h2 className="m-0 text-[11px] font-[760] text-slate-900">
+              주요 이슈 Top3
+            </h2>
 
-            <span>
+            <span className="text-[9px] text-slate-400">
               총 {analysisIssues.length}개 항목 검사
             </span>
           </div>
 
-          <div className="top-issues__grid">
+          <div className="grid grid-cols-3 gap-2.75">
             {topIssues.map(
               (issue, index) => (
                 <IssueCard

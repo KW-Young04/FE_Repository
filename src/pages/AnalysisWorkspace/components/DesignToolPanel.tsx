@@ -22,46 +22,46 @@ export default function DesignToolPanel() {
   const [effectEnabled, setEffectEnabled] = useState(true);
 
   return (
-    <aside className="design-tool-panel">
+    <aside className="h-full min-w-0 w-full overflow-y-auto border-l border-slate-200 bg-white text-slate-800">
       {/* Position */}
-      <section className="design-tool-section">
-        <h2 className="design-tool-section__title">
+      <section className="border-b border-slate-200 px-3 pt-3.5 pb-4">
+        <h2 className="mb-3.5 text-sm font-bold text-slate-900">
           Position
         </h2>
 
-        <div className="design-tool-label">
+        <div className="mb-1.5 text-[11px] font-semibold text-slate-700">
           Alignment
         </div>
 
-        <div className="alignment-tools">
-          <button type="button" title="왼쪽 정렬">
+        <div className="mb-3 grid grid-cols-[repeat(3,minmax(0,1fr))_1px_repeat(3,minmax(0,1fr))] gap-1">
+          <button type="button" title="왼쪽 정렬" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
             ≡
           </button>
 
-          <button type="button" title="가운데 정렬">
+          <button type="button" title="가운데 정렬" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
             ≣
           </button>
 
-          <button type="button" title="오른쪽 정렬">
+          <button type="button" title="오른쪽 정렬" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
             ≡
           </button>
 
-          <span className="alignment-divider" />
+          <span className="h-[18px] w-px self-center bg-slate-300" />
 
-          <button type="button" title="위쪽 정렬">
+          <button type="button" title="위쪽 정렬" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
             ⫯
           </button>
 
-          <button type="button" title="세로 가운데 정렬">
+          <button type="button" title="세로 가운데 정렬" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
             ⫰
           </button>
 
-          <button type="button" title="아래쪽 정렬">
+          <button type="button" title="아래쪽 정렬" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
             ⫯
           </button>
         </div>
 
-        <div className="design-field-row">
+        <div className="grid grid-cols-2 gap-2">
           <DesignNumberField
             label="X"
             value={x}
@@ -75,27 +75,27 @@ export default function DesignToolPanel() {
           />
         </div>
 
-        <div className="design-tool-label design-tool-label--spacing">
+        <div className="mt-3 mb-1.5 text-[11px] font-semibold text-slate-700">
           Rotation
         </div>
 
-        <div className="rotation-row">
+        <div className="grid grid-cols-2 gap-2">
           <DesignNumberField
             label="↙"
             value={rotation}
             onChange={setRotation}
           />
 
-          <div className="rotation-actions">
-            <button type="button" title="잠금">
+          <div className="grid grid-cols-3 gap-[3px]">
+            <button type="button" title="잠금" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
               ♙
             </button>
 
-            <button type="button" title="좌우 반전">
+            <button type="button" title="좌우 반전" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
               ↔
             </button>
 
-            <button type="button" title="상하 반전">
+            <button type="button" title="상하 반전" className="h-[27px] cursor-pointer rounded-sm p-0 text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]">
               ↕
             </button>
           </div>
@@ -103,16 +103,16 @@ export default function DesignToolPanel() {
       </section>
 
       {/* Layout */}
-      <section className="design-tool-section">
-        <h2 className="design-tool-section__title">
+      <section className="border-b border-slate-200 px-3 pt-3.5 pb-4">
+        <h2 className="mb-3.5 text-sm font-bold text-slate-900">
           Layout
         </h2>
 
-        <div className="design-tool-label">
+        <div className="mb-1.5 text-[11px] font-semibold text-slate-700">
           Dimensions
         </div>
 
-        <div className="design-field-row">
+        <div className="grid grid-cols-2 gap-2">
           <DesignNumberField
             label="W"
             value={width}
@@ -128,12 +128,12 @@ export default function DesignToolPanel() {
       </section>
 
       {/* Appearance */}
-      <section className="design-tool-section">
-        <h2 className="design-tool-section__title">
+      <section className="border-b border-slate-200 px-3 pt-3.5 pb-4">
+        <h2 className="mb-3.5 text-sm font-bold text-slate-900">
           Appearance
         </h2>
 
-        <div className="design-field-row">
+        <div className="grid grid-cols-2 gap-2">
           <DesignNumberField
             label="◐"
             value={opacity}
@@ -148,15 +148,15 @@ export default function DesignToolPanel() {
           />
         </div>
 
-        <div className="design-field-caption-row">
+        <div className="mt-1 grid grid-cols-2 gap-2 text-[9px] text-slate-500">
           <span>Opacity</span>
           <span>Corner radius</span>
         </div>
       </section>
 
       {/* Fill */}
-      <section className="design-tool-section">
-        <h2 className="design-tool-section__title">
+      <section className="border-b border-slate-200 px-3 pt-3.5 pb-4">
+        <h2 className="mb-3.5 text-sm font-bold text-slate-900">
           Fill
         </h2>
 
@@ -169,8 +169,8 @@ export default function DesignToolPanel() {
       </section>
 
       {/* Stroke */}
-      <section className="design-tool-section">
-        <h2 className="design-tool-section__title">
+      <section className="border-b border-slate-200 px-3 pt-3.5 pb-4">
+        <h2 className="mb-3.5 text-sm font-bold text-slate-900">
           Stroke
         </h2>
 
@@ -181,12 +181,13 @@ export default function DesignToolPanel() {
           onOpacityChange={setStrokeOpacity}
         />
 
-        <div className="design-tool-label design-tool-label--spacing">
+        <div className="mt-3 mb-1.5 text-[11px] font-semibold text-slate-700">
           Weight
         </div>
 
-        <div className="stroke-weight-row">
+        <div>
           <input
+            className="h-[29px] w-full appearance-none rounded-sm border-0 bg-slate-100 px-2 text-[11px] text-slate-700 outline-none focus:ring-2 focus:ring-[#7d61ff]/40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             type="number"
             value={strokeWeight}
             min={0}
@@ -198,19 +199,17 @@ export default function DesignToolPanel() {
       </section>
 
       {/* Effects */}
-      <section className="design-tool-section">
-        <h2 className="design-tool-section__title">
+      <section className="border-b border-slate-200 px-3 pt-3.5 pb-4">
+        <h2 className="mb-3.5 text-sm font-bold text-slate-900">
           Effects
         </h2>
 
-        <div className="effect-row">
+        <div className="grid grid-cols-[25px_minmax(0,1fr)_55px] items-center gap-[5px]">
           <button
             type="button"
-            className={
-              effectEnabled
-                ? 'effect-toggle is-active'
-                : 'effect-toggle'
-            }
+            className={`h-[27px] w-[25px] cursor-pointer rounded-sm p-0 text-sm hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff] ${
+              effectEnabled ? 'text-slate-800' : 'text-slate-400'
+            }`}
             onClick={() =>
               setEffectEnabled((current) => !current)
             }
@@ -220,6 +219,7 @@ export default function DesignToolPanel() {
           </button>
 
           <select
+            className="h-[29px] w-full rounded-sm border-0 bg-slate-100 px-1.5 text-[10px] text-slate-700 outline-none focus:ring-2 focus:ring-[#7d61ff]/40 disabled:cursor-not-allowed disabled:opacity-50"
             defaultValue="drop-shadow"
             disabled={!effectEnabled}
           >
@@ -236,7 +236,7 @@ export default function DesignToolPanel() {
             </option>
           </select>
 
-          <div className="effect-opacity">
+          <div className="flex h-[29px] items-center justify-center rounded-sm bg-slate-100 text-[9px] text-slate-600">
             100 %
           </div>
         </div>
@@ -261,10 +261,11 @@ function DesignNumberField({
   onChange,
 }: DesignNumberFieldProps) {
   return (
-    <label className="design-number-field">
-      <span>{label}</span>
+    <label className="flex h-[29px] min-w-0 items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-[#7d61ff] focus-within:bg-white">
+      <span className="mr-1.5 shrink-0 text-[10px] text-slate-500">{label}</span>
 
       <input
+        className="w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-[11px] text-slate-700 outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         type="number"
         value={value}
         onChange={(event) =>
@@ -273,7 +274,7 @@ function DesignNumberField({
       />
 
       {suffix && (
-        <small>
+        <small className="text-[10px] text-slate-500">
           {suffix}
         </small>
       )}
@@ -297,9 +298,10 @@ function ColorControl({
   onOpacityChange,
 }: ColorControlProps) {
   return (
-    <div className="color-control">
-      <label className="color-control__main">
+    <div className="grid grid-cols-[minmax(0,1fr)_55px_22px] items-center gap-1.5">
+      <label className="flex h-[29px] min-w-0 items-center rounded-sm bg-slate-100 px-1.5 focus-within:ring-2 focus-within:ring-[#7d61ff]/40">
         <input
+          className="h-3.5 w-3.5 shrink-0 cursor-pointer border-0 bg-transparent p-0 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0"
           type="color"
           value={color}
           onChange={(event) =>
@@ -308,6 +310,7 @@ function ColorControl({
         />
 
         <input
+          className="ml-1.5 w-full min-w-0 border-0 bg-transparent p-0 text-[10px] text-slate-700 outline-none"
           type="text"
           value={color}
           onChange={(event) =>
@@ -316,8 +319,9 @@ function ColorControl({
         />
       </label>
 
-      <label className="color-control__opacity">
+      <label className="flex h-[29px] items-center rounded-sm bg-slate-100 px-[5px] focus-within:ring-2 focus-within:ring-[#7d61ff]/40">
         <input
+          className="w-full appearance-none border-0 bg-transparent p-0 text-[10px] text-slate-700 outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           type="number"
           min={0}
           max={100}
@@ -327,12 +331,12 @@ function ColorControl({
           }
         />
 
-        <span>%</span>
+        <span className="text-[9px] text-slate-500">%</span>
       </label>
 
       <button
         type="button"
-        className="color-control__remove"
+        className="h-[27px] cursor-pointer rounded-sm border-0 bg-transparent p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff]"
         aria-label="색상 제거"
       >
         −
