@@ -5,6 +5,7 @@ export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 export interface LoadedFile {
   path: string;
   content: string;
+  encoding?: "utf-8" | "base64" | string;
   dirty: boolean;
 }
 

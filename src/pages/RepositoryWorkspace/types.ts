@@ -1,6 +1,47 @@
+import type { RepositoryTreeResponse } from "@/api/repository";
+
 export type WorkspaceTab = "overview" | "design" | "code";
 
+export type PreviewStatus = "idle" | "loading" | "ready" | "error";
+
 export type IssueStatus = "in_progress" | "complete" | "pending";
+
+export interface AccessibilityIssue {
+  id: string;
+  code: string;
+  title: string;
+  level: "A" | "AA";
+  status: IssueStatus;
+  category: string;
+  summary: string;
+}
+
+export interface AccessibilityCategoryGroup {
+  id: string;
+  label: string;
+  legendColor: string;
+  issues: AccessibilityIssue[];
+}
+
+export interface AccessibilityScoreCategory {
+  id: string;
+  label: string;
+  color: string;
+  score: number;
+}
+
+export interface AccessibilityScoreSummary {
+  totalScore: number;
+  maxScore?: number;
+  categories: AccessibilityScoreCategory[];
+}
+
+export interface ScoreChartSegment {
+  id: string;
+  label: string;
+  value: number;
+  color: string;
+}
 
 export interface VisualDesignValues {
   position: "static" | "relative" | "absolute" | "fixed";
