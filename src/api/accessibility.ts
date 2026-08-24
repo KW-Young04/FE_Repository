@@ -10,7 +10,7 @@ export async function getAccessibilityAnalysis(
   analysisId: string
 ): Promise<AccessibilityAnalysisResponse> {
   const response =
-    await client.get<AccessibilityAnalysisResponse>(
+    await apiClient.get<AccessibilityAnalysisResponse>(
       `/analyses/${analysisId}`
     );
 

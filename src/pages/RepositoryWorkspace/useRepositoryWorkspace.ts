@@ -131,7 +131,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   }, []);
 
   const attachProcessOutputPump = useCallback(
-    (process: WebContainerProcess, generation: number, reportExitError: boolean = true) => {
+    (process: WebContainerProcess, _generation: number, reportExitError: boolean = true) => {
       const reader = process.output.getReader();
       const abortController = new AbortController();
       outputPumpAbortRef.current = abortController;

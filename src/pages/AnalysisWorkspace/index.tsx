@@ -27,7 +27,10 @@ export default function AnalysisWorkspacePage() {
         <AnalysisSidebar />
 
         {activeTab === 'overview' && (
-          <OverviewTab />
+          <>
+            <OverviewTab />
+            <IssueDetailPanel />
+          </>
         )}
 
         {activeTab === 'design' && (
@@ -37,8 +40,6 @@ export default function AnalysisWorkspacePage() {
         {activeTab === 'code' && (
           <CodeTab />
         )}
-
-        <IssueDetailPanel />
       </div>
     </div>
   );
