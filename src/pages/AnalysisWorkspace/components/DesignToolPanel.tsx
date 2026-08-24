@@ -1,13 +1,5 @@
 import { useState } from 'react';
 
-type AlignType =
-  | 'left'
-  | 'center'
-  | 'right'
-  | 'top'
-  | 'middle'
-  | 'bottom';
-
 export default function DesignToolPanel() {
   const [x, setX] = useState(769);
   const [y, setY] = useState(769);
@@ -29,10 +21,6 @@ export default function DesignToolPanel() {
 
   const [effectEnabled, setEffectEnabled] = useState(true);
 
-  const handleAlign = (type: AlignType) => {
-    console.log('align:', type);
-  };
-
   return (
     <aside className="design-tool-panel">
       {/* Position */}
@@ -46,53 +34,29 @@ export default function DesignToolPanel() {
         </div>
 
         <div className="alignment-tools">
-          <button
-            type="button"
-            title="왼쪽 정렬"
-            onClick={() => handleAlign('left')}
-          >
+          <button type="button" title="왼쪽 정렬">
             ≡
           </button>
 
-          <button
-            type="button"
-            title="가운데 정렬"
-            onClick={() => handleAlign('center')}
-          >
+          <button type="button" title="가운데 정렬">
             ≣
           </button>
 
-          <button
-            type="button"
-            title="오른쪽 정렬"
-            onClick={() => handleAlign('right')}
-          >
+          <button type="button" title="오른쪽 정렬">
             ≡
           </button>
 
           <span className="alignment-divider" />
 
-          <button
-            type="button"
-            title="위쪽 정렬"
-            onClick={() => handleAlign('top')}
-          >
+          <button type="button" title="위쪽 정렬">
             ⫯
           </button>
 
-          <button
-            type="button"
-            title="세로 가운데 정렬"
-            onClick={() => handleAlign('middle')}
-          >
+          <button type="button" title="세로 가운데 정렬">
             ⫰
           </button>
 
-          <button
-            type="button"
-            title="아래쪽 정렬"
-            onClick={() => handleAlign('bottom')}
-          >
+          <button type="button" title="아래쪽 정렬">
             ⫯
           </button>
         </div>
