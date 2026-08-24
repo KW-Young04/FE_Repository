@@ -45,9 +45,11 @@ export interface RepositoryWorkspaceViewProps {
   runtimeLog: string[];
   runtimeError: string | null;
   isRestarting: boolean;
+  designWriteEnabled: boolean;
   onFileClick: (path: string) => void | Promise<void>;
   onCloseTab: (path: string) => void;
   onEditorChange: (nextValue: string | undefined) => void;
   onRestartPreview: () => void | Promise<void>;
+  onDesignPatch: (sourceId: number | null, css: Record<string, string>) => void;
   onNavigateToConnect: () => void;
 }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PreviewStatus, SelectedPreviewElement, VisualDesignValues } from "../types";
-import { designPatchToCss } from "../designCss";
-import DesignControlPanel from "./DesignControlPanel";
+import type { SelectedPreviewElement, VisualDesignValues } from "../../RepositoryWorkspace/types";
+import { designPatchToCss } from "../../RepositoryWorkspace/designCss";
+import type { PreviewStatus } from "../types";
+import DesignControlPanel from "../../RepositoryWorkspace/components/DesignControlPanel";
 
 interface PreviewPanelProps {
   previewStatus: PreviewStatus;
