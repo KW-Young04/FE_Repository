@@ -10,6 +10,7 @@ import RepositoryWorkspaceTestPage from '@/pages/RepositoryWorkspaceTest';
 
 export const router = createBrowserRouter([
   { path: '/', element: <MainPage /> },
+  { path: '/auth/callback', element: <OAuthCallbackPage /> },
   { path: '/oauth/callback', element: <OAuthCallbackPage /> },
   { path: '/repository-connect', element: <RepositoryConnectPage /> },
   { path: '/repository-analysis', element: <AnalysisProgressPage /> },
