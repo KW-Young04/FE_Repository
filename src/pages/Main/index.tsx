@@ -3,16 +3,27 @@ import githubImage from "@/assets/github.png";
 import Button from "@/components/Button";
 import LoginErrorModal from "./LoginErrorModal";
 import { useGithubLogin } from "@/hooks/useGithubLogin";
+import { useNavigate } from "react-router-dom";
 
 const features = [
-  "코드 + 렌더링 화면 기반 분석",
+  "코드와 실제 화면을 함께 분석",
   "바로 적용 가능한 코드 제안",
-  "WCAG 기준 평가 제공",
-  "GitHub 연동",
+  "WCAG 기준 접근성 점검",
+  "GitHub 저장소 연동",
 ];
 
-export default function MainPage() {
+function Main() {
+  const navigate = useNavigate();
   const { isLoginErrorOpen, login, closeLoginError } = useGithubLogin();
+
+  const handleRepositoryImageClick = () => {
+    if (localStorage.getItem("access_token")) {
+      navigate("/repository-connect");
+      return;
+    }
+
+    login();
+  };
 
   return (
     <main className="flex min-h-screen items-center bg-white px-6 md:px-10">
@@ -33,7 +44,7 @@ export default function MainPage() {
             {features.map((feature) => (
               <li key={feature} className="flex items-center gap-3">
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                  ✓
+                  ?
                 </span>
                 <span>{feature}</span>
               </li>
@@ -45,25 +56,28 @@ export default function MainPage() {
             variant="default"
             className="mt-10 inline-flex h-14 w-full max-w-lg items-center justify-center gap-3 px-8 text-2xl"
           >
-            <img
-              src={githubImage}
-              alt="GitHub 아이콘"
-              className="h-8 w-8 object-contain"
-            />
-            <span>GitHub으로 로그인</span>
+            <img src={githubImage} alt="GitHub 아이콘" className="h-8 w-8 object-contain" />
+            <span>GitHub로 로그인</span>
           </Button>
         </div>
 
-        <div className="w-full max-w-2xl">
+        <button
+          type="button"
+          onClick={handleRepositoryImageClick}
+          className="w-full max-w-2xl cursor-pointer border-0 bg-transparent p-0 text-left"
+          aria-label="저장소 연결 시작"
+        >
           <img
             src={signupImage}
-            alt="Codee GitHub 회원가입 소개 이미지"
+            alt="저장소 연결 화면"
             className="h-auto w-full object-contain"
           />
-        </div>
+        </button>
       </section>
 
       <LoginErrorModal isOpen={isLoginErrorOpen} onClose={closeLoginError} />
     </main>
   );
 }
+
+export default Main;

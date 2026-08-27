@@ -12,10 +12,32 @@ button,
 input,
 textarea,
 select {
-  font: inherit;
+  font-family: inherit;
 }
 
 #root {
   max-width: 100%;
   min-height: 100svh;
+}
+
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(203 213 225 / 0.8) transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background-color: rgb(203 213 225 / 0.8);
+  border-radius: 9999px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(148 163 184 / 0.95);
 }

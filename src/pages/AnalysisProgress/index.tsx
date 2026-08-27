@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "@/components/Button";
-import { repositoryApi, type RepositoryTreeResponse } from "@/api/repository";
+import { type RepositoryTreeResponse } from "@/api/repository";
+import { prewarmWebContainer } from "@/utils/webContainerRuntime";
+import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
 
 type StepStatus = "pending" | "running" | "done";
 
@@ -14,31 +16,33 @@ interface AnalysisStep {
 const STEPS: AnalysisStep[] = [
   {
     title: "파일 구조 파악",
-    icon: "🗂️",
+    icon: "??",
     description: (tree) => {
-      if (!tree) return "분석 중…";
-      const fileCount = tree.nodes.filter((n) => n.type === "blob").length;
-      return `${fileCount}개 파일 완료`;
+      if (!tree) return "분석 중";
+      const fileCount = tree.nodes.filter((node) => node.type === "blob").length;
+      return `${fileCount}개 파일 확인`;
     },
   },
   {
-    title: "코드 파싱",
-    icon: "💻",
+    title: "코드 로딩",
+    icon: "??",
     description: (tree) => {
-      if (!tree) return "분석 중…";
-      const tsxCount = tree.nodes.filter((n) => n.path.endsWith(".tsx") || n.path.endsWith(".jsx")).length;
-      return `${tsxCount}개 컴포넌트 완료`;
+      if (!tree) return "분석 중";
+      const componentCount = tree.nodes.filter(
+        (node) => node.path.endsWith(".tsx") || node.path.endsWith(".jsx"),
+      ).length;
+      return `${componentCount}개 컴포넌트 확인`;
     },
   },
   {
-    title: "렌더링 스냅샷",
-    icon: "🖼️",
-    description: () => "스냅샷 완료",
+    title: "렌더링 준비",
+    icon: "???",
+    description: () => "프리뷰 준비 완료",
   },
   {
     title: "AI 분석",
-    icon: "🤖",
-    description: () => "분석 완료",
+    icon: "?",
+    description: () => "분석 준비 완료",
   },
 ];
 
@@ -48,6 +52,7 @@ export default function AnalysisProgressPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const repositoryUrl = searchParams.get("repo") ?? "";
+  const branchName = searchParams.get("branch") ?? "";
 
   const [tree, setTree] = useState<RepositoryTreeResponse | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -59,7 +64,7 @@ export default function AnalysisProgressPage() {
   const initialized = useRef(false);
 
   const progress = useMemo(() => {
-    const doneCount = stepStatuses.filter((s) => s === "done").length;
+    const doneCount = stepStatuses.filter((status) => status === "done").length;
     if (isComplete) return 100;
     return Math.round((doneCount / STEPS.length) * 100);
   }, [stepStatuses, isComplete]);
@@ -70,6 +75,9 @@ export default function AnalysisProgressPage() {
 
     if (!repositoryUrl) return;
 
+    void getOrStartWorkspaceWarmup(repositoryUrl, branchName);
+    void prewarmWebContainer();
+
     const runSteps = async () => {
       setStepStatuses((prev) => {
         const next = [...prev];
@@ -78,8 +86,8 @@ export default function AnalysisProgressPage() {
       });
 
       try {
-        const treeData = await repositoryApi.getTree(repositoryUrl);
-        setTree(treeData);
+        const warmed = await getOrStartWorkspaceWarmup(repositoryUrl, branchName);
+        setTree(warmed.tree);
       } catch {
         setFetchError(true);
       }
@@ -90,19 +98,19 @@ export default function AnalysisProgressPage() {
         return next;
       });
 
-      for (let i = 1; i < STEPS.length; i++) {
-        setCurrentStep(i);
+      for (let index = 1; index < STEPS.length; index += 1) {
+        setCurrentStep(index);
         setStepStatuses((prev) => {
           const next = [...prev];
-          next[i] = "running";
+          next[index] = "running";
           return next;
         });
 
-        await new Promise((resolve) => setTimeout(resolve, STEP_DURATION_MS));
+        await new Promise((resolve) => window.setTimeout(resolve, STEP_DURATION_MS));
 
         setStepStatuses((prev) => {
           const next = [...prev];
-          next[i] = "done";
+          next[index] = "done";
           return next;
         });
       }
@@ -110,8 +118,8 @@ export default function AnalysisProgressPage() {
       setIsComplete(true);
     };
 
-    runSteps();
-  }, [repositoryUrl]);
+    void runSteps();
+  }, [repositoryUrl, branchName]);
 
   const displayName = useMemo(() => {
     if (tree) return `${tree.owner}/${tree.repo}`;
@@ -123,15 +131,19 @@ export default function AnalysisProgressPage() {
     }
   }, [tree, repositoryUrl]);
 
+  const workspaceUrl = `/repository-workspace?repo=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(branchName)}`;
+
   return (
     <main className="flex min-h-screen items-center bg-white px-6 py-10 md:px-10">
       <section className="mx-auto w-full max-w-5xl -translate-y-6">
         <h1 className="text-3xl font-extrabold text-slate-900">저장소 분석</h1>
-        <p className="mt-2 text-xl font-semibold text-slate-600">{displayName}</p>
+        <p className="mt-2 text-xl font-semibold text-slate-600">
+          {displayName} {branchName && <span className="text-sky-600">({branchName})</span>}
+        </p>
 
         {fetchError && (
           <p className="mt-3 text-sm font-medium text-amber-600">
-            저장소 트리를 불러오지 못했습니다. 분석은 계속 진행됩니다.
+            저장소 트리를 불러오지 못했습니다. API 서버 상태와 브랜치 이름을 확인해 주세요.
           </p>
         )}
 
@@ -154,11 +166,7 @@ export default function AnalysisProgressPage() {
                       {step.title}
                     </strong>
                     <span className="block text-base font-semibold text-slate-700">
-                      {status === "done"
-                        ? step.description(tree)
-                        : isActive
-                          ? "진행 중…"
-                          : "대기 중"}
+                      {status === "done" ? step.description(tree) : isActive ? "진행 중" : "대기 중"}
                     </span>
                   </span>
                 </div>
@@ -182,23 +190,19 @@ export default function AnalysisProgressPage() {
           />
         </div>
 
-        {isComplete ? (
-          <p className="mt-4 text-xl font-extrabold text-slate-800">분석이 완료되었습니다!</p>
-        ) : (
-          <p className="mt-4 text-xl font-semibold text-slate-700">
-            분석 진행 중…{" "}
-            <span className="font-extrabold text-sky-500">{progress}%</span>
-          </p>
-        )}
+        <p className="mt-4 text-xl font-semibold text-slate-700">
+          {isComplete ? "분석 준비가 완료되었습니다." : "분석 진행 중"} {" "}
+          <span className="font-extrabold text-sky-500">{progress}%</span>
+        </p>
 
         <div className="mt-6">
           <Button
             variant={isComplete ? "default" : "disabled"}
             disabled={!isComplete}
-            onClick={() => navigate("/")}
+            onClick={() => navigate(workspaceUrl)}
             className="h-14 w-full rounded-none text-xl"
           >
-            결과 확인하기 →
+            결과 확인하기
           </Button>
         </div>
       </section>
