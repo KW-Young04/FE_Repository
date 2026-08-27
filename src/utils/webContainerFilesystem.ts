@@ -1,5 +1,7 @@
 import type { FileSystemTree, WebContainer } from "@webcontainer/api";
 
+export type WorkspaceFileContent = string | Uint8Array;
+
 const MOUNT_TIMEOUT_MS = 120_000;
 
 let mountState: "idle" | "mounted" = "idle";
@@ -23,6 +25,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
+export function decodeBase64FileContent(content: string): Uint8Array {
+  const binary = window.atob(content);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
 export function resetWebContainerFilesystemState(): void {
   mountState = "idle";
   mountTask = null;
@@ -40,7 +51,7 @@ function getParentDirectory(path: string): string {
 export async function writeWorkspaceFile(
   container: WebContainer,
   path: string,
-  content: string,
+  content: WorkspaceFileContent,
 ): Promise<void> {
   const parent = getParentDirectory(path);
   if (parent) {
@@ -82,7 +93,7 @@ async function mountTree(container: WebContainer, fsTree: FileSystemTree): Promi
 
 export async function syncWorkspaceFiles(
   container: WebContainer,
-  files: Record<string, string>,
+  files: Record<string, WorkspaceFileContent>,
 ): Promise<void> {
   for (const [path, content] of Object.entries(files)) {
     await writeWorkspaceFile(container, path, content);
@@ -92,7 +103,7 @@ export async function syncWorkspaceFiles(
 export async function mountOrSyncWorkspace(
   container: WebContainer,
   fsTree: FileSystemTree,
-  files: Record<string, string>,
+  files: Record<string, WorkspaceFileContent>,
 ): Promise<"mounted" | "synced"> {
   if (mountState === "mounted") {
     await syncWorkspaceFiles(container, files);

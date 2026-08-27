@@ -1,13 +1,13 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 import { uploadWcagAnalysis } from "@/api/analysis";
 import type { RepositoryTreeResponse } from "@/api/repository";
-import { resolvePreviewProject, explainUnsupportedPreviewRepo, type PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
+import { resolvePreviewProject, explainUnsupportedPreviewRepo, type PreviewProjectProfile } from "@/pages/RepositoryWorkspaceTest/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
   NPM_INSTALL_TIMEOUT_MS,
   PREVIEW_PORT,
   SERVER_READY_TIMEOUT_MS,
-} from "@/pages/RepositoryWorkspace/constants";
+} from "@/pages/RepositoryWorkspaceTest/constants";
 import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
 import {
   buildFileSystemTree,
@@ -15,7 +15,7 @@ import {
   ensurePreviewFilesLoaded,
   findPreviewEntryPath,
   withTimeout,
-} from "@/pages/RepositoryWorkspace/utils";
+} from "@/pages/RepositoryWorkspaceTest/utils";
 import { acquireWebContainer, teardownWebContainer } from "@/utils/webContainerRuntime";
 import {
   mountOrSyncWorkspace,

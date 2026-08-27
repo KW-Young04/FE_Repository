@@ -1,5 +1,5 @@
 import type { WebContainer } from "@webcontainer/api";
-import type { PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
+import type { PreviewProjectProfile } from "@/pages/RepositoryWorkspaceTest/previewProject";
 import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
 import { writeWorkspaceBinaryFile, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
 import { buildCaptureHostBootScript } from "./buildCaptureHostBootScript";

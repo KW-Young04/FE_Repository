@@ -1,4 +1,5 @@
 import type { FileSystemTree } from "@webcontainer/api";
+import { decodeBase64FileContent, type WorkspaceFileContent } from "@/utils/webContainerFilesystem";
 import { repositoryApi, type RepositoryFileResponse } from "@/api/repository";
 import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "@/preview-capture/capturePageBridgeScript";
 import {
@@ -166,6 +167,10 @@ export function buildTree(paths: string[]): TreeItem[] {
   return root;
 }
 
+export function toWorkspaceFileContent(file: Pick<LoadedFile, "content" | "encoding">): WorkspaceFileContent {
+  return file.encoding === "base64" ? decodeBase64FileContent(file.content) : file.content;
+}
+
 export function buildFileSystemTree(files: Record<string, LoadedFile>): FileSystemTree {
   const root: FileSystemTree = {};
 
@@ -178,7 +183,7 @@ export function buildFileSystemTree(files: Record<string, LoadedFile>): FileSyst
       if (isLeaf) {
         current[segment] = {
           file: {
-            contents: file.content,
+            contents: toWorkspaceFileContent(file),
           },
         };
       } else {
@@ -448,6 +453,185 @@ server.listen(port, "0.0.0.0", () => {
 });`;
 }
 
+
+export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: string, files: Record<string, LoadedFile>): string {
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const filePaths = Object.keys(files).sort((a, b) => a.localeCompare(b));
+  const readme = files["README.md"]?.content ?? files["readme.md"]?.content ?? "";
+  const appEntry = Object.entries(files).find(
+    ([path, file]) => path.endsWith("app.py") && /import\s+streamlit|from\s+streamlit|\bst\./.test(file.content),
+  );
+  const requirements = Object.entries(files)
+    .filter(([path]) => path.endsWith("requirements.txt"))
+    .map(([, file]) => file.content)
+    .join("\n");
+  const isStreamlit = Boolean(appEntry) || /(^|\n)\s*streamlit\b/i.test(requirements) || /Streamlit/i.test(readme);
+
+  const repoName = repositoryUrl.replace(/^https:\/\/github\.com\//, "");
+  const readmePreview = readme.split(/\r?\n/).slice(0, 28).join("\n").trim();
+  const listItems = filePaths.slice(0, 28).map((path) => `<li><span>${escapeHtml(path)}</span></li>`).join("");
+
+  if (isStreamlit) {
+    const source = appEntry?.[1].content ?? readme;
+    const stringArg = (name: string) => {
+      const match = source.match(new RegExp(`st\\.${name}\\(\\s*[\"']([^\"']+)[\"']`));
+      return match?.[1] ?? "";
+    };
+    const allLabels = Array.from(source.matchAll(/st\.(selectbox|radio|multiselect|slider|text_input|number_input)\(\s*["']([^"']+)["']/g))
+      .map((match) => ({ type: match[1], label: match[2] }))
+      .slice(0, 6);
+    const buttons = Array.from(source.matchAll(/st\.button\(\s*["']([^"']+)["']/g)).map((match) => match[1]).slice(0, 3);
+    const title = stringArg("title") || stringArg("header") || readme.match(/^#\s+(.+)$/m)?.[1] || "Streamlit App";
+    const subtitle = stringArg("caption") || stringArg("subheader") || "Streamlit 기반 웹 애플리케이션 미리보기";
+    const controlHtml = allLabels.length > 0
+      ? allLabels.map((item) => `<label><span>${escapeHtml(item.label)}</span><div class="control">${item.type === "slider" ? "50" : "선택하세요"}</div></label>`).join("")
+      : `<label><span>입력 항목</span><div class="control">선택하세요</div></label>`;
+    const buttonHtml = buttons.length > 0
+      ? buttons.map((label) => `<button>${escapeHtml(label)}</button>`).join("")
+      : `<button>추천 받기</button>`;
+
+    return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    :root { font-family: Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #0f172a; background: #f6f7fb; }
+    body { margin: 0; background: linear-gradient(180deg, #fff7ed 0%, #f8fafc 34%, #eef6ff 100%); }
+    .app { width: min(980px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 54px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; color: #334155; }
+    .bean { width: 42px; height: 42px; border-radius: 50%; background: #8b5cf6; box-shadow: inset -10px -12px 0 rgba(0,0,0,.12); }
+    .chip { border: 1px solid #e9d5ff; background: #faf5ff; color: #7c3aed; padding: 7px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+    .hero { padding: 30px; border: 1px solid #eadfd0; background: rgba(255,255,255,.86); box-shadow: 0 18px 45px rgba(15,23,42,.08); }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 48px); line-height: 1.15; letter-spacing: 0; }
+    .subtitle { margin: 12px 0 0; max-width: 760px; color: #64748b; font-size: 17px; line-height: 1.75; font-weight: 650; }
+    .grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 18px; margin-top: 18px; }
+    .panel { border: 1px solid #dbe3ef; background: rgba(255,255,255,.92); padding: 24px; box-shadow: 0 12px 30px rgba(15,23,42,.06); }
+    h2 { margin: 0 0 16px; font-size: 18px; }
+    label { display: block; margin-bottom: 14px; }
+    label span { display: block; margin-bottom: 7px; color: #334155; font-size: 13px; font-weight: 800; }
+    .control { height: 42px; display: flex; align-items: center; border: 1px solid #cbd5e1; background: #fff; padding: 0 12px; color: #64748b; font-size: 14px; }
+    button { width: 100%; height: 46px; border: 0; background: #7c3aed; color: white; font-size: 15px; font-weight: 900; cursor: pointer; }
+    .result { min-height: 220px; display: grid; align-content: center; text-align: center; background: #0f172a; color: white; }
+    .cup { width: 92px; height: 76px; margin: 0 auto 18px; border: 9px solid #fff; border-top: 0; border-radius: 0 0 24px 24px; position: relative; }
+    .cup:after { content: ""; position: absolute; right: -34px; top: 13px; width: 28px; height: 28px; border: 8px solid #fff; border-left: 0; border-radius: 0 18px 18px 0; }
+    .result strong { display: block; font-size: 24px; }
+    .result p { margin: 8px 0 0; color: #cbd5e1; font-weight: 700; }
+    .notice { margin-top: 18px; color: #475569; font-size: 13px; line-height: 1.7; font-weight: 700; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .app { width: min(100% - 28px, 980px); padding-top: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="top"><div class="brand"><span class="bean"></span><span>${escapeHtml(repoName)}</span></div><span class="chip">branch: ${escapeHtml(branchName || "HEAD")}</span></div>
+    <section class="hero"><h1>${escapeHtml(title)}</h1><p class="subtitle">${escapeHtml(subtitle)}</p></section>
+    <section class="grid">
+      <div class="panel"><h2>사용자 입력</h2>${controlHtml}${buttonHtml}</div>
+      <div class="panel result"><div><div class="cup"></div><strong>추천 결과</strong><p>선택한 조건에 맞는 메뉴 조합이 표시됩니다.</p></div></div>
+    </section>
+    <p class="notice">Streamlit/Python 앱은 브라우저 런타임에서 직접 실행할 수 없어, front/app.py 코드를 기반으로 디자인 확인용 정적 미리보기를 생성했습니다.</p>
+  </main>
+</body>
+</html>`;
+  }
+
+  return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Repository Preview</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f8fafc; color: #0f172a; }
+    main { min-height: 100vh; box-sizing: border-box; padding: 40px; display: grid; align-content: center; }
+    .panel { width: min(880px, 100%); margin: 0 auto; border: 1px solid #dbe3ef; background: white; box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08); }
+    .header { padding: 28px 30px 22px; border-bottom: 1px solid #e5eaf2; }
+    h1 { margin: 0; font-size: 28px; line-height: 1.25; letter-spacing: 0; }
+    p { margin: 10px 0 0; color: #475569; font-size: 15px; line-height: 1.7; }
+    .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { border: 1px solid #ddd6fe; background: #f5f3ff; color: #6d28d9; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .content { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    section { padding: 26px 30px; min-width: 0; }
+    section + section { border-left: 1px solid #e5eaf2; }
+    h2 { margin: 0 0 14px; font-size: 16px; }
+    ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+    li { min-width: 0; border: 1px solid #e2e8f0; background: #f8fafc; padding: 9px 10px; font-size: 13px; font-weight: 700; color: #334155; }
+    li span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    pre { margin: 0; max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid #e2e8f0; background: #0f172a; color: #e2e8f0; padding: 14px; font-size: 12px; line-height: 1.55; }
+    .notice { margin-top: 18px; color: #be123c; font-size: 13px; font-weight: 700; }
+    @media (max-width: 760px) { main { padding: 20px; } .content { grid-template-columns: 1fr; } section + section { border-left: 0; border-top: 1px solid #e5eaf2; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="panel">
+      <div class="header">
+        <h1>${escapeHtml(repoName)}</h1>
+        <p>이 저장소의 코드는 불러왔지만, 브라우저에서 바로 실행할 수 있는 프론트 진입 파일을 찾지 못했습니다.</p>
+        <div class="meta"><span class="chip">branch: ${escapeHtml(branchName || "HEAD")}</span><span class="chip">loaded files: ${filePaths.length}</span></div>
+        <p class="notice">실제 화면 프리뷰를 보려면 index.html 또는 package.json이 있는 웹 프론트 프로젝트가 저장소에 포함되어야 합니다.</p>
+      </div>
+      <div class="content">
+        <section><h2>불러온 파일</h2><ul>${listItems || "<li><span>표시할 파일이 없습니다.</span></li>"}</ul></section>
+        <section><h2>README 미리보기</h2><pre>${escapeHtml(readmePreview || "README.md가 없거나 아직 불러오지 않았습니다.")}</pre></section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
+
+export function createRuntimeFailureHtml(repositoryUrl: string, branchName: string, errorMessage: string): string {
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const repoName = repositoryUrl.replace(/^https:\/\/github\.com\//, "");
+
+  return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preview Failed</title>
+  <style>
+    :root { font-family: Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #0f172a; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f8fafc; }
+    main { width: min(760px, calc(100% - 48px)); border: 1px solid #fecdd3; background: #fff; padding: 30px; box-shadow: 0 18px 45px rgba(15,23,42,.08); }
+    h1 { margin: 0; font-size: 28px; letter-spacing: 0; }
+    p { color: #475569; line-height: 1.7; font-weight: 650; }
+    .chip { display: inline-flex; margin: 12px 8px 18px 0; border: 1px solid #ddd6fe; background: #f5f3ff; color: #6d28d9; padding: 7px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0f172a; color: #e2e8f0; padding: 14px; font-size: 12px; line-height: 1.55; overflow: auto; max-height: 240px; }
+    .notice { color: #be123c; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(repoName)}</h1>
+    <span class="chip">branch: ${escapeHtml(branchName || "HEAD")}</span>
+    <p class="notice">프리뷰 실행 중 의존성 설치 또는 개발 서버 실행에 실패했습니다.</p>
+    <p>코드는 정상적으로 불러왔지만, 이 저장소는 브라우저 프리뷰 안에서 패키지 설치와 실행이 필요합니다. 설치가 실패하면 실제 화면 대신 이 안내 화면을 표시합니다.</p>
+    <pre>${escapeHtml(errorMessage)}</pre>
+  </main>
+</body>
+</html>`;
+}
+
 export async function runBatched<T>(
   items: readonly T[],
   handler: (item: T) => Promise<void>,
@@ -474,6 +658,7 @@ export async function ensurePreviewFilesLoaded(
   files: Record<string, LoadedFile>,
   candidatePaths: readonly string[],
   repositoryUrl: string,
+  branchName?: string,
 ): Promise<Record<string, LoadedFile>> {
   let nextFiles = files;
 
@@ -485,13 +670,15 @@ export async function ensurePreviewFilesLoaded(
     "public/index.html",
     "public/index.htm",
     ...candidatePaths.filter((path) => path.endsWith(".html") || path.endsWith(".htm")),
+    ...candidatePaths.filter((path) => /\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)),
+    ...candidatePaths.filter((path) => path.startsWith("src/assets/") || path.startsWith("public/")),
   ];
 
   for (const path of requiredPaths) {
     if (nextFiles[path]) continue;
-    if (!candidatePaths.includes(path) && path !== "package.json") continue;
+    if (!candidatePaths.includes(path)) continue;
     try {
-      const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
+      const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path, branchName);
       nextFiles = {
         ...nextFiles,
         [path]: {
@@ -532,10 +719,11 @@ function getBundlerPathPriority(path: string): number {
   if (/next\.config\./.test(path)) return 1;
   if (/\/app\//.test(path) && /\.(tsx|ts|jsx|js)$/.test(path)) return 2;
   if (path.endsWith(".css")) return 3;
-  if (/\.(tsx|ts|jsx|js)$/.test(path)) return 4;
-  if (path.endsWith(".json")) return 5;
-  if (path.endsWith(".mdx") && /\/app\//.test(path)) return 6;
-  return 7;
+  if (/\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)) return 4;
+  if (/\.(tsx|ts|jsx|js)$/.test(path)) return 5;
+  if (path.endsWith(".json")) return 6;
+  if (path.endsWith(".mdx") && /\/app\//.test(path)) return 7;
+  return 8;
 }
 
 function collectBundlerCandidatePaths(
@@ -553,7 +741,10 @@ function collectBundlerCandidatePaths(
     });
   }
 
-  return deferredPaths.filter((path) => includeSkipped || !shouldSkipBundlerPreloadPath(path));
+  const sourcePaths = includeSkipped ? allTreePaths : [...deferredPaths, ...allTreePaths];
+  return Array.from(new Set(sourcePaths)).filter(
+    (path) => includeSkipped || !shouldSkipBundlerPreloadPath(path),
+  );
 }
 
 function sortAndCapBundlerPaths(paths: readonly string[], maxFiles: number): string[] {
@@ -589,6 +780,7 @@ export async function ensurePackageJsonDiscovery(
   files: Record<string, LoadedFile>,
   allTreePaths: readonly string[],
   repositoryUrl: string,
+  branchName?: string,
 ): Promise<Record<string, LoadedFile>> {
   let nextFiles = files;
   const discoveryPaths = allTreePaths.filter(
@@ -605,10 +797,10 @@ export async function ensurePackageJsonDiscovery(
   for (const path of discoveryPaths) {
     if (nextFiles[path]) continue;
     try {
-      const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
+      const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path, branchName);
       nextFiles = {
         ...nextFiles,
-        [path]: { path, content: response.content, dirty: false },
+        [path]: { path, content: response.content, encoding: response.encoding, dirty: false },
       };
     } catch {
       continue;
@@ -622,6 +814,7 @@ export async function preloadRepositoryPaths(
   files: Record<string, LoadedFile>,
   paths: readonly string[],
   repositoryUrl: string,
+  branchName?: string,
   maxFiles: number = BUNDLER_PRELOAD_MAX_FILES,
 ): Promise<Record<string, LoadedFile>> {
   let nextFiles = files;
@@ -631,10 +824,10 @@ export async function preloadRepositoryPaths(
     pending,
     async (path) => {
       try {
-        const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path);
+        const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path, branchName);
         nextFiles = {
           ...nextFiles,
-          [path]: { path, content: response.content, dirty: false },
+          [path]: { path, content: response.content, encoding: response.encoding, dirty: false },
         };
       } catch {
         // 개별 파일 실패는 무시
@@ -649,9 +842,10 @@ export async function preloadRepositoryPaths(
 export async function fetchRepositoryFileWithTimeout(
   repositoryUrl: string,
   path: string,
+  branchName?: string,
 ): Promise<RepositoryFileResponse> {
   return withTimeout(
-    repositoryApi.getFile(repositoryUrl, path),
+    repositoryApi.getFile(repositoryUrl, path, branchName),
     FILE_FETCH_TIMEOUT_MS,
     `파일 로드 타임아웃(${FILE_FETCH_TIMEOUT_MS}ms): ${path}`,
   );

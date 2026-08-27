@@ -3,6 +3,7 @@ import { repositoryApi, type RepositoryTreeResponse, type TreeNode } from "@/api
 interface WarmupFile {
   path: string;
   content: string;
+  encoding?: 'utf-8' | 'base64' | string;
 }
 
 export interface WorkspaceWarmupResult {
@@ -33,6 +34,16 @@ const EDITABLE_EXTENSIONS = [
   ".vue",
   ".svelte",
   ".svg",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".woff",
+  ".woff2",
+  ".py",
+  ".sql",
 ];
 
 // Preview assets that should be prioritized into the initial warmup set.
@@ -95,6 +106,8 @@ const BATCH_SIZE = 10;
 const FILE_FETCH_TIMEOUT_MS = 15000;
 const MAX_PREVIEW_FILE_BYTES = 500 * 1024;
 
+const WARMUP_CACHE_VERSION = 'binary-assets-v1';
+
 const warmupCache = new Map<string, Promise<WorkspaceWarmupResult>>();
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -140,17 +153,18 @@ function getPathPriority(path: string): number {
   if (/^vite\.config\.(ts|js|mjs|cjs)$/.test(path)) return -2;
   if (/^(postcss|tailwind)\.config\.(ts|js|mjs|cjs)$/.test(path)) return -2;
   if (path === "tsconfig.json" || path === "tsconfig.app.json" || path === "tsconfig.node.json") return -1;
-  if (path.startsWith("apps/")) return 3;
   if (path === "index.html" || path === "index.htm") return 0;
   if (path.endsWith(".html") || path.endsWith(".htm")) return 1;
   if (path.endsWith(".tsx") || path.endsWith(".jsx")) return 2;
   if (PREVIEW_ASSET_EXTENSIONS.has(getFileExtension(path))) return 2;
   if (path.endsWith(".css")) return 3;
-  if (path.endsWith(".ts") || path.endsWith(".js")) return 4;
-  if (path.startsWith("src/")) return 5;
-  if (path.startsWith("public/")) return 6;
-  if (path.startsWith("assets/")) return 7;
-  return 8;
+  if (/\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)) return 4;
+  if (path.endsWith(".ts") || path.endsWith(".js")) return 5;
+  if (path.startsWith("src/")) return 6;
+  if (path.startsWith("public/")) return 7;
+  if (path.startsWith("assets/")) return 8;
+  if (path.startsWith("apps/")) return 9;
+  return 10;
 }
 
 function splitFastPreviewPaths(paths: string[]): { corePaths: string[]; deferredPaths: string[] } {
@@ -200,8 +214,10 @@ async function runBatched<T>(
   }
 }
 
-async function buildWarmup(repositoryUrl: string): Promise<WorkspaceWarmupResult> {
-  const tree = await repositoryApi.getTree(repositoryUrl);
+async function buildWarmup(repositoryUrl: string, branchName?: string): Promise<WorkspaceWarmupResult> {
+  const tree = branchName
+    ? await repositoryApi.getBranchTree(repositoryUrl, branchName)
+    : await repositoryApi.getTree(repositoryUrl);
 
   const candidateNodes = tree.nodes
     .filter((node: TreeNode) => node.type === "blob")
@@ -229,13 +245,14 @@ async function buildWarmup(repositoryUrl: string): Promise<WorkspaceWarmupResult
     async (path) => {
       try {
         const response = await withTimeout(
-          repositoryApi.getFile(repositoryUrl, path),
+          repositoryApi.getFile(repositoryUrl, path, branchName),
           FILE_FETCH_TIMEOUT_MS,
-          `파일 로드 타임아웃(${FILE_FETCH_TIMEOUT_MS}ms): ${path}`,
+          `?뚯씪 濡쒕뱶 ??꾩븘??${FILE_FETCH_TIMEOUT_MS}ms): ${path}`,
         );
         files[path] = {
           path,
           content: response.content,
+          encoding: response.encoding,
         };
       } catch {
         coreFailedPaths.push(path);
@@ -255,14 +272,18 @@ async function buildWarmup(repositoryUrl: string): Promise<WorkspaceWarmupResult
   };
 }
 
-export function invalidateWorkspaceWarmup(repositoryUrl: string): void {
-  warmupCache.delete(repositoryUrl.trim());
+export function invalidateWorkspaceWarmup(repositoryUrl: string, branchName?: string): void {
+  warmupCache.delete(getWarmupCacheKey(repositoryUrl, branchName));
 }
 
-export function getOrStartWorkspaceWarmup(repositoryUrl: string): Promise<WorkspaceWarmupResult> {
-  const key = repositoryUrl.trim();
+function getWarmupCacheKey(repositoryUrl: string, branchName?: string): string {
+  return `${WARMUP_CACHE_VERSION}::${repositoryUrl.trim()}::${branchName?.trim() ?? "HEAD"}`;
+}
+
+export function getOrStartWorkspaceWarmup(repositoryUrl: string, branchName?: string): Promise<WorkspaceWarmupResult> {
+  const key = getWarmupCacheKey(repositoryUrl, branchName);
   if (!key) {
-    return Promise.reject(new Error("repositoryUrl이 비어 있습니다."));
+    return Promise.reject(new Error("repositoryUrl??鍮꾩뼱 ?덉뒿?덈떎."));
   }
 
   const cached = warmupCache.get(key);
@@ -270,14 +291,14 @@ export function getOrStartWorkspaceWarmup(repositoryUrl: string): Promise<Worksp
     return cached;
   }
 
-  const warmupPromise = buildWarmup(key)
+  const warmupPromise = buildWarmup(repositoryUrl.trim(), branchName?.trim())
     .then((result) => {
       const hasCandidates = result.corePaths.length > 0;
       const hasFiles = Object.keys(result.files).length > 0;
       if (hasCandidates && !hasFiles) {
         warmupCache.delete(key);
         throw new Error(
-          `핵심 파일을 불러오지 못했습니다. (${result.coreFailedPaths.length}개 실패) API 서버 상태를 확인해 주세요.`,
+          `?듭떖 ?뚯씪??遺덈윭?ㅼ? 紐삵뻽?듬땲?? (${result.coreFailedPaths.length}媛??ㅽ뙣) API ?쒕쾭 ?곹깭瑜??뺤씤??二쇱꽭??`,
         );
       }
       return result;
@@ -289,3 +310,5 @@ export function getOrStartWorkspaceWarmup(repositoryUrl: string): Promise<Worksp
   warmupCache.set(key, warmupPromise);
   return warmupPromise;
 }
+
+
