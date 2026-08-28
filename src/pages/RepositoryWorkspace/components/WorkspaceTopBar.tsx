@@ -65,10 +65,19 @@ const NAV_ITEMS: NavItem[] = [
 
 interface WorkspaceTopBarProps {
   activeTab: WorkspaceTab;
+  changedFileCount: number;
+  isCommitting: boolean;
   onTabChange: (tab: WorkspaceTab) => void;
+  onCommitClick: () => void;
 }
 
-export default function WorkspaceTopBar({ activeTab, onTabChange }: WorkspaceTopBarProps) {
+export default function WorkspaceTopBar({
+  activeTab,
+  changedFileCount,
+  isCommitting,
+  onTabChange,
+  onCommitClick,
+}: WorkspaceTopBarProps) {
   return (
     <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-4 md:px-6">
       <div className="w-36 shrink-0">
@@ -92,7 +101,13 @@ export default function WorkspaceTopBar({ activeTab, onTabChange }: WorkspaceTop
       </nav>
 
       <div className="flex w-36 shrink-0 justify-end">
-        <WorkspaceCommitButton />
+        <WorkspaceCommitButton onClick={onCommitClick} disabled={isCommitting}>
+          {isCommitting
+            ? "처리 중..."
+            : changedFileCount > 0
+              ? `Commit ${changedFileCount}`
+              : "Commit"}
+        </WorkspaceCommitButton>
       </div>
     </header>
   );

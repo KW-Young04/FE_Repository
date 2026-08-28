@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 
 import { countProblemsBySeverity, PROBLEM_GROUPS } from "../../data/codeWorkspace";
-import type { BottomPanelTab } from "../../types";
+import type { BottomPanelTab, ProblemFileGroup } from "../../types";
+import GitDiffPanel from "./GitDiffPanel";
 import { CloseIcon, FilterIcon, MaximizeIcon, MinimizeIcon, SeverityIcon } from "./icons";
 import ProblemsList from "./ProblemsList";
 
@@ -12,9 +13,17 @@ interface BottomPanelProps {
   isRestarting: boolean;
   onSelectProblem: (path: string) => void | Promise<void>;
   onRestartPreview: () => void | Promise<void>;
+  /** 실시간 접근성 분석 결과. 없으면 목업 문제 목록을 보여준다. */
+  problemGroups?: ProblemFileGroup[];
+  isAnalyzing?: boolean;
+  analysisError?: string | null;
+  /** Git diff 탭 데이터. diffPath가 undefined면 탭 자체를 숨긴다. */
+  diffPath?: string | null;
+  diff?: string | null;
+  isDiffLoading?: boolean;
 }
 
-const PANEL_TABS: { id: BottomPanelTab; label: string }[] = [
+const BASE_TABS: { id: BottomPanelTab; label: string }[] = [
   { id: "problems", label: "PROBLEMS" },
   { id: "output", label: "OUTPUT" },
   { id: "debug", label: "DEBUG CONSOLE" },
@@ -28,27 +37,46 @@ export default function BottomPanel({
   isRestarting,
   onSelectProblem,
   onRestartPreview,
+  problemGroups,
+  isAnalyzing = false,
+  analysisError = null,
+  diffPath,
+  diff = null,
+  isDiffLoading = false,
 }: BottomPanelProps) {
   const [activeTab, setActiveTab] = useState<BottomPanelTab>("problems");
   const [filter, setFilter] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const severityCounts = useMemo(() => countProblemsBySeverity(PROBLEM_GROUPS), []);
+  const isGitDiffEnabled = diffPath !== undefined;
+  const groups = problemGroups ?? PROBLEM_GROUPS;
+
+  const tabs = useMemo(
+    () =>
+      isGitDiffEnabled
+        ? [BASE_TABS[0], { id: "gitDiff" as const, label: "GIT DIFF" }, ...BASE_TABS.slice(1)]
+        : BASE_TABS,
+    [isGitDiffEnabled],
+  );
+
+  const severityCounts = useMemo(() => countProblemsBySeverity(groups), [groups]);
 
   const filteredGroups = useMemo(() => {
     const keyword = filter.trim().toLowerCase();
-    if (!keyword) return PROBLEM_GROUPS;
+    if (!keyword) return groups;
 
-    return PROBLEM_GROUPS.map((group) => ({
-      ...group,
-      problems: group.problems.filter(
-        (problem) =>
-          problem.message.toLowerCase().includes(keyword) ||
-          group.path.toLowerCase().includes(keyword),
-      ),
-    })).filter((group) => group.problems.length > 0);
-  }, [filter]);
+    return groups
+      .map((group) => ({
+        ...group,
+        problems: group.problems.filter(
+          (problem) =>
+            problem.message.toLowerCase().includes(keyword) ||
+            group.path.toLowerCase().includes(keyword),
+        ),
+      }))
+      .filter((group) => group.problems.length > 0);
+  }, [filter, groups]);
 
   const logLines = runtimeLog.length > 0 ? runtimeLog.slice(-200) : [];
 
@@ -62,7 +90,7 @@ export default function BottomPanel({
     >
       <div className="flex h-9 shrink-0 items-center gap-4 border-b border-slate-200 bg-[#FAFAFC] px-3">
         <div className="flex items-center gap-4" role="tablist" aria-label="하단 패널 탭">
-          {PANEL_TABS.map((tab) => {
+          {tabs.map((tab) => {
             const isActive = !isCollapsed && activeTab === tab.id;
 
             return (
@@ -150,7 +178,23 @@ export default function BottomPanel({
       {!isCollapsed && (
         <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto">
           {activeTab === "problems" && (
-            <ProblemsList groups={filteredGroups} onSelectProblem={onSelectProblem} />
+            <>
+              {analysisError && (
+                <p className="border-b border-rose-100 bg-rose-50 px-3 py-1.5 text-[11px] font-medium text-rose-600">
+                  {analysisError}
+                </p>
+              )}
+              {isAnalyzing && (
+                <p className="px-3 py-1.5 text-[11px] font-medium text-violet-500">
+                  웹 접근성 검사 중...
+                </p>
+              )}
+              <ProblemsList groups={filteredGroups} onSelectProblem={onSelectProblem} />
+            </>
+          )}
+
+          {activeTab === "gitDiff" && (
+            <GitDiffPanel path={diffPath ?? null} diff={diff} isLoading={isDiffLoading} />
           )}
 
           {activeTab === "output" && (

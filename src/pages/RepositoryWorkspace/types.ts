@@ -124,7 +124,7 @@ export interface ProblemFileGroup {
   problems: ProblemItem[];
 }
 
-export type BottomPanelTab = "problems" | "output" | "debug" | "terminal";
+export type BottomPanelTab = "problems" | "gitDiff" | "output" | "debug" | "terminal";
 
 /** AI 제안본과 원본의 차이. 에디터에서 줄 단위 배경색으로 표시한다. */
 export interface AiDiffLines {

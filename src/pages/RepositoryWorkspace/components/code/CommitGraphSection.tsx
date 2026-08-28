@@ -6,7 +6,7 @@ interface CommitGraphSectionProps {
 
 export default function CommitGraphSection({ commits }: CommitGraphSectionProps) {
   return (
-    <section className="flex min-h-0 flex-col border-t border-slate-200 px-3 py-3">
+    <section className="flex min-h-0 flex-1 flex-col px-3 py-3">
       <h3 className="shrink-0 text-[10px] font-bold tracking-[0.08em] text-slate-400">GRAPH</h3>
 
       <ol className="scrollbar-subtle mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
