@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import { useRepositoryWorkspace } from "@/pages/RepositoryWorkspaceTest/useRepositoryWorkspace";
 
+import WorkspaceChatSidebar from "./components/chat/WorkspaceChatSidebar";
 import CodeTabView from "./components/code/CodeTabView";
 import DesignInspectorSidebar from "./components/design/DesignInspectorSidebar";
 import WorkspacePreviewMain from "./components/main/WorkspacePreviewMain";
@@ -39,27 +40,32 @@ export default function RepositoryWorkspacePage() {
 
       <div className="flex min-h-0 flex-1">
         {activeTab === "code" ? (
-          <CodeTabView
-            treeItems={workspace.treeItems}
-            filesByPath={workspace.filesByPath}
-            openPaths={workspace.openPaths}
-            activePath={workspace.activePath}
-            activeFile={workspace.activeFile}
-            truncatedCount={workspace.truncatedCount}
-            isBackgroundLoading={workspace.isBackgroundLoading}
-            previewStatus={workspace.previewStatus}
-            previewUrl={workspace.previewUrl}
-            previewRevision={workspace.previewRevision}
-            runtimeError={workspace.runtimeError}
-            loadError={workspace.loadError}
-            loadingMessage={workspace.loadingMessage}
-            runtimeLog={workspace.runtimeLog}
-            isRestarting={workspace.isRestarting}
-            onFileClick={workspace.onFileClick}
-            onCloseTab={workspace.onCloseTab}
-            onEditorChange={workspace.onEditorChange}
-            onRestartPreview={workspace.onRestartPreview}
-          />
+          <>
+            <WorkspaceLeftSidebar
+              selectedIssueId={selectedIssueId}
+              onSelectIssue={setSelectedIssueId}
+            />
+
+            <CodeTabView
+              treeItems={workspace.treeItems}
+              filesByPath={workspace.filesByPath}
+              openPaths={workspace.openPaths}
+              activePath={workspace.activePath}
+              activeFile={workspace.activeFile}
+              truncatedCount={workspace.truncatedCount}
+              isBackgroundLoading={workspace.isBackgroundLoading}
+              runtimeError={workspace.runtimeError}
+              loadError={workspace.loadError}
+              runtimeLog={workspace.runtimeLog}
+              isRestarting={workspace.isRestarting}
+              onFileClick={workspace.onFileClick}
+              onCloseTab={workspace.onCloseTab}
+              onEditorChange={workspace.onEditorChange}
+              onRestartPreview={workspace.onRestartPreview}
+            />
+
+            <WorkspaceChatSidebar />
+          </>
         ) : (
           <>
             <WorkspaceLeftSidebar

@@ -1,4 +1,6 @@
 import CodeTabView from "@/pages/RepositoryWorkspace/components/code/CodeTabView";
+import PreviewFrame from "@/pages/RepositoryWorkspace/components/preview/PreviewFrame";
+import { buildPreviewSrc } from "@/pages/RepositoryWorkspace/utils/previewSrc";
 
 import WorkspaceHeader from "./components/WorkspaceHeader";
 import WorkspaceStatusBanner from "./components/WorkspaceStatusBanner";
@@ -30,6 +32,11 @@ export default function RepositoryWorkspaceView({
   onNavigateToConnect,
 }: RepositoryWorkspaceViewProps) {
   const fileCount = Object.keys(filesByPath).length;
+  const previewSrc = buildPreviewSrc(previewUrl, previewStatus, previewRevision);
+  const previewPlaceholder =
+    previewStatus === "error"
+      ? (runtimeError ?? loadError ?? "프리뷰를 시작하지 못했습니다.")
+      : (loadError ?? loadingMessage) || "프리뷰를 준비하고 있습니다.";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-4 md:px-6">
@@ -60,12 +67,8 @@ export default function RepositoryWorkspaceView({
           activeFile={activeFile}
           truncatedCount={truncatedCount}
           isBackgroundLoading={isBackgroundLoading}
-          previewStatus={previewStatus}
-          previewUrl={previewUrl}
-          previewRevision={previewRevision}
           runtimeError={runtimeError}
           loadError={loadError}
-          loadingMessage={loadingMessage}
           runtimeLog={runtimeLog}
           isRestarting={isRestarting}
           onFileClick={onFileClick}
@@ -73,6 +76,24 @@ export default function RepositoryWorkspaceView({
           onEditorChange={onEditorChange}
           onRestartPreview={onRestartPreview}
         />
+
+        <section
+          className="flex w-1/3 min-w-0 shrink-0 flex-col border-l border-slate-200"
+          aria-label="편집 결과 미리보기"
+        >
+          <div className="shrink-0 border-b border-slate-200 px-3 py-2">
+            <strong className="text-sm font-bold text-slate-800">미리보기</strong>
+          </div>
+
+          <div className="min-h-0 flex-1 bg-slate-100">
+            <PreviewFrame
+              previewSrc={previewSrc}
+              previewRevision={previewRevision}
+              placeholderMessage={previewPlaceholder}
+              isLoading={previewStatus === "loading"}
+            />
+          </div>
+        </section>
       </section>
     </main>
   );

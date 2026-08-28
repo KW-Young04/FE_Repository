@@ -47,3 +47,19 @@ select {
 .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
   background-color: rgb(148 163 184 / 0.95);
 }
+
+.codee-diff-added {
+  background-color: rgb(34 197 94 / 0.14);
+}
+
+.codee-diff-removed {
+  background-color: rgb(244 63 94 / 0.13);
+}
+
+.codee-diff-added-glyph {
+  border-left: 2px solid rgb(34 197 94 / 0.7);
+}
+
+.codee-diff-removed-glyph {
+  border-left: 2px solid rgb(244 63 94 / 0.7);
+}

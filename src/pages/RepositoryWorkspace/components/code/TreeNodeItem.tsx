@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { TreeItem } from "../../types";
+import { ChevronIcon, FileIcon, FolderIcon } from "./icons";
 
 interface TreeNodeItemProps {
   item: TreeItem;
@@ -16,24 +17,27 @@ export default function TreeNodeItem({
   depth = 0,
 }: TreeNodeItemProps) {
   const [isOpen, setIsOpen] = useState(depth < 2);
-  const padding = `${depth * 12 + 8}px`;
+  const paddingLeft = `${depth * 12 + 6}px`;
 
   if (item.type === "blob") {
+    const isActive = activePath === item.path;
+
     return (
       <button
         type="button"
         className={[
-          "flex w-full items-center rounded px-2 py-1 text-left text-xs font-medium",
-          activePath === item.path
-            ? "bg-violet-100 text-violet-700"
-            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+          "flex w-full items-center gap-1.5 rounded px-1.5 py-[3px] text-left text-[12px]",
+          isActive
+            ? "font-bold text-sky-500"
+            : "font-medium text-slate-600 hover:bg-slate-200/60 hover:text-slate-900",
         ].join(" ")}
-        style={{ paddingLeft: padding }}
+        style={{ paddingLeft }}
         onClick={() => {
           void onFileClick(item.path);
         }}
       >
-        {item.name}
+        <FileIcon className="shrink-0 text-slate-400" />
+        <span className="truncate">{item.name}</span>
       </button>
     );
   }
@@ -42,13 +46,16 @@ export default function TreeNodeItem({
     <div>
       <button
         type="button"
-        className="flex w-full items-center rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:bg-slate-100"
-        style={{ paddingLeft: padding }}
+        className="flex w-full items-center gap-1 rounded px-1.5 py-[3px] text-left text-[12px] font-medium text-slate-700 hover:bg-slate-200/60"
+        style={{ paddingLeft }}
+        aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
       >
-        <span className="mr-1 text-[10px]">{isOpen ? "▼" : "▶"}</span>
-        {item.name}
+        <ChevronIcon open={isOpen} className="shrink-0 text-slate-500" />
+        <FolderIcon className="shrink-0 text-sky-400" />
+        <span className="truncate">{item.name}</span>
       </button>
+
       {isOpen &&
         item.children.map((child) => (
           <TreeNodeItem

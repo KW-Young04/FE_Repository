@@ -83,6 +83,47 @@ export interface LoadedFile {
   dirty: boolean;
 }
 
+export interface CommitNode {
+  id: string;
+  message: string;
+  author: string;
+  branch: string;
+  color: string;
+  /** 현재 체크아웃된 커밋. 그래프에서 속이 빈 원으로 표시한다. */
+  isHead?: boolean;
+}
+
+export interface BranchItem {
+  id: string;
+  name: string;
+  color: string;
+  isCurrent?: boolean;
+}
+
+export type ProblemSeverity = "error" | "warning" | "info";
+
+export interface ProblemItem {
+  id: string;
+  severity: ProblemSeverity;
+  message: string;
+  source: string;
+  line: number;
+  column: number;
+}
+
+export interface ProblemFileGroup {
+  path: string;
+  problems: ProblemItem[];
+}
+
+export type BottomPanelTab = "problems" | "output" | "debug" | "terminal";
+
+/** AI 제안본과 원본의 차이. 에디터에서 줄 단위 배경색으로 표시한다. */
+export interface AiDiffLines {
+  removed: number[];
+  added: number[];
+}
+
 export interface TreeItem {
   name: string;
   path: string;
