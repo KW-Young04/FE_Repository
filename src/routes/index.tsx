@@ -4,7 +4,6 @@ import MainPage from '@/pages/Main';
 import RepositoryConnectPage from '@/pages/RepositoryConnect';
 import AnalysisProgressPage from '@/pages/AnalysisProgress';
 import OAuthCallbackPage from '@/pages/OAuthCallback';
-import AnalysisWorkspacePage from '@/pages/AnalysisWorkspace';
 import RepositoryWorkspacePage from '@/pages/RepositoryWorkspace';
 import RepositoryWorkspaceTestPage from '@/pages/RepositoryWorkspaceTest';
 
@@ -14,7 +13,6 @@ export const router = createBrowserRouter([
   { path: '/oauth/callback', element: <OAuthCallbackPage /> },
   { path: '/repository-connect', element: <RepositoryConnectPage /> },
   { path: '/repository-analysis', element: <AnalysisProgressPage /> },
-  { path: '/analysis-workspace', element: <AnalysisWorkspacePage /> },
   { path: '/repository-workspace', element: <RepositoryWorkspacePage /> },
   { path: '/repository-workspace-test', element: <RepositoryWorkspaceTestPage /> },
 ]);
