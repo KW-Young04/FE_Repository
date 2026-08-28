@@ -1,4 +1,5 @@
 import type { FileSystemTree } from "@webcontainer/api";
+import axios from "axios";
 import { decodeBase64FileContent, type WorkspaceFileContent } from "@/utils/webContainerFilesystem";
 import { repositoryApi, type RepositoryFileResponse } from "@/api/repository";
 import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "@/preview-capture/capturePageBridgeScript";
@@ -890,14 +891,38 @@ export async function preloadRepositoryPaths(
   return nextFiles;
 }
 
+/**
+ * 4xx는 "그 브랜치에 그 파일이 없다"는 확정 응답이므로 재시도하지 않는다.
+ * 타임아웃·네트워크 오류·5xx 만 브랜치 전용 엔드포인트로 다시 시도한다.
+ */
+function isRetryableFileError(error: unknown): boolean {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    return status === undefined || status >= 500;
+  }
+  return true;
+}
+
 export async function fetchRepositoryFileWithTimeout(
   repositoryUrl: string,
   path: string,
   branchName?: string,
 ): Promise<RepositoryFileResponse> {
-  return withTimeout(
-    repositoryApi.getFile(repositoryUrl, path, branchName),
-    FILE_FETCH_TIMEOUT_MS,
-    `파일 로드 타임아웃(${FILE_FETCH_TIMEOUT_MS}ms): ${path}`,
-  );
+  const timeoutMessage = `파일 로드 타임아웃(${FILE_FETCH_TIMEOUT_MS}ms): ${path}`;
+
+  try {
+    return await withTimeout(
+      repositoryApi.getFile(repositoryUrl, path, branchName),
+      FILE_FETCH_TIMEOUT_MS,
+      timeoutMessage,
+    );
+  } catch (error) {
+    if (!branchName || !isRetryableFileError(error)) throw error;
+
+    return withTimeout(
+      repositoryApi.getBranchFile(repositoryUrl, branchName, path),
+      FILE_FETCH_TIMEOUT_MS,
+      timeoutMessage,
+    );
+  }
 }
