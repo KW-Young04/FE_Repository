@@ -108,8 +108,9 @@ export default function AnalysisProgressPage() {
       });
 
       const tsxCount =
-        warmed?.tree.nodes.filter((node) => node.path.endsWith(".tsx") || node.path.endsWith(".jsx"))
-          .length ?? 0;
+        warmed?.tree.nodes.filter(
+          (node) => node.path.endsWith(".tsx") || node.path.endsWith(".jsx"),
+        ).length ?? 0;
       await new Promise((resolve) => window.setTimeout(resolve, 800));
       setStepMessages((prev) => {
         const next = [...prev];
@@ -265,7 +266,9 @@ export default function AnalysisProgressPage() {
         )}
 
         {pipelineError && (
-          <p className="mt-3 text-sm font-medium text-rose-600">스냅샷/분석 오류: {pipelineError}</p>
+          <p className="mt-3 text-sm font-medium text-rose-600">
+            스냅샷/분석 오류: {pipelineError}
+          </p>
         )}
 
         <ul className="mt-8 space-y-4">
@@ -283,7 +286,9 @@ export default function AnalysisProgressPage() {
                     {step.icon}
                   </span>
                   <span>
-                    <strong className="block text-xl font-extrabold text-slate-900">{step.title}</strong>
+                    <strong className="block text-xl font-extrabold text-slate-900">
+                      {step.title}
+                    </strong>
                     <span className="block text-base font-semibold text-slate-700">
                       {stepMessages[index]}
                     </span>
@@ -307,9 +312,13 @@ export default function AnalysisProgressPage() {
         {snapshotImageUrl && (
           <div className="mt-6 border border-slate-200 bg-slate-50 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <strong className="text-sm font-extrabold text-slate-800">전송된 렌더링 스냅샷</strong>
+              <strong className="text-sm font-extrabold text-slate-800">
+                전송된 렌더링 스냅샷
+              </strong>
               {analysisResultId != null && (
-                <span className="text-xs font-semibold text-sky-600">resultId: {analysisResultId}</span>
+                <span className="text-xs font-semibold text-sky-600">
+                  resultId: {analysisResultId}
+                </span>
               )}
             </div>
             <img
@@ -328,7 +337,7 @@ export default function AnalysisProgressPage() {
         </div>
 
         <p className="mt-4 text-xl font-semibold text-slate-700">
-          {isComplete ? "분석 준비가 완료되었습니다." : "분석 진행 중"} {" "}
+          {isComplete ? "분석 준비가 완료되었습니다." : "분석 진행 중"}{" "}
           <span className="font-extrabold text-sky-500">{progress}%</span>
         </p>
 

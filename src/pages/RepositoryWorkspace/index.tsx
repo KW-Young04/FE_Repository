@@ -12,10 +12,7 @@ export default function RepositoryWorkspacePage() {
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const preview = useWorkspacePreview();
 
-  const selectedIssue = useMemo(
-    () => findAccessibilityIssue(selectedIssueId),
-    [selectedIssueId],
-  );
+  const selectedIssue = useMemo(() => findAccessibilityIssue(selectedIssueId), [selectedIssueId]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">

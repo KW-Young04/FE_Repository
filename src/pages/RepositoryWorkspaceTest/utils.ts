@@ -87,7 +87,11 @@ export function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       reject(new Error(message));
@@ -110,7 +114,10 @@ export function inferLanguage(path: string): string {
   return EDITOR_LANGUAGE_BY_EXT[extension] ?? "plaintext";
 }
 
-export function isPreviewAffectingPath(path: string, runtimeKind: "static" | "bundler" = "static"): boolean {
+export function isPreviewAffectingPath(
+  path: string,
+  runtimeKind: "static" | "bundler" = "static",
+): boolean {
   if (runtimeKind === "bundler") {
     const extension = getFileExtension(path);
     if (PREVIEW_AFFECTING_EXTENSIONS.has(extension)) return true;
@@ -167,7 +174,9 @@ export function buildTree(paths: string[]): TreeItem[] {
   return root;
 }
 
-export function toWorkspaceFileContent(file: Pick<LoadedFile, "content" | "encoding">): WorkspaceFileContent {
+export function toWorkspaceFileContent(
+  file: Pick<LoadedFile, "content" | "encoding">,
+): WorkspaceFileContent {
   return file.encoding === "base64" ? decodeBase64FileContent(file.content) : file.content;
 }
 
@@ -201,7 +210,13 @@ export function buildFileSystemTree(files: Record<string, LoadedFile>): FileSyst
 
 export function findPreviewEntryPath(files: Record<string, LoadedFile>): string | null {
   const paths = Object.keys(files);
-  const preferred = ["index.html", "index.htm", "public/index.html", "public/index.htm", "dist/index.html"];
+  const preferred = [
+    "index.html",
+    "index.htm",
+    "public/index.html",
+    "public/index.htm",
+    "dist/index.html",
+  ];
   const found = preferred.find((path) => Boolean(files[path]));
   if (found) return found;
 
@@ -453,8 +468,11 @@ server.listen(port, "0.0.0.0", () => {
 });`;
 }
 
-
-export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: string, files: Record<string, LoadedFile>): string {
+export function createRepositoryFallbackHtml(
+  repositoryUrl: string,
+  branchName: string,
+  files: Record<string, LoadedFile>,
+): string {
   const escapeHtml = (value: string) =>
     value
       .replace(/&/g, "&amp;")
@@ -466,17 +484,22 @@ export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: 
   const filePaths = Object.keys(files).sort((a, b) => a.localeCompare(b));
   const readme = files["README.md"]?.content ?? files["readme.md"]?.content ?? "";
   const appEntry = Object.entries(files).find(
-    ([path, file]) => path.endsWith("app.py") && /import\s+streamlit|from\s+streamlit|\bst\./.test(file.content),
+    ([path, file]) =>
+      path.endsWith("app.py") && /import\s+streamlit|from\s+streamlit|\bst\./.test(file.content),
   );
   const requirements = Object.entries(files)
     .filter(([path]) => path.endsWith("requirements.txt"))
     .map(([, file]) => file.content)
     .join("\n");
-  const isStreamlit = Boolean(appEntry) || /(^|\n)\s*streamlit\b/i.test(requirements) || /Streamlit/i.test(readme);
+  const isStreamlit =
+    Boolean(appEntry) || /(^|\n)\s*streamlit\b/i.test(requirements) || /Streamlit/i.test(readme);
 
   const repoName = repositoryUrl.replace(/^https:\/\/github\.com\//, "");
   const readmePreview = readme.split(/\r?\n/).slice(0, 28).join("\n").trim();
-  const listItems = filePaths.slice(0, 28).map((path) => `<li><span>${escapeHtml(path)}</span></li>`).join("");
+  const listItems = filePaths
+    .slice(0, 28)
+    .map((path) => `<li><span>${escapeHtml(path)}</span></li>`)
+    .join("");
 
   if (isStreamlit) {
     const source = appEntry?.[1].content ?? readme;
@@ -484,18 +507,36 @@ export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: 
       const match = source.match(new RegExp(`st\\.${name}\\(\\s*[\"']([^\"']+)[\"']`));
       return match?.[1] ?? "";
     };
-    const allLabels = Array.from(source.matchAll(/st\.(selectbox|radio|multiselect|slider|text_input|number_input)\(\s*["']([^"']+)["']/g))
+    const allLabels = Array.from(
+      source.matchAll(
+        /st\.(selectbox|radio|multiselect|slider|text_input|number_input)\(\s*["']([^"']+)["']/g,
+      ),
+    )
       .map((match) => ({ type: match[1], label: match[2] }))
       .slice(0, 6);
-    const buttons = Array.from(source.matchAll(/st\.button\(\s*["']([^"']+)["']/g)).map((match) => match[1]).slice(0, 3);
-    const title = stringArg("title") || stringArg("header") || readme.match(/^#\s+(.+)$/m)?.[1] || "Streamlit App";
-    const subtitle = stringArg("caption") || stringArg("subheader") || "Streamlit 기반 웹 애플리케이션 미리보기";
-    const controlHtml = allLabels.length > 0
-      ? allLabels.map((item) => `<label><span>${escapeHtml(item.label)}</span><div class="control">${item.type === "slider" ? "50" : "선택하세요"}</div></label>`).join("")
-      : `<label><span>입력 항목</span><div class="control">선택하세요</div></label>`;
-    const buttonHtml = buttons.length > 0
-      ? buttons.map((label) => `<button>${escapeHtml(label)}</button>`).join("")
-      : `<button>추천 받기</button>`;
+    const buttons = Array.from(source.matchAll(/st\.button\(\s*["']([^"']+)["']/g))
+      .map((match) => match[1])
+      .slice(0, 3);
+    const title =
+      stringArg("title") ||
+      stringArg("header") ||
+      readme.match(/^#\s+(.+)$/m)?.[1] ||
+      "Streamlit App";
+    const subtitle =
+      stringArg("caption") || stringArg("subheader") || "Streamlit 기반 웹 애플리케이션 미리보기";
+    const controlHtml =
+      allLabels.length > 0
+        ? allLabels
+            .map(
+              (item) =>
+                `<label><span>${escapeHtml(item.label)}</span><div class="control">${item.type === "slider" ? "50" : "선택하세요"}</div></label>`,
+            )
+            .join("")
+        : `<label><span>입력 항목</span><div class="control">선택하세요</div></label>`;
+    const buttonHtml =
+      buttons.length > 0
+        ? buttons.map((label) => `<button>${escapeHtml(label)}</button>`).join("")
+        : `<button>추천 받기</button>`;
 
     return `<!doctype html>
 <html lang="ko">
@@ -591,8 +632,11 @@ export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: 
 </html>`;
 }
 
-
-export function createRuntimeFailureHtml(repositoryUrl: string, branchName: string, errorMessage: string): string {
+export function createRuntimeFailureHtml(
+  repositoryUrl: string,
+  branchName: string,
+  errorMessage: string,
+): string {
   const escapeHtml = (value: string) =>
     value
       .replace(/&/g, "&amp;")
@@ -671,7 +715,9 @@ export async function ensurePreviewFilesLoaded(
     "public/index.htm",
     ...candidatePaths.filter((path) => path.endsWith(".html") || path.endsWith(".htm")),
     ...candidatePaths.filter((path) => /\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)),
-    ...candidatePaths.filter((path) => path.startsWith("src/assets/") || path.startsWith("public/")),
+    ...candidatePaths.filter(
+      (path) => path.startsWith("src/assets/") || path.startsWith("public/"),
+    ),
   ];
 
   for (const path of requiredPaths) {
@@ -762,7 +808,12 @@ export function getBundlerPreloadPaths(
   deferredPaths: readonly string[],
   allTreePaths: readonly string[],
 ): string[] {
-  const candidates = collectBundlerCandidatePaths(workspaceRoot, deferredPaths, allTreePaths, false);
+  const candidates = collectBundlerCandidatePaths(
+    workspaceRoot,
+    deferredPaths,
+    allTreePaths,
+    false,
+  );
   return sortAndCapBundlerPaths(candidates, BUNDLER_PRELOAD_MAX_FILES);
 }
 

@@ -7,11 +7,34 @@ import type { SnapshotCaptureStatus } from "@/preview-capture/types";
 import { acquireWebContainer, teardownWebContainer } from "@/utils/webContainerRuntime";
 import { mountOrSyncWorkspace, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
 import { getOrStartWorkspaceWarmup, invalidateWorkspaceWarmup } from "@/utils/workspaceWarmup";
-import { MAX_PREVIEW_FILE_BYTES, PRELOAD_BATCH_SIZE, PREVIEW_PORT, PREVIEW_SYNC_DEBOUNCE_MS, SERVER_READY_TIMEOUT_MS, BUNDLER_SERVER_READY_TIMEOUT_MS, NPM_INSTALL_TIMEOUT_MS } from "./constants";
-import type { LoadDiagnostics, LoadedFile, PreviewStatus, RepositoryWorkspaceViewProps } from "./types";
-import { resolvePreviewProject, type PreviewProjectProfile, type PreviewRuntimeKind } from "./previewProject";
-import { createDesignRuntimeScript, injectDesignRuntimeIntoHtml } from "../RepositoryWorkspace/designRuntime";
-import { applyInlineStyleToSource, instrumentHtmlForDesign } from "../RepositoryWorkspace/designWriteback";
+import {
+  MAX_PREVIEW_FILE_BYTES,
+  PRELOAD_BATCH_SIZE,
+  PREVIEW_PORT,
+  PREVIEW_SYNC_DEBOUNCE_MS,
+  SERVER_READY_TIMEOUT_MS,
+  BUNDLER_SERVER_READY_TIMEOUT_MS,
+  NPM_INSTALL_TIMEOUT_MS,
+} from "./constants";
+import type {
+  LoadDiagnostics,
+  LoadedFile,
+  PreviewStatus,
+  RepositoryWorkspaceViewProps,
+} from "./types";
+import {
+  resolvePreviewProject,
+  type PreviewProjectProfile,
+  type PreviewRuntimeKind,
+} from "./previewProject";
+import {
+  createDesignRuntimeScript,
+  injectDesignRuntimeIntoHtml,
+} from "../RepositoryWorkspace/designRuntime";
+import {
+  applyInlineStyleToSource,
+  instrumentHtmlForDesign,
+} from "../RepositoryWorkspace/designWriteback";
 import {
   buildFileSystemTree,
   buildTree,
@@ -37,7 +60,6 @@ import {
   toWorkspaceFileContent,
 } from "./utils";
 
-
 /**
  * iframe에서 서빙할 HTML을 준비한다.
  * - instrumentHtmlForDesign: 요소를 코드로 되돌려 쓰기 위한 data-codee-id 앵커를 심는다.
@@ -48,11 +70,16 @@ function prepareServedHtml(source: string, instrument: boolean): string {
   return injectDesignRuntimeIntoHtml(instrument ? instrumentHtmlForDesign(source) : source);
 }
 
-function withDesignRuntimeFiles(files: Record<string, LoadedFile>, workspaceRoot?: string): Record<string, LoadedFile> {
+function withDesignRuntimeFiles(
+  files: Record<string, LoadedFile>,
+  workspaceRoot?: string,
+): Record<string, LoadedFile> {
   const isStatic = workspaceRoot === undefined;
   const normalizedRoot = workspaceRoot ? workspaceRoot.replace(/\/+$/, "") : "";
   const prefix = normalizedRoot ? `${normalizedRoot}/` : "";
-  const runtimePath = normalizedRoot ? `${prefix}public/codee-design-runtime.js` : "codee-design-runtime.js";
+  const runtimePath = normalizedRoot
+    ? `${prefix}public/codee-design-runtime.js`
+    : "codee-design-runtime.js";
   const indexPath = `${prefix}index.html`;
   const nextFiles: Record<string, LoadedFile> = {
     ...files,
@@ -345,7 +372,9 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       }
 
       if (!devStarted) {
-        throw new Error("개발 서버를 시작하지 못했습니다. 로그의 Next.js 오류 메시지를 확인해 주세요.");
+        throw new Error(
+          "개발 서버를 시작하지 못했습니다. 로그의 Next.js 오류 메시지를 확인해 주세요.",
+        );
       }
     },
     [appendRuntimeLog, attachProcessOutputPump, logEvent, stopRuntimeProcess],
@@ -358,13 +387,20 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
 
       let entryPath = findPreviewEntryPath(files);
       if (!entryPath) {
-        const fallbackHtml = prepareServedHtml(createRepositoryFallbackHtml(repositoryUrl, branchName, files), true);
+        const fallbackHtml = prepareServedHtml(
+          createRepositoryFallbackHtml(repositoryUrl, branchName, files),
+          true,
+        );
         await writeWorkspaceFile(container, "index.html", fallbackHtml);
         entryPath = "index.html";
         logEvent("프론트 진입 파일이 없어 저장소 안내 프리뷰를 생성했습니다.");
       }
       if (entryPath !== "index.html" && entryPath !== "index.htm") {
-        await writeWorkspaceFile(container, "index.html", prepareServedHtml(files[entryPath].content, true));
+        await writeWorkspaceFile(
+          container,
+          "index.html",
+          prepareServedHtml(files[entryPath].content, true),
+        );
         logEvent(`프리뷰 진입점: ${entryPath} → index.html`);
       } else {
         logEvent(`프리뷰 진입점: ${entryPath}`);
@@ -374,7 +410,11 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       await stopRuntimeProcess();
 
       appendRuntimeLog("정적 프리뷰 서버 실행 중...");
-      await writeWorkspaceFile(container, ".cursor-preview-static-server.mjs", createStaticServerScript());
+      await writeWorkspaceFile(
+        container,
+        ".cursor-preview-static-server.mjs",
+        createStaticServerScript(),
+      );
       const generation = runtimeGenerationRef.current + 1;
       runtimeGenerationRef.current = generation;
       const process = await container.spawn("node", [".cursor-preview-static-server.mjs"], {
@@ -418,10 +458,15 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
         appendRuntimeLog("=== 프리뷰 런타임 ===");
 
         const projectProfile = resolvePreviewProject(files);
-        const runtimeFiles = withDesignRuntimeFiles(files, projectProfile.kind === "bundler" ? projectProfile.workspaceRoot : undefined);
+        const runtimeFiles = withDesignRuntimeFiles(
+          files,
+          projectProfile.kind === "bundler" ? projectProfile.workspaceRoot : undefined,
+        );
         const isBundler = projectProfile.kind === "bundler";
         setPreviewProjectLabel(projectProfile.label);
-        logEvent(isBundler ? `${projectProfile.label} 프리뷰 런타임 시작` : "정적 프리뷰 런타임 시작");
+        logEvent(
+          isBundler ? `${projectProfile.label} 프리뷰 런타임 시작` : "정적 프리뷰 런타임 시작",
+        );
         if (isBundler) {
           logEvent(`설치: ${projectProfile.installCommands[0]?.join(" ") ?? "-"}`);
           logEvent(`실행: ${projectProfile.devCommand.join(" ")}`);
@@ -437,7 +482,9 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
         logEvent("WebContainer 인스턴스 확보 완료");
 
         const fsTree = buildFileSystemTree(runtimeFiles);
-        const flatFiles = Object.fromEntries(Object.entries(runtimeFiles).map(([path, file]) => [path, toWorkspaceFileContent(file)]));
+        const flatFiles = Object.fromEntries(
+          Object.entries(runtimeFiles).map(([path, file]) => [path, toWorkspaceFileContent(file)]),
+        );
         logEvent(`파일 시스템 준비 중 (${Object.keys(files).length}개)...`);
         const mountMode = await mountOrSyncWorkspace(container, fsTree, flatFiles);
         if (runtimeToken !== previewRuntimeTokenRef.current) return;
@@ -460,7 +507,9 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
           );
         }
 
-        const serverReadyTimeoutMs = isBundler ? BUNDLER_SERVER_READY_TIMEOUT_MS : SERVER_READY_TIMEOUT_MS;
+        const serverReadyTimeoutMs = isBundler
+          ? BUNDLER_SERVER_READY_TIMEOUT_MS
+          : SERVER_READY_TIMEOUT_MS;
         subscribeServerReady(container, serverReadyTimeoutMs);
 
         if (isBundler) {
@@ -512,7 +561,13 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       }));
       const container = webContainerRef.current;
       if (container) {
-        await writeWorkspaceFile(container, path, response.encoding === "base64" ? toWorkspaceFileContent({ content: response.content, encoding: response.encoding }) : response.content);
+        await writeWorkspaceFile(
+          container,
+          path,
+          response.encoding === "base64"
+            ? toWorkspaceFileContent({ content: response.content, encoding: response.encoding })
+            : response.content,
+        );
       }
       logEvent(`지연 로드 완료: ${path}`);
     },
@@ -612,48 +667,47 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     [activePath, syncFileToPreviewRuntime],
   );
 
-  const applyDesignToCode = useCallback(
-    (sourceId: number | null, css: Record<string, string>) => {
-      // 정적 HTML 프리뷰에서만 소스 코드에 되돌려 쓸 수 있다.
-      if (previewRuntimeKindRef.current !== "static") return;
-      if (sourceId == null) return;
-      const entryPath = previewEntryPathRef.current;
-      if (!entryPath) return;
+  const applyDesignToCode = useCallback((sourceId: number | null, css: Record<string, string>) => {
+    // 정적 HTML 프리뷰에서만 소스 코드에 되돌려 쓸 수 있다.
+    if (previewRuntimeKindRef.current !== "static") return;
+    if (sourceId == null) return;
+    const entryPath = previewEntryPathRef.current;
+    if (!entryPath) return;
 
-      const entryFile = filesByPathRef.current[entryPath];
-      if (!entryFile || entryFile.encoding === "base64") return;
+    const entryFile = filesByPathRef.current[entryPath];
+    if (!entryFile || entryFile.encoding === "base64") return;
 
-      const patched = applyInlineStyleToSource(entryFile.content, sourceId, css);
-      if (patched == null || patched === entryFile.content) return;
+    const patched = applyInlineStyleToSource(entryFile.content, sourceId, css);
+    if (patched == null || patched === entryFile.content) return;
 
-      setFilesByPath((prev) => {
-        const current = prev[entryPath];
-        if (!current) return prev;
-        return {
-          ...prev,
-          [entryPath]: { ...current, content: patched, dirty: true },
-        };
-      });
+    setFilesByPath((prev) => {
+      const current = prev[entryPath];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [entryPath]: { ...current, content: patched, dirty: true },
+      };
+    });
 
-      // 디자인 변경이 반영된 소스 파일을 에디터에 노출한다.
-      // 아직 안 열려 있으면 탭을 열고 활성화해 "코드가 함께 바뀌는" 것을 바로 보여준다.
-      // 이미 열려 있다면 사용자의 현재 탭 선택을 존중한다(초점을 빼앗지 않음).
-      setOpenPaths((prev) => {
-        if (prev.includes(entryPath)) return prev;
-        setActivePath(entryPath);
-        return [...prev, entryPath];
-      });
+    // 디자인 변경이 반영된 소스 파일을 에디터에 노출한다.
+    // 아직 안 열려 있으면 탭을 열고 활성화해 "코드가 함께 바뀌는" 것을 바로 보여준다.
+    // 이미 열려 있다면 사용자의 현재 탭 선택을 존중한다(초점을 빼앗지 않음).
+    setOpenPaths((prev) => {
+      if (prev.includes(entryPath)) return prev;
+      setActivePath(entryPath);
+      return [...prev, entryPath];
+    });
 
-      // 서빙 사본(index.html)도 조용히 갱신 → 새로고침해도 변경이 유지된다. (리로드는 유발하지 않음)
-      const container = webContainerRef.current;
-      if (container) {
-        void writeWorkspaceFile(container, "index.html", prepareServedHtml(patched, true)).catch(() => {
+    // 서빙 사본(index.html)도 조용히 갱신 → 새로고침해도 변경이 유지된다. (리로드는 유발하지 않음)
+    const container = webContainerRef.current;
+    if (container) {
+      void writeWorkspaceFile(container, "index.html", prepareServedHtml(patched, true)).catch(
+        () => {
           /* 서빙 사본 동기화 실패는 실시간 프리뷰(postMessage)에 영향 없음 */
-        });
-      }
-    },
-    [],
-  );
+        },
+      );
+    }
+  }, []);
 
   const handleRestartPreview = useCallback(async () => {
     if (!Object.keys(filesByPath).length) return;
@@ -755,8 +809,18 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
           .filter((node) => node.type === "blob")
           .map((node) => node.path);
         const allPaths = [...loaded.corePaths, ...loaded.deferredPaths];
-        let previewFiles = await ensurePreviewFilesLoaded(loaded.files, allPaths, repositoryUrl, branchName);
-        previewFiles = await ensurePackageJsonDiscovery(previewFiles, allTreePaths, repositoryUrl, branchName);
+        let previewFiles = await ensurePreviewFilesLoaded(
+          loaded.files,
+          allPaths,
+          repositoryUrl,
+          branchName,
+        );
+        previewFiles = await ensurePackageJsonDiscovery(
+          previewFiles,
+          allTreePaths,
+          repositoryUrl,
+          branchName,
+        );
 
         const bundlerProfile = resolvePreviewProject(previewFiles);
         let bundlerBackgroundPaths: string[] = [];
@@ -769,7 +833,12 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
           const missingCount = preloadPaths.filter((path) => !previewFiles[path]).length;
           if (missingCount > 0) {
             logEvent(`번들러 핵심 소스 로드 중 (${missingCount}개, registry 제외)...`);
-            previewFiles = await preloadRepositoryPaths(previewFiles, preloadPaths, repositoryUrl, branchName);
+            previewFiles = await preloadRepositoryPaths(
+              previewFiles,
+              preloadPaths,
+              repositoryUrl,
+              branchName,
+            );
             logEvent(`번들러 핵심 소스 로드 완료 (총 ${Object.keys(previewFiles).length}개)`);
           }
           bundlerBackgroundPaths = getBundlerBackgroundPaths(
@@ -789,9 +858,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
         setDiagnostics((prev) => ({ ...prev, runtimeMs }));
 
         const backgroundPaths =
-          bundlerProfile.kind === "bundler"
-            ? bundlerBackgroundPaths
-            : loaded.deferredPaths;
+          bundlerProfile.kind === "bundler" ? bundlerBackgroundPaths : loaded.deferredPaths;
 
         if (backgroundPaths.length > 0) {
           setIsBackgroundLoading(true);
@@ -833,7 +900,16 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
               if (!container) return;
 
               try {
-                await writeWorkspaceFile(container, path, response.encoding === "base64" ? toWorkspaceFileContent({ content: response.content, encoding: response.encoding }) : response.content);
+                await writeWorkspaceFile(
+                  container,
+                  path,
+                  response.encoding === "base64"
+                    ? toWorkspaceFileContent({
+                        content: response.content,
+                        encoding: response.encoding,
+                      })
+                    : response.content,
+                );
               } catch (error) {
                 backgroundFailedPaths.push(path);
                 logEvent(`백그라운드 WebContainer 동기화 실패: ${path} (${toDisplayError(error)})`);

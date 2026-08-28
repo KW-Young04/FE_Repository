@@ -155,7 +155,12 @@ export function capturePreviewSnapshot(
         return;
       }
       attempts += 1;
-      snapshotLog("CAPTURE_REQUEST 전송", { attempt: attempts, requestId, previewOrigin, sawReady });
+      snapshotLog("CAPTURE_REQUEST 전송", {
+        attempt: attempts,
+        requestId,
+        previewOrigin,
+        sawReady,
+      });
       try {
         win.postMessage(
           {
@@ -204,7 +209,10 @@ export function capturePreviewSnapshot(
       if (data.type === CAPTURE_MESSAGE.READY) {
         const firstReady = !sawReady;
         sawReady = true;
-        snapshotLog("CAPTURE_READY 수신", { origin: event.origin, elapsedMs: Date.now() - startedAt });
+        snapshotLog("CAPTURE_READY 수신", {
+          origin: event.origin,
+          elapsedMs: Date.now() - startedAt,
+        });
         if (firstReady) sendCaptureRequest();
         return;
       }

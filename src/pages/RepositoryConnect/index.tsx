@@ -7,17 +7,25 @@ const GITHUB_URL_PATTERN = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+/;
 
 const TEXT = {
   title: "GitHub \uC800\uC7A5\uC18C \uC5F0\uACB0",
-  subtitle: "\uBD84\uC11D\uD560 \uC800\uC7A5\uC18C\uC758 URL\uC744 \uC785\uB825\uD558\uAC70\uB098 \uCD5C\uADFC \uC800\uC7A5\uC18C\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
-  repositoryPlaceholder: "\uBD84\uC11D\uD560 \uC800\uC7A5\uC18C\uC758 URL\uC744 \uC785\uB825\uD558\uC138\uC694.",
-  branchPlaceholder: "\uBD84\uC11D\uD560 \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uC785\uB825\uD558\uC138\uC694. (ex. main)",
+  subtitle:
+    "\uBD84\uC11D\uD560 \uC800\uC7A5\uC18C\uC758 URL\uC744 \uC785\uB825\uD558\uAC70\uB098 \uCD5C\uADFC \uC800\uC7A5\uC18C\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
+  repositoryPlaceholder:
+    "\uBD84\uC11D\uD560 \uC800\uC7A5\uC18C\uC758 URL\uC744 \uC785\uB825\uD558\uC138\uC694.",
+  branchPlaceholder:
+    "\uBD84\uC11D\uD560 \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uC785\uB825\uD558\uC138\uC694. (ex. main)",
   loading: "\uD655\uC778 \uC911...",
   start: "\uBD84\uC11D \uC2DC\uC791 \u2192",
-  error: "\uC800\uC7A5\uC18C \uB610\uB294 \uBE0C\uB79C\uCE58\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. URL\uACFC \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
+  error:
+    "\uC800\uC7A5\uC18C \uB610\uB294 \uBE0C\uB79C\uCE58\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. URL\uACFC \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
   recent: "\uCD5C\uADFC \uC800\uC7A5\uC18C",
-  recentLoading: "\uCD5C\uADFC \uC800\uC7A5\uC18C\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC785\uB2C8\uB2E4.",
-  recentError: "\uCD5C\uADFC \uC800\uC7A5\uC18C\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
-  emptyTitle: "\uC544\uC9C1 \uCD5C\uC885 \uBD84\uC11D\uB41C \uC800\uC7A5\uC18C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
-  emptyDescription: "\uC800\uC7A5\uC18C URL\uACFC \uBE0C\uB79C\uCE58\uB97C \uC785\uB825\uD558\uBA74 \uCD5C\uADFC \uBD84\uC11D\uD55C \uC800\uC7A5\uC18C\uAC00 \uC774\uACF3\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.",
+  recentLoading:
+    "\uCD5C\uADFC \uC800\uC7A5\uC18C\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC785\uB2C8\uB2E4.",
+  recentError:
+    "\uCD5C\uADFC \uC800\uC7A5\uC18C\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
+  emptyTitle:
+    "\uC544\uC9C1 \uCD5C\uC885 \uBD84\uC11D\uB41C \uC800\uC7A5\uC18C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  emptyDescription:
+    "\uC800\uC7A5\uC18C URL\uACFC \uBE0C\uB79C\uCE58\uB97C \uC785\uB825\uD558\uBA74 \uCD5C\uADFC \uBD84\uC11D\uD55C \uC800\uC7A5\uC18C\uAC00 \uC774\uACF3\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.",
 };
 
 function normalizeRepositoryUrl(url: string): string {
@@ -33,7 +41,9 @@ function getFullName(repository: GithubRepositoryResponse): string {
 }
 
 function getHtmlUrl(repository: GithubRepositoryResponse): string {
-  return repository.htmlUrl ?? repository.html_url ?? `https://github.com/${getFullName(repository)}`;
+  return (
+    repository.htmlUrl ?? repository.html_url ?? `https://github.com/${getFullName(repository)}`
+  );
 }
 
 function getDefaultBranch(repository: GithubRepositoryResponse): string {
@@ -41,7 +51,8 @@ function getDefaultBranch(repository: GithubRepositoryResponse): string {
 }
 
 function getUpdatedAt(repository: GithubRepositoryResponse): string {
-  const value = repository.updatedAt ?? repository.updated_at ?? repository.pushedAt ?? repository.pushed_at;
+  const value =
+    repository.updatedAt ?? repository.updated_at ?? repository.pushedAt ?? repository.pushed_at;
   if (!value) return "최근 업데이트";
 
   const updated = new Date(value);
@@ -127,7 +138,9 @@ export default function RepositoryConnectPage() {
 
       if (status === 401 || status === 403) {
         localStorage.removeItem("access_token");
-        setErrorMessage("로그인이 만료되었거나 권한이 없습니다. 메인에서 GitHub 로그인을 다시 해주세요.");
+        setErrorMessage(
+          "로그인이 만료되었거나 권한이 없습니다. 메인에서 GitHub 로그인을 다시 해주세요.",
+        );
       } else if (!status) {
         // CORS / Network Error (OAuth 리다이렉트 추종 실패 등)
         setErrorMessage(
@@ -235,7 +248,9 @@ export default function RepositoryConnectPage() {
                             </strong>
                             <span className="mt-1 block truncate text-sm font-medium text-slate-500">
                               {getUpdatedAt(repository)} · {repository.language ?? "Unknown"}
-                              {repository.privateRepo || repository.private ? " · Private" : " · Public"}
+                              {repository.privateRepo || repository.private
+                                ? " · Private"
+                                : " · Public"}
                             </span>
                           </span>
                         </button>
@@ -254,7 +269,9 @@ export default function RepositoryConnectPage() {
                           >
                             <option value={branch}>{branch}</option>
                             {branch !== "main" && <option value="main">main</option>}
-                            {branch !== "develop-new" && <option value="develop-new">develop-new</option>}
+                            {branch !== "develop-new" && (
+                              <option value="develop-new">develop-new</option>
+                            )}
                             {branch !== "develop" && <option value="develop">develop</option>}
                             {branch !== "master" && <option value="master">master</option>}
                           </select>
@@ -267,7 +284,9 @@ export default function RepositoryConnectPage() {
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center px-6 py-14 text-center">
                 <p className="text-xl font-extrabold text-slate-800">{TEXT.emptyTitle}</p>
-                <p className="mt-2 text-base font-semibold text-slate-500">{TEXT.emptyDescription}</p>
+                <p className="mt-2 text-base font-semibold text-slate-500">
+                  {TEXT.emptyDescription}
+                </p>
               </div>
             )}
           </div>

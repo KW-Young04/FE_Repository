@@ -76,7 +76,9 @@ export async function teardownWebContainer(): Promise<void> {
   });
 }
 
-export async function acquireWebContainer(timeoutMs: number = DEFAULT_BOOT_TIMEOUT_MS): Promise<WebContainer> {
+export async function acquireWebContainer(
+  timeoutMs: number = DEFAULT_BOOT_TIMEOUT_MS,
+): Promise<WebContainer> {
   return enqueueLifecycleTask(async () => {
     try {
       return await withTimeout(
@@ -94,11 +96,15 @@ export async function acquireWebContainer(timeoutMs: number = DEFAULT_BOOT_TIMEO
   });
 }
 
-export async function restartWebContainer(timeoutMs: number = DEFAULT_BOOT_TIMEOUT_MS): Promise<WebContainer> {
+export async function restartWebContainer(
+  timeoutMs: number = DEFAULT_BOOT_TIMEOUT_MS,
+): Promise<WebContainer> {
   await teardownWebContainer();
   return acquireWebContainer(timeoutMs);
 }
 
-export async function prewarmWebContainer(timeoutMs: number = DEFAULT_BOOT_TIMEOUT_MS): Promise<void> {
+export async function prewarmWebContainer(
+  timeoutMs: number = DEFAULT_BOOT_TIMEOUT_MS,
+): Promise<void> {
   await acquireWebContainer(timeoutMs);
 }

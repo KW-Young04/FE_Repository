@@ -27,12 +27,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Design",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path
-          d="M3 13L13 3"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
+        <path d="M3 13L13 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         <path
           d="M9 3H13V7"
           stroke="currentColor"

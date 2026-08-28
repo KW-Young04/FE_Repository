@@ -15,12 +15,7 @@ export default function CodeeLogo() {
           strokeWidth="2.5"
           strokeLinecap="round"
         />
-        <path
-          d="M6.5 14H10.5"
-          stroke="#6366F1"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
+        <path d="M6.5 14H10.5" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" />
       </svg>
       <span className="text-xl font-extrabold tracking-tight text-slate-900">codee</span>
     </div>

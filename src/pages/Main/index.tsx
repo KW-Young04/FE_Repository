@@ -67,11 +67,7 @@ function Main() {
           className="w-full max-w-2xl cursor-pointer border-0 bg-transparent p-0 text-left"
           aria-label="저장소 연결 시작"
         >
-          <img
-            src={signupImage}
-            alt="저장소 연결 화면"
-            className="h-auto w-full object-contain"
-          />
+          <img src={signupImage} alt="저장소 연결 화면" className="h-auto w-full object-contain" />
         </button>
       </section>
 

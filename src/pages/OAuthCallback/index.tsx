@@ -52,11 +52,7 @@ export default function OAuthCallbackPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white">
       <div className="flex flex-col items-center gap-4">
-        <svg
-          className="h-10 w-10 animate-spin text-slate-900"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
+        <svg className="h-10 w-10 animate-spin text-slate-900" viewBox="0 0 24 24" fill="none">
           <circle
             className="opacity-25"
             cx="12"
@@ -71,9 +67,7 @@ export default function OAuthCallbackPage() {
             d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
           />
         </svg>
-        <p className="text-lg font-semibold text-slate-700">
-          GitHub 로그인 처리 중…
-        </p>
+        <p className="text-lg font-semibold text-slate-700">GitHub 로그인 처리 중…</p>
       </div>
     </div>
   );

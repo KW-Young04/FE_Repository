@@ -59,9 +59,7 @@ async function fetchFromRawGithub(
   }
 
   const ref = branchName && branchName.trim() ? branchName.trim() : "HEAD";
-  const candidates = Array.from(
-    new Set([ref, "HEAD", "main", "master"].filter(Boolean)),
-  );
+  const candidates = Array.from(new Set([ref, "HEAD", "main", "master"].filter(Boolean)));
 
   let lastError: Error | null = null;
   for (const candidate of candidates) {

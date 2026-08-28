@@ -1,7 +1,11 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 import { uploadWcagAnalysis } from "@/api/analysis";
 import type { RepositoryTreeResponse } from "@/api/repository";
-import { resolvePreviewProject, explainUnsupportedPreviewRepo, type PreviewProjectProfile } from "@/pages/RepositoryWorkspaceTest/previewProject";
+import {
+  resolvePreviewProject,
+  explainUnsupportedPreviewRepo,
+  type PreviewProjectProfile,
+} from "@/pages/RepositoryWorkspaceTest/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
   NPM_INSTALL_TIMEOUT_MS,
@@ -46,7 +50,11 @@ export interface AnalysisSnapshotPipelineOptions {
   onProgress?: (message: string) => void;
 }
 
-function reportProgress(onProgress: ((message: string) => void) | undefined, message: string, detail?: unknown) {
+function reportProgress(
+  onProgress: ((message: string) => void) | undefined,
+  message: string,
+  detail?: unknown,
+) {
   snapshotLog(message, detail);
   onProgress?.(message);
 }
@@ -92,7 +100,9 @@ async function startStaticPreview(
 ): Promise<string | null> {
   const entryPath = findPreviewEntryPath(files);
   if (!entryPath) {
-    throw new Error("프리뷰할 HTML 파일을 찾을 수 없습니다. index.html이 포함된 저장소인지 확인해 주세요.");
+    throw new Error(
+      "프리뷰할 HTML 파일을 찾을 수 없습니다. index.html이 포함된 저장소인지 확인해 주세요.",
+    );
   }
 
   if (entryPath !== "index.html" && entryPath !== "index.htm") {
@@ -101,7 +111,11 @@ async function startStaticPreview(
 
   onProgress?.("정적 프리뷰 서버 실행 중…");
   snapshotLog("정적 프리뷰 서버 스크립트 작성 및 실행", { entryPath, port: PREVIEW_PORT });
-  await writeWorkspaceFile(container, ".cursor-preview-static-server.mjs", createStaticServerScript());
+  await writeWorkspaceFile(
+    container,
+    ".cursor-preview-static-server.mjs",
+    createStaticServerScript(),
+  );
   await container.spawn("node", [".cursor-preview-static-server.mjs"], {
     env: { PORT: String(PREVIEW_PORT) },
   });
@@ -110,7 +124,10 @@ async function startStaticPreview(
   return entryPath;
 }
 
-async function collectProcessOutput(process: WebContainerProcess, maxChars = 4000): Promise<string> {
+async function collectProcessOutput(
+  process: WebContainerProcess,
+  maxChars = 4000,
+): Promise<string> {
   const reader = process.output.getReader();
   let text = "";
   try {
@@ -297,9 +314,7 @@ export async function runAnalysisSnapshotPipeline(
   }
 
   let files = toLoadedFiles(textFiles);
-  const candidatePaths = tree.nodes
-    .filter((node) => node.type === "blob")
-    .map((node) => node.path);
+  const candidatePaths = tree.nodes.filter((node) => node.type === "blob").map((node) => node.path);
 
   reportProgress(onProgress, "캡처용 HTML 엔트리 확인 중…");
   files = await ensurePreviewFilesLoaded(files, candidatePaths, repositoryUrl);
@@ -314,7 +329,9 @@ export async function runAnalysisSnapshotPipeline(
 
   reportProgress(onProgress, "파일 시스템 마운트 중…");
   const fsTree = buildFileSystemTree(files);
-  const flatFiles = Object.fromEntries(Object.entries(files).map(([path, file]) => [path, file.content]));
+  const flatFiles = Object.fromEntries(
+    Object.entries(files).map(([path, file]) => [path, file.content]),
+  );
   await mountOrSyncWorkspace(container, fsTree, flatFiles);
   snapshotLog("초기 마운트/동기화 완료");
 

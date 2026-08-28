@@ -3,7 +3,7 @@ import { repositoryApi, type RepositoryTreeResponse, type TreeNode } from "@/api
 interface WarmupFile {
   path: string;
   content: string;
-  encoding?: 'utf-8' | 'base64' | string;
+  encoding?: "utf-8" | "base64" | string;
 }
 
 export interface WorkspaceWarmupResult {
@@ -106,7 +106,7 @@ const BATCH_SIZE = 10;
 const FILE_FETCH_TIMEOUT_MS = 15000;
 const MAX_PREVIEW_FILE_BYTES = 500 * 1024;
 
-const WARMUP_CACHE_VERSION = 'binary-assets-v1';
+const WARMUP_CACHE_VERSION = "binary-assets-v1";
 
 const warmupCache = new Map<string, Promise<WorkspaceWarmupResult>>();
 
@@ -152,7 +152,8 @@ function getPathPriority(path: string): number {
   if (path === "package-lock.json" || path === "yarn.lock" || path === "pnpm-lock.yaml") return -3;
   if (/^vite\.config\.(ts|js|mjs|cjs)$/.test(path)) return -2;
   if (/^(postcss|tailwind)\.config\.(ts|js|mjs|cjs)$/.test(path)) return -2;
-  if (path === "tsconfig.json" || path === "tsconfig.app.json" || path === "tsconfig.node.json") return -1;
+  if (path === "tsconfig.json" || path === "tsconfig.app.json" || path === "tsconfig.node.json")
+    return -1;
   if (path === "index.html" || path === "index.htm") return 0;
   if (path.endsWith(".html") || path.endsWith(".htm")) return 1;
   if (path.endsWith(".tsx") || path.endsWith(".jsx")) return 2;
@@ -214,7 +215,10 @@ async function runBatched<T>(
   }
 }
 
-async function buildWarmup(repositoryUrl: string, branchName?: string): Promise<WorkspaceWarmupResult> {
+async function buildWarmup(
+  repositoryUrl: string,
+  branchName?: string,
+): Promise<WorkspaceWarmupResult> {
   const tree = branchName
     ? await repositoryApi.getBranchTree(repositoryUrl, branchName)
     : await repositoryApi.getTree(repositoryUrl);
@@ -280,7 +284,10 @@ function getWarmupCacheKey(repositoryUrl: string, branchName?: string): string {
   return `${WARMUP_CACHE_VERSION}::${repositoryUrl.trim()}::${branchName?.trim() ?? "HEAD"}`;
 }
 
-export function getOrStartWorkspaceWarmup(repositoryUrl: string, branchName?: string): Promise<WorkspaceWarmupResult> {
+export function getOrStartWorkspaceWarmup(
+  repositoryUrl: string,
+  branchName?: string,
+): Promise<WorkspaceWarmupResult> {
   const key = getWarmupCacheKey(repositoryUrl, branchName);
   if (!key) {
     return Promise.reject(new Error("repositoryUrl??鍮꾩뼱 ?덉뒿?덈떎."));
@@ -310,5 +317,3 @@ export function getOrStartWorkspaceWarmup(repositoryUrl: string, branchName?: st
   warmupCache.set(key, warmupPromise);
   return warmupPromise;
 }
-
-

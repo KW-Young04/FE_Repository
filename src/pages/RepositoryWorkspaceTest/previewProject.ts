@@ -39,10 +39,10 @@ function mergeDeps(pkg: PackageJson): Record<string, string> {
 function isMonorepoRoot(files: FileContentLookup, pkg: PackageJson): boolean {
   return Boolean(
     pkg.workspaces ||
-      files["pnpm-workspace.yaml"] ||
-      files["pnpm-workspace.yml"] ||
-      files["lerna.json"] ||
-      files["turbo.json"],
+    files["pnpm-workspace.yaml"] ||
+    files["pnpm-workspace.yml"] ||
+    files["lerna.json"] ||
+    files["turbo.json"],
   );
 }
 
@@ -53,7 +53,12 @@ function hasTailwind(deps: Record<string, string>): boolean {
 function buildFrameworkLabel(deps: Record<string, string>): string {
   const parts: string[] = [];
 
-  if (deps.vite || deps["@vitejs/plugin-react"] || deps["@vitejs/plugin-vue"] || deps["@tailwindcss/vite"]) {
+  if (
+    deps.vite ||
+    deps["@vitejs/plugin-react"] ||
+    deps["@vitejs/plugin-vue"] ||
+    deps["@tailwindcss/vite"]
+  ) {
     parts.push("Vite");
   } else if (deps.next) {
     parts.push("Next.js");
@@ -75,7 +80,12 @@ function buildFrameworkLabel(deps: Record<string, string>): string {
 }
 
 function packageRequiresPnpm(files: FileContentLookup): boolean {
-  if (files["pnpm-lock.yaml"] || files["pnpm-lock.yml"] || files["pnpm-workspace.yaml"] || files["pnpm-workspace.yml"]) {
+  if (
+    files["pnpm-lock.yaml"] ||
+    files["pnpm-lock.yml"] ||
+    files["pnpm-workspace.yaml"] ||
+    files["pnpm-workspace.yml"]
+  ) {
     return true;
   }
 
@@ -84,7 +94,10 @@ function packageRequiresPnpm(files: FileContentLookup): boolean {
   try {
     const pkg = JSON.parse(root) as PackageJson & { scripts?: Record<string, string> };
     const scripts = Object.values(pkg.scripts ?? {}).join("\n");
-    return /\bonly-allow\s+pnpm\b/i.test(scripts) || /\bpreinstall\b[\s\S]*\bpnpm\b/i.test(JSON.stringify(pkg.scripts ?? {}));
+    return (
+      /\bonly-allow\s+pnpm\b/i.test(scripts) ||
+      /\bpreinstall\b[\s\S]*\bpnpm\b/i.test(JSON.stringify(pkg.scripts ?? {}))
+    );
   } catch {
     return false;
   }
@@ -93,7 +106,13 @@ function packageRequiresPnpm(files: FileContentLookup): boolean {
 function resolveInstallCommands(files: FileContentLookup): string[][] {
   if (packageRequiresPnpm(files) || files["pnpm-lock.yaml"] || files["pnpm-lock.yml"]) {
     return [
-      ["pnpm", "install", "--no-frozen-lockfile", "--ignore-scripts", "--config.engine-strict=false"],
+      [
+        "pnpm",
+        "install",
+        "--no-frozen-lockfile",
+        "--ignore-scripts",
+        "--config.engine-strict=false",
+      ],
       // Fallbacks for environments without pnpm; may still fail if package enforces only-allow pnpm.
       ["npm", "install", "--no-audit", "--no-fund", "--legacy-peer-deps", "--ignore-scripts"],
     ];
@@ -118,7 +137,9 @@ export function explainUnsupportedPreviewRepo(files: FileContentLookup): string 
   const playgroundHtmlCount = Object.keys(files).filter((path) =>
     /(?:^|\/)playground\/[^/]+\/index\.html$/i.test(path),
   ).length;
-  const hasApps = Object.keys(files).some((path) => path.startsWith("apps/") && path.endsWith("package.json"));
+  const hasApps = Object.keys(files).some(
+    (path) => path.startsWith("apps/") && path.endsWith("package.json"),
+  );
   const looksLikePlugin =
     /plugin|monorepo/i.test(name) ||
     Boolean(pkg.workspaces) ||
@@ -142,9 +163,15 @@ export function explainUnsupportedPreviewRepo(files: FileContentLookup): string 
   return null;
 }
 
-function resolveRunCommand(files: FileContentLookup, script: string, extraArgs: string[] = []): string[] {
+function resolveRunCommand(
+  files: FileContentLookup,
+  script: string,
+  extraArgs: string[] = [],
+): string[] {
   if (files["pnpm-lock.yaml"] || files["pnpm-lock.yml"]) {
-    return extraArgs.length > 0 ? ["pnpm", "run", script, "--", ...extraArgs] : ["pnpm", "run", script];
+    return extraArgs.length > 0
+      ? ["pnpm", "run", script, "--", ...extraArgs]
+      : ["pnpm", "run", script];
   }
   if (files["yarn.lock"]) {
     return extraArgs.length > 0 ? ["yarn", script, ...extraArgs] : ["yarn", script];
@@ -183,7 +210,12 @@ function resolveDevSpawn(
     CHOKIDAR_USEPOLLING: "true",
   };
 
-  if (deps.vite || deps["@vitejs/plugin-react"] || deps["@vitejs/plugin-vue"] || deps["@tailwindcss/vite"]) {
+  if (
+    deps.vite ||
+    deps["@vitejs/plugin-react"] ||
+    deps["@vitejs/plugin-vue"] ||
+    deps["@tailwindcss/vite"]
+  ) {
     const viteFlags = ["--port", String(PREVIEW_PORT), "--host", "0.0.0.0", "--strictPort"];
     if (pkg.scripts?.dev) {
       return {
@@ -252,14 +284,14 @@ function resolveDevSpawn(
 function isBundlerPackage(pkg: PackageJson, deps: Record<string, string>): boolean {
   const hasBundlerTool = Boolean(
     deps.vite ||
-      deps["@vitejs/plugin-react"] ||
-      deps["@vitejs/plugin-vue"] ||
-      deps["@tailwindcss/vite"] ||
-      deps.webpack ||
-      deps["webpack-dev-server"] ||
-      deps.next ||
-      deps["react-scripts"] ||
-      deps.parcel,
+    deps["@vitejs/plugin-react"] ||
+    deps["@vitejs/plugin-vue"] ||
+    deps["@tailwindcss/vite"] ||
+    deps.webpack ||
+    deps["webpack-dev-server"] ||
+    deps.next ||
+    deps["react-scripts"] ||
+    deps.parcel,
   );
 
   const hasFramework = Boolean(deps.react || deps.vue || deps.svelte);
@@ -304,7 +336,8 @@ function scoreBundlerCandidate(
   const devSpawn = resolveDevSpawn(files, pkg, deps);
   if (!devSpawn) return null;
 
-  const workspaceRoot = packagePath === "package.json" ? "" : packagePath.replace(/\/package\.json$/, "");
+  const workspaceRoot =
+    packagePath === "package.json" ? "" : packagePath.replace(/\/package\.json$/, "");
   let score = 0;
 
   if (pkg.scripts?.dev) score += 20;
@@ -316,12 +349,16 @@ function scoreBundlerCandidate(
   if (workspaceRoot.startsWith("apps/")) score += 35;
   if (hasAppEntryFiles(files, workspaceRoot)) score += 30;
   if (/(?:^|\/)playground\//i.test(workspaceRoot)) score -= 40;
-  if (/(?:^|\/)packages\//i.test(workspaceRoot) && !hasAppEntryFiles(files, workspaceRoot)) score -= 25;
+  if (/(?:^|\/)packages\//i.test(workspaceRoot) && !hasAppEntryFiles(files, workspaceRoot))
+    score -= 25;
 
   if (packagePath === "package.json" && isMonorepoRoot(files, pkg)) {
     score -= 30;
   }
-  if (packagePath === "package.json" && /\bonly-allow\s+pnpm\b/i.test(Object.values(pkg.scripts ?? {}).join("\n"))) {
+  if (
+    packagePath === "package.json" &&
+    /\bonly-allow\s+pnpm\b/i.test(Object.values(pkg.scripts ?? {}).join("\n"))
+  ) {
     score -= 20;
   }
 
@@ -343,7 +380,11 @@ export function detectBundlerProject(packageJsonContent: string): PreviewProject
 }
 
 export function resolvePreviewProject(files: FileContentLookup): PreviewProjectProfile {
-  const candidates: Array<{ score: number; profile: PreviewProjectProfile; workspaceRoot: string }> = [];
+  const candidates: Array<{
+    score: number;
+    profile: PreviewProjectProfile;
+    workspaceRoot: string;
+  }> = [];
 
   for (const [path, file] of Object.entries(files)) {
     if (!path.endsWith("package.json")) continue;
@@ -354,7 +395,9 @@ export function resolvePreviewProject(files: FileContentLookup): PreviewProjectP
   if (candidates.length > 0) {
     candidates.sort((a, b) => b.score - a.score);
     const best = candidates[0];
-    const label = best.workspaceRoot ? `${best.profile.label} (${best.workspaceRoot})` : best.profile.label;
+    const label = best.workspaceRoot
+      ? `${best.profile.label} (${best.workspaceRoot})`
+      : best.profile.label;
     return { ...best.profile, label };
   }
 

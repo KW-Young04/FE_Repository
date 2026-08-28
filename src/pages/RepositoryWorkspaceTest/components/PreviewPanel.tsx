@@ -48,7 +48,11 @@ interface DesignRuntimeSelectedMessage {
 function isDesignRuntimeSelectedMessage(value: unknown): value is DesignRuntimeSelectedMessage {
   if (!value || typeof value !== "object") return false;
   const message = value as Partial<DesignRuntimeSelectedMessage>;
-  return message.source === "codee-design-runtime" && message.type === "selected" && Boolean(message.payload);
+  return (
+    message.source === "codee-design-runtime" &&
+    message.type === "selected" &&
+    Boolean(message.payload)
+  );
 }
 
 export default function PreviewPanel({
@@ -125,7 +129,11 @@ export default function PreviewPanel({
                   ? "border-violet-200 bg-violet-50 text-violet-700"
                   : "border-slate-200 bg-slate-50 text-slate-500",
               ].join(" ")}
-              title={designWriteEnabled ? "디자인 변경이 소스 코드에 함께 반영됩니다." : "번들러 프로젝트는 프리뷰에만 반영됩니다."}
+              title={
+                designWriteEnabled
+                  ? "디자인 변경이 소스 코드에 함께 반영됩니다."
+                  : "번들러 프로젝트는 프리뷰에만 반영됩니다."
+              }
             >
               {designWriteEnabled ? "코드 반영 ON" : "프리뷰 전용"}
             </span>
@@ -139,7 +147,13 @@ export default function PreviewPanel({
                     : "text-slate-500",
               ].join(" ")}
             >
-              {previewStatus === "ready" ? "연결됨" : previewStatus === "loading" ? "준비 중" : previewStatus === "error" ? "오류" : "대기"}
+              {previewStatus === "ready"
+                ? "연결됨"
+                : previewStatus === "loading"
+                  ? "준비 중"
+                  : previewStatus === "error"
+                    ? "오류"
+                    : "대기"}
             </span>
           </div>
         </div>
@@ -168,7 +182,11 @@ export default function PreviewPanel({
         </div>
       </div>
 
-      <DesignControlPanel selectedElement={selectedElement} values={designValues} onChange={handleDesignChange} />
+      <DesignControlPanel
+        selectedElement={selectedElement}
+        values={designValues}
+        onChange={handleDesignChange}
+      />
     </div>
   );
 }

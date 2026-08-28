@@ -8,7 +8,12 @@ interface TreeNodeItemProps {
   depth?: number;
 }
 
-export default function TreeNodeItem({ item, activePath, onFileClick, depth = 0 }: TreeNodeItemProps) {
+export default function TreeNodeItem({
+  item,
+  activePath,
+  onFileClick,
+  depth = 0,
+}: TreeNodeItemProps) {
   const [isOpen, setIsOpen] = useState(depth < 2);
   const padding = `${depth * 12 + 8}px`;
 

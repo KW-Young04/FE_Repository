@@ -25,7 +25,9 @@ export default function EditorPanel({
     <div className="col-span-4 flex min-h-0 flex-col overflow-hidden border border-slate-200 bg-white">
       <div className="flex min-h-11 shrink-0 items-stretch overflow-x-auto border-b border-slate-200">
         {openPaths.length === 0 && (
-          <span className="px-3 py-2 text-sm font-medium text-slate-400">열린 파일이 없습니다.</span>
+          <span className="px-3 py-2 text-sm font-medium text-slate-400">
+            열린 파일이 없습니다.
+          </span>
         )}
         {openPaths.map((path) => {
           const file = filesByPath[path];
@@ -37,7 +39,9 @@ export default function EditorPanel({
               type="button"
               className={[
                 "flex items-center gap-2 border-r border-slate-200 px-3 text-xs font-semibold",
-                isActive ? "bg-slate-100 text-slate-900" : "bg-white text-slate-500 hover:bg-slate-50",
+                isActive
+                  ? "bg-slate-100 text-slate-900"
+                  : "bg-white text-slate-500 hover:bg-slate-50",
               ].join(" ")}
               onClick={() => {
                 void onFileClick(path);

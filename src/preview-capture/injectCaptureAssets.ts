@@ -22,10 +22,7 @@ function resolveHtml2CanvasPaths(profile: PreviewProjectProfile): string[] {
   if (profile.kind === "bundler") {
     const root = profile.workspaceRoot;
     const prefix = root ? `${root}/` : "";
-    return [
-      `${prefix}public/__cursor__/html2canvas.min.js`,
-      `${prefix}public/html2canvas.min.js`,
-    ];
+    return [`${prefix}public/__cursor__/html2canvas.min.js`, `${prefix}public/html2canvas.min.js`];
   }
   return ["__cursor__/html2canvas.min.js", "html2canvas.min.js"];
 }

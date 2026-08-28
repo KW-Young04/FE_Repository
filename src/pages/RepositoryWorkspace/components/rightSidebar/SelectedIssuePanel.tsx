@@ -25,7 +25,11 @@ export default function SelectedIssuePanel({ issue }: SelectedIssuePanelProps) {
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-base font-extrabold text-slate-900">{issue.title}</h3>
                 <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-500">
-                  {issue.status === "complete" ? "PASS" : issue.status === "in_progress" ? "CHECK" : "FAIL"}
+                  {issue.status === "complete"
+                    ? "PASS"
+                    : issue.status === "in_progress"
+                      ? "CHECK"
+                      : "FAIL"}
                 </span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">{issue.summary}</p>
