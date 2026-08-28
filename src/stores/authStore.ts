@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { clearAccessToken } from "@/utils/auth";
 
 interface User {
   id: string;
@@ -19,7 +20,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   setUser: (user) => set({ user, isAuthenticated: true }),
   logout: () => {
-    localStorage.removeItem("access_token");
+    clearAccessToken();
     set({ user: null, isAuthenticated: false });
   },
 }));

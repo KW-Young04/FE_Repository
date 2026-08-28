@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/Button";
 import { repositoryApi, type GithubRepositoryResponse } from "@/api/repository";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  clearAccessToken,
+  consumeAccessTokenFromUrl,
+  getAccessToken,
+  parseUserFromToken,
+} from "@/utils/auth";
 
 const GITHUB_URL_PATTERN = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+/;
 
@@ -71,6 +78,8 @@ function getUpdatedAt(repository: GithubRepositoryResponse): string {
 
 export default function RepositoryConnectPage() {
   const navigate = useNavigate();
+  const setUser = useAuthStore((state) => state.setUser);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [branchName, setBranchName] = useState("");
   const [recentRepositories, setRecentRepositories] = useState<GithubRepositoryResponse[]>([]);
@@ -86,7 +95,16 @@ export default function RepositoryConnectPage() {
   const isAnalyzeEnabled = isValidUrl && Boolean(normalizedBranchName) && !isLoading;
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) return;
+    const tokenFromUrl = consumeAccessTokenFromUrl();
+    if (tokenFromUrl) {
+      const user = parseUserFromToken(tokenFromUrl);
+      if (user) setUser(user);
+    }
+    setAccessToken(tokenFromUrl ?? getAccessToken());
+  }, [setUser]);
+
+  useEffect(() => {
+    if (!accessToken) return;
 
     const loadRecentRepositories = async () => {
       setIsRecentLoading(true);
@@ -107,7 +125,7 @@ export default function RepositoryConnectPage() {
     };
 
     void loadRecentRepositories();
-  }, []);
+  }, [accessToken]);
 
   const analyzeRepository = async (targetRepositoryUrl: string, targetBranchName: string) => {
     const normalizedTargetUrl = normalizeRepositoryUrl(targetRepositoryUrl);
@@ -118,7 +136,7 @@ export default function RepositoryConnectPage() {
     setErrorMessage(null);
 
     try {
-      if (!localStorage.getItem("access_token")) {
+      if (!getAccessToken()) {
         setErrorMessage("로그인이 필요합니다. 메인 페이지에서 GitHub 로그인을 먼저 진행해 주세요.");
         return;
       }
@@ -137,7 +155,8 @@ export default function RepositoryConnectPage() {
           : null;
 
       if (status === 401 || status === 403) {
-        localStorage.removeItem("access_token");
+        clearAccessToken();
+        setAccessToken(null);
         setErrorMessage(
           "로그인이 만료되었거나 권한이 없습니다. 메인에서 GitHub 로그인을 다시 해주세요.",
         );

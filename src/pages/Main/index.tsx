@@ -4,6 +4,7 @@ import Button from "@/components/Button";
 import LoginErrorModal from "./LoginErrorModal";
 import { useGithubLogin } from "@/hooks/useGithubLogin";
 import { useNavigate } from "react-router-dom";
+import { getAccessToken } from "@/utils/auth";
 
 const features = [
   "코드와 실제 화면을 함께 분석",
@@ -17,7 +18,7 @@ function Main() {
   const { isLoginErrorOpen, login, closeLoginError } = useGithubLogin();
 
   const handleRepositoryImageClick = () => {
-    if (localStorage.getItem("access_token")) {
+    if (getAccessToken()) {
       navigate("/repository-connect");
       return;
     }

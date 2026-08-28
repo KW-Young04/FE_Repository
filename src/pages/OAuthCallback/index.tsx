@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { consumeAccessTokenFromUrl, parseUserFromToken } from "@/utils/auth";
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -12,8 +13,7 @@ export default function OAuthCallbackPage() {
     if (processed.current) return;
     processed.current = true;
 
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    const token = consumeAccessTokenFromUrl();
 
     if (!token) {
       setStatus("error");
@@ -21,18 +21,9 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    localStorage.setItem("access_token", token);
-
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      setUser({
-        id: String(payload.userId ?? payload.sub ?? ""),
-        name: payload.loginId ?? "",
-        email: payload.email ?? "",
-      });
-    } catch {
-      // JWT 파싱 실패 시에도 토큰만 저장하고 진행
-    }
+    // JWT 파싱에 실패해도 토큰만으로 API 호출은 가능하므로 그대로 진행한다.
+    const user = parseUserFromToken(token);
+    if (user) setUser(user);
 
     navigate("/repository-connect", { replace: true });
   }, [navigate, setUser]);
