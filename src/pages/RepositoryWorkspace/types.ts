@@ -7,14 +7,22 @@ export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 
 export type IssueStatus = "in_progress" | "complete" | "pending";
 
+export type WcagLevel = "A" | "AA" | "AAA";
+
 export interface AccessibilityIssue {
   id: string;
   code: string;
   title: string;
-  level: "A" | "AA";
+  level: WcagLevel;
   status: IssueStatus;
   category: string;
   summary: string;
+  targetFilePath?: string;
+  targetSelector?: string;
+  originalCodeBlock?: string;
+  suggestion?: string;
+  measuredValue?: string;
+  thresholdValue?: string;
 }
 
 export interface AccessibilityCategoryGroup {

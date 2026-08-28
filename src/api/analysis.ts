@@ -16,6 +16,47 @@ export interface UploadWcagAnalysisPayload {
   snapshots: SnapshotUploadItem[];
 }
 
+export interface RealtimeIssueDetail {
+  wcagItemId: number;
+  sc: string;
+  title: string;
+  levelType: string;
+  description: string;
+  /** 백엔드는 위반 항목만 내려주므로 사실상 "FAIL" 이다. */
+  status: string;
+  targetFilePath: string;
+  targetSelector: string;
+  originalCodeBlock: string;
+  suggestion: string;
+  measuredValue: string;
+  thresholdValue: string;
+}
+
+export interface RealtimeAnalysisResponse {
+  success: boolean;
+  timestamp: string;
+  issueCount: number;
+  issues: RealtimeIssueDetail[];
+}
+
+/** 정적 분석은 룰 수에 비례해 오래 걸릴 수 있어 인스턴스 기본 10초로는 부족하다. */
+const REALTIME_ANALYSIS_TIMEOUT_MS = 30_000;
+
+/** 에디터 디바운스 전용 실시간 정적 분석. 결과는 DB에 저장되지 않는다. */
+export async function analyzeRealtimeCode(
+  code: string,
+  targetFilePath: string,
+  signal?: AbortSignal,
+): Promise<RealtimeAnalysisResponse> {
+  const response = await apiClient.post<RealtimeAnalysisResponse>(
+    "/api/analysis/realtime",
+    { code, targetFilePath },
+    { timeout: REALTIME_ANALYSIS_TIMEOUT_MS, signal },
+  );
+
+  return response.data;
+}
+
 export async function uploadWcagAnalysis(payload: UploadWcagAnalysisPayload): Promise<number> {
   const formData = new FormData();
   formData.append("repositoryUrl", payload.repositoryUrl);
