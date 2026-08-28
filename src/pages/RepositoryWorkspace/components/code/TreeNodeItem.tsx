@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { TreeItem } from "../types";
+
+import type { TreeItem } from "../../types";
 
 interface TreeNodeItemProps {
   item: TreeItem;
@@ -24,7 +25,7 @@ export default function TreeNodeItem({
         className={[
           "flex w-full items-center rounded px-2 py-1 text-left text-xs font-medium",
           activePath === item.path
-            ? "bg-sky-100 text-sky-700"
+            ? "bg-violet-100 text-violet-700"
             : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
         ].join(" ")}
         style={{ paddingLeft: padding }}

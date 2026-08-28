@@ -1,9 +1,8 @@
-import type { RepositoryWorkspaceViewProps } from "./types";
-import EditorPanel from "./components/EditorPanel";
-import FileTreePanel from "./components/FileTreePanel";
-import PreviewPanel from "./components/PreviewPanel";
+import CodeTabView from "@/pages/RepositoryWorkspace/components/code/CodeTabView";
+
 import WorkspaceHeader from "./components/WorkspaceHeader";
 import WorkspaceStatusBanner from "./components/WorkspaceStatusBanner";
+import type { RepositoryWorkspaceViewProps } from "./types";
 
 export default function RepositoryWorkspaceView({
   repositoryUrl,
@@ -21,16 +20,13 @@ export default function RepositoryWorkspaceView({
   previewStatus,
   previewUrl,
   previewRevision,
-  previewProjectLabel,
   runtimeLog,
   runtimeError,
   isRestarting,
-  designWriteEnabled,
   onFileClick,
   onCloseTab,
   onEditorChange,
   onRestartPreview,
-  onDesignPatch,
   onNavigateToConnect,
 }: RepositoryWorkspaceViewProps) {
   const fileCount = Object.keys(filesByPath).length;
@@ -55,31 +51,27 @@ export default function RepositoryWorkspaceView({
         diagnostics={diagnostics}
       />
 
-      <section className="grid h-[calc(100svh-10rem)] min-h-0 grid-cols-12 gap-3">
-        <FileTreePanel
+      <section className="flex h-[calc(100svh-10rem)] min-h-0 border border-slate-200 bg-white">
+        <CodeTabView
           treeItems={treeItems}
-          fileCount={fileCount}
-          activePath={activePath}
-          onFileClick={onFileClick}
-        />
-        <EditorPanel
-          openPaths={openPaths}
           filesByPath={filesByPath}
+          openPaths={openPaths}
           activePath={activePath}
           activeFile={activeFile}
-          onFileClick={onFileClick}
-          onCloseTab={onCloseTab}
-          onEditorChange={onEditorChange}
-        />
-        <PreviewPanel
+          truncatedCount={truncatedCount}
+          isBackgroundLoading={isBackgroundLoading}
           previewStatus={previewStatus}
           previewUrl={previewUrl}
           previewRevision={previewRevision}
-          previewProjectLabel={previewProjectLabel}
           runtimeError={runtimeError}
+          loadError={loadError}
+          loadingMessage={loadingMessage}
           runtimeLog={runtimeLog}
-          designWriteEnabled={designWriteEnabled}
-          onDesignPatch={onDesignPatch}
+          isRestarting={isRestarting}
+          onFileClick={onFileClick}
+          onCloseTab={onCloseTab}
+          onEditorChange={onEditorChange}
+          onRestartPreview={onRestartPreview}
         />
       </section>
     </main>

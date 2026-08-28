@@ -168,7 +168,7 @@ export default function DesignControlPanel({
   const disabledClass = selectedElement ? "" : "pointer-events-none opacity-45";
 
   return (
-    <aside className="w-72 shrink-0 overflow-auto border-l border-slate-200 bg-white text-slate-950">
+    <div className="bg-white text-slate-950">
       {!selectedElement ? (
         <div className="border-b border-slate-200 px-3 py-3 text-xs font-semibold text-slate-500">
           프리뷰에서 수정할 요소를 클릭하세요.
@@ -351,6 +351,6 @@ export default function DesignControlPanel({
           </div>
         </Section>
       </div>
-    </aside>
+    </div>
   );
 }
