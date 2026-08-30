@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 
-import type { PreviewStatus } from "../../types";
+import type { AccessibilityIssue, PreviewStatus } from "../../types";
 import { buildPreviewSrc } from "../../utils/previewSrc";
 import PreviewFrame from "../preview/PreviewFrame";
 
@@ -15,6 +15,8 @@ interface WorkspacePreviewMainProps {
   loadingMessage: string;
   /** Design 탭에서 프리뷰 iframe에 스타일 패치를 전달하기 위해 사용 */
   iframeRef?: RefObject<HTMLIFrameElement | null>;
+  issueHighlights?: AccessibilityIssue[];
+  selectedIssueId?: string | null;
   /** 주소 표시줄 오른쪽에 덧붙일 배지 */
   trailingBadge?: ReactNode;
 }
@@ -73,6 +75,8 @@ export default function WorkspacePreviewMain({
   loadError,
   loadingMessage,
   iframeRef,
+  issueHighlights,
+  selectedIssueId,
   trailingBadge,
 }: WorkspacePreviewMainProps) {
   const previewSrc = buildPreviewSrc(previewUrl, previewStatus, previewRevision);
@@ -121,6 +125,8 @@ export default function WorkspacePreviewMain({
             placeholderMessage={placeholderMessage}
             isLoading={previewStatus === "loading"}
             iframeRef={iframeRef}
+            issueHighlights={issueHighlights}
+            selectedIssueId={selectedIssueId}
           />
         </div>
       </div>

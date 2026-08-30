@@ -57,6 +57,18 @@ export async function analyzeRealtimeCode(
   return response.data;
 }
 
+export async function getStoredWcagAnalysis(
+  resultId: number,
+  signal?: AbortSignal,
+): Promise<RealtimeAnalysisResponse> {
+  const response = await apiClient.get<ApiResponse<RealtimeAnalysisResponse>>(
+    `/api/analysis/wcag/${resultId}`,
+    { timeout: REALTIME_ANALYSIS_TIMEOUT_MS, signal },
+  );
+
+  return response.data.data;
+}
+
 export async function uploadWcagAnalysis(payload: UploadWcagAnalysisPayload): Promise<number> {
   const formData = new FormData();
   formData.append("repositoryUrl", payload.repositoryUrl);

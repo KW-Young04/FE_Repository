@@ -10,6 +10,7 @@ import {
   prewarmWebContainer,
 } from "@/utils/webContainerRuntime";
 import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
+import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
 
 type StepStatus = "pending" | "running" | "done" | "error";
 
@@ -189,7 +190,7 @@ export default function AnalysisProgressPage() {
           renderedFilePaths: result.renderedFilePaths,
         });
         sessionStorage.setItem(
-          `wcag-analysis:${repositoryUrl}`,
+          `wcag-analysis:${normalizeRepositoryUrl(repositoryUrl)}`,
           JSON.stringify({
             resultId: result.resultId,
             snapshotId: result.snapshotId,
@@ -261,7 +262,9 @@ export default function AnalysisProgressPage() {
     }
   }, [tree, repositoryUrl]);
 
-  const workspaceUrl = `/repository-workspace?repo=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(branchName)}`;
+  const workspaceUrl = `/repository-workspace?repo=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(branchName)}${
+    analysisResultId != null ? `&resultId=${encodeURIComponent(String(analysisResultId))}` : ""
+  }`;
 
   return (
     <main className="flex min-h-screen items-center bg-white px-6 py-10 md:px-10">

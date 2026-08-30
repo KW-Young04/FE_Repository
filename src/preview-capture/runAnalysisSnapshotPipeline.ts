@@ -97,7 +97,7 @@ async function startStaticPreview(
   container: WebContainer,
   files: Record<string, LoadedFile>,
   onProgress?: (message: string) => void,
-): Promise<string | null> {
+): Promise<{ entryPath: string | null; process: WebContainerProcess }> {
   const entryPath = findPreviewEntryPath(files);
   if (!entryPath) {
     throw new Error(
@@ -116,12 +116,12 @@ async function startStaticPreview(
     ".cursor-preview-static-server.mjs",
     createStaticServerScript(),
   );
-  await container.spawn("node", [".cursor-preview-static-server.mjs"], {
+  const process = await container.spawn("node", [".cursor-preview-static-server.mjs"], {
     env: { PORT: String(PREVIEW_PORT) },
   });
   snapshotLog("정적 프리뷰 서버 프로세스 시작됨");
 
-  return entryPath;
+  return { entryPath, process };
 }
 
 async function collectProcessOutput(
@@ -371,91 +371,98 @@ export async function runAnalysisSnapshotPipeline(
   const readyPromise = waitForServerReady(container, readyTimeoutMs);
 
   let previewEntryPath: string | null = null;
+  let previewProcess: WebContainerProcess | null = null;
   if (isBundler) {
-    await startBundlerPreview(container, projectProfile, onProgress);
+    previewProcess = await startBundlerPreview(container, projectProfile, onProgress);
   } else {
-    previewEntryPath = await startStaticPreview(container, files, onProgress);
+    const staticPreview = await startStaticPreview(container, files, onProgress);
+    previewEntryPath = staticPreview.entryPath;
+    previewProcess = staticPreview.process;
   }
 
-  reportProgress(onProgress, "프리뷰 서버 준비 대기 중…");
-  const previewUrl = await readyPromise;
-  snapshotLog("server-ready 수신", { previewUrl, elapsedMs: Date.now() - pipelineStartedAt });
-
-  reportProgress(onProgress, "렌더링 스냅샷 캡처 중…");
-  // Give CRA/Vite/React time to finish first compile before opening the capture iframe.
-  await new Promise<void>((resolve) => {
-    window.setTimeout(resolve, isBundler ? 6000 : 400);
-  });
-  const captureStartedAt = Date.now();
-  // Prefer direct capture on the app page itself (bridge in index.html).
-  // For React SPA (CRA/Vite), if direct fails, fall back to hash capture-host
-  // takeover so SPA fallback cannot swallow /__cursor__/capture-host.html.
-  snapshotLog("캡처 모드", {
-    mode: "direct",
-    previewUrl,
-    patchedHtmlPaths: injected.patchedHtmlPaths,
-    projectLabel: projectProfile.label,
-  });
-
-  let captured;
   try {
-    captured = await capturePreviewSnapshot({
-      previewUrl,
+    reportProgress(onProgress, "프리뷰 서버 준비 대기 중…");
+    const previewUrl = await readyPromise;
+    snapshotLog("server-ready 수신", { previewUrl, elapsedMs: Date.now() - pipelineStartedAt });
+
+    reportProgress(onProgress, "렌더링 스냅샷 캡처 중…");
+    // Give CRA/Vite/React time to finish first compile before opening the capture iframe.
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, isBundler ? 6000 : 400);
+    });
+    const captureStartedAt = Date.now();
+    // Prefer direct capture on the app page itself (bridge in index.html).
+    // For React SPA (CRA/Vite), if direct fails, fall back to hash capture-host
+    // takeover so SPA fallback cannot swallow /__cursor__/capture-host.html.
+    snapshotLog("캡처 모드", {
       mode: "direct",
-      waitMs: isBundler ? 3500 : 1000,
-      timeoutMs: isBundler ? 90_000 : 45_000,
-    });
-  } catch (directError) {
-    if (!isBundler) throw directError;
-    snapshotWarn("direct 캡처 실패 — React SPA hash host 폴백 시도", directError);
-    reportProgress(onProgress, "React SPA 캡처 폴백(hash host) 시도 중…");
-    captured = await capturePreviewSnapshot({
       previewUrl,
-      mode: "host",
-      hostStrategy: "hash",
-      waitMs: 3500,
-      timeoutMs: 90_000,
+      patchedHtmlPaths: injected.patchedHtmlPaths,
+      projectLabel: projectProfile.label,
     });
+
+    let captured;
+    try {
+      captured = await capturePreviewSnapshot({
+        previewUrl,
+        mode: "direct",
+        waitMs: isBundler ? 3500 : 1000,
+        timeoutMs: isBundler ? 90_000 : 45_000,
+      });
+    } catch (directError) {
+      if (!isBundler) throw directError;
+      snapshotWarn("direct 캡처 실패 — React SPA hash host 폴백 시도", directError);
+      reportProgress(onProgress, "React SPA 캡처 폴백(hash host) 시도 중…");
+      captured = await capturePreviewSnapshot({
+        previewUrl,
+        mode: "host",
+        hostStrategy: "hash",
+        waitMs: 3500,
+        timeoutMs: 90_000,
+      });
+    }
+
+    snapshotLog("스냅샷 캡처 완료", {
+      width: captured.width,
+      height: captured.height,
+      blobSize: captured.blob.size,
+      elapsedMs: Date.now() - captureStartedAt,
+    });
+
+    const snapshotId = `snap-${Date.now()}`;
+    const renderedFilePaths = buildSnapshotMeta(files, previewEntryPath);
+    const imageObjectUrl = URL.createObjectURL(captured.blob);
+    snapshotLog("스냅샷 메타 생성", { snapshotId, renderedFilePaths });
+
+    reportProgress(onProgress, "스냅샷을 백엔드로 전송 중…");
+    const uploadStartedAt = Date.now();
+    const resultId = await uploadWcagAnalysis({
+      repositoryUrl,
+      branchName,
+      snapshots: [
+        {
+          snapshotId,
+          image: captured.blob,
+          renderedFilePaths,
+        },
+      ],
+    });
+    snapshotLog("백엔드 분석 완료", {
+      resultId,
+      uploadElapsedMs: Date.now() - uploadStartedAt,
+      totalElapsedMs: Date.now() - pipelineStartedAt,
+    });
+
+    return {
+      resultId,
+      snapshotId,
+      previewUrl,
+      imageBlob: captured.blob,
+      imageObjectUrl,
+      renderedFilePaths,
+      previewEntryPath,
+    };
+  } finally {
+    previewProcess?.kill();
   }
-
-  snapshotLog("스냅샷 캡처 완료", {
-    width: captured.width,
-    height: captured.height,
-    blobSize: captured.blob.size,
-    elapsedMs: Date.now() - captureStartedAt,
-  });
-
-  const snapshotId = `snap-${Date.now()}`;
-  const renderedFilePaths = buildSnapshotMeta(files, previewEntryPath);
-  const imageObjectUrl = URL.createObjectURL(captured.blob);
-  snapshotLog("스냅샷 메타 생성", { snapshotId, renderedFilePaths });
-
-  reportProgress(onProgress, "스냅샷을 백엔드로 전송 중…");
-  const uploadStartedAt = Date.now();
-  const resultId = await uploadWcagAnalysis({
-    repositoryUrl,
-    branchName,
-    snapshots: [
-      {
-        snapshotId,
-        image: captured.blob,
-        renderedFilePaths,
-      },
-    ],
-  });
-  snapshotLog("백엔드 분석 완료", {
-    resultId,
-    uploadElapsedMs: Date.now() - uploadStartedAt,
-    totalElapsedMs: Date.now() - pipelineStartedAt,
-  });
-
-  return {
-    resultId,
-    snapshotId,
-    previewUrl,
-    imageBlob: captured.blob,
-    imageObjectUrl,
-    renderedFilePaths,
-    previewEntryPath,
-  };
 }
