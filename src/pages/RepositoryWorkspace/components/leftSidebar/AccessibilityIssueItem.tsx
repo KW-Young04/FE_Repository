@@ -40,7 +40,9 @@ export default function AccessibilityIssueItem({
 
       <span className="shrink-0 text-sm font-bold text-sky-500">{issue.level}</span>
 
-      <span className={`w-20 shrink-0 text-right text-xs font-semibold ${STATUS_CLASS[issue.status]}`}>
+      <span
+        className={`w-20 shrink-0 text-right text-xs font-semibold ${STATUS_CLASS[issue.status]}`}
+      >
         {STATUS_LABEL[issue.status]}
       </span>
     </button>

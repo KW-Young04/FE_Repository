@@ -1,4 +1,8 @@
-import type { PreviewStatus } from "@/pages/RepositoryWorkspaceTest/types";
+import type { ReactNode, RefObject } from "react";
+
+import type { PreviewStatus } from "../../types";
+import { buildPreviewSrc } from "../../utils/previewSrc";
+import PreviewFrame from "../preview/PreviewFrame";
 
 interface WorkspacePreviewMainProps {
   repositoryUrl: string;
@@ -9,6 +13,10 @@ interface WorkspacePreviewMainProps {
   runtimeError: string | null;
   loadError: string | null;
   loadingMessage: string;
+  /** Design 탭에서 프리뷰 iframe에 스타일 패치를 전달하기 위해 사용 */
+  iframeRef?: RefObject<HTMLIFrameElement | null>;
+  /** 주소 표시줄 오른쪽에 덧붙일 배지 */
+  trailingBadge?: ReactNode;
 }
 
 function GlobeIcon() {
@@ -64,12 +72,10 @@ export default function WorkspacePreviewMain({
   runtimeError,
   loadError,
   loadingMessage,
+  iframeRef,
+  trailingBadge,
 }: WorkspacePreviewMainProps) {
-  const previewSrc =
-    previewUrl && previewStatus === "ready"
-      ? `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}_rev=${previewRevision}`
-      : "";
-
+  const previewSrc = buildPreviewSrc(previewUrl, previewStatus, previewRevision);
   const displayUrl = getDisplayUrl(repositoryUrl, previewUrl, previewStatus);
   const placeholderMessage = getPlaceholderMessage({
     previewStatus,
@@ -89,6 +95,8 @@ export default function WorkspacePreviewMain({
             <p className="truncate text-sm font-medium text-slate-600">{displayUrl}</p>
           </div>
 
+          {trailingBadge}
+
           <div className="hidden shrink-0 text-right sm:block">
             <p className="text-xs font-semibold text-slate-500">{previewProjectLabel}</p>
             <p
@@ -107,24 +115,13 @@ export default function WorkspacePreviewMain({
         </div>
 
         <div className="min-h-0 flex-1 bg-slate-100">
-          {previewSrc ? (
-            <iframe
-              key={previewRevision}
-              title="repository-preview"
-              src={previewSrc}
-              className="h-full w-full border-0 bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              {previewStatus === "loading" && (
-                <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
-              )}
-              <p className="max-w-md text-sm font-medium leading-relaxed text-slate-500">
-                {placeholderMessage}
-              </p>
-            </div>
-          )}
+          <PreviewFrame
+            previewSrc={previewSrc}
+            previewRevision={previewRevision}
+            placeholderMessage={placeholderMessage}
+            isLoading={previewStatus === "loading"}
+            iframeRef={iframeRef}
+          />
         </div>
       </div>
     </section>

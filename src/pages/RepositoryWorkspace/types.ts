@@ -1,4 +1,5 @@
 import type { RepositoryTreeResponse } from "@/api/repository";
+import type { SnapshotCaptureStatus } from "@/preview-capture/types";
 
 export type WorkspaceTab = "overview" | "design" | "code";
 
@@ -6,14 +7,22 @@ export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 
 export type IssueStatus = "in_progress" | "complete" | "pending";
 
+export type WcagLevel = "A" | "AA" | "AAA";
+
 export interface AccessibilityIssue {
   id: string;
   code: string;
   title: string;
-  level: "A" | "AA";
+  level: WcagLevel;
   status: IssueStatus;
   category: string;
   summary: string;
+  targetFilePath?: string;
+  targetSelector?: string;
+  originalCodeBlock?: string;
+  suggestion?: string;
+  measuredValue?: string;
+  thresholdValue?: string;
 }
 
 export interface AccessibilityCategoryGroup {
@@ -82,6 +91,47 @@ export interface LoadedFile {
   dirty: boolean;
 }
 
+export interface CommitNode {
+  id: string;
+  message: string;
+  author: string;
+  branch: string;
+  color: string;
+  /** 현재 체크아웃된 커밋. 그래프에서 속이 빈 원으로 표시한다. */
+  isHead?: boolean;
+}
+
+export interface BranchItem {
+  id: string;
+  name: string;
+  color: string;
+  isCurrent?: boolean;
+}
+
+export type ProblemSeverity = "error" | "warning" | "info";
+
+export interface ProblemItem {
+  id: string;
+  severity: ProblemSeverity;
+  message: string;
+  source: string;
+  line: number;
+  column: number;
+}
+
+export interface ProblemFileGroup {
+  path: string;
+  problems: ProblemItem[];
+}
+
+export type BottomPanelTab = "problems" | "gitDiff" | "output" | "debug" | "terminal";
+
+/** AI 제안본과 원본의 차이. 에디터에서 줄 단위 배경색으로 표시한다. */
+export interface AiDiffLines {
+  removed: number[];
+  added: number[];
+}
+
 export interface TreeItem {
   name: string;
   path: string;
@@ -118,6 +168,8 @@ export interface RepositoryWorkspaceViewProps {
   previewProjectLabel: string;
   runtimeLog: string[];
   runtimeError: string | null;
+  snapshotCaptureStatus: SnapshotCaptureStatus;
+  analysisResultId: number | null;
   isRestarting: boolean;
   /** 정적 HTML 프리뷰에서 디자인 변경을 소스 코드로 반영할 수 있는지 여부 */
   designWriteEnabled: boolean;

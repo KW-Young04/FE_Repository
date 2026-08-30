@@ -150,7 +150,9 @@ export function applyInlineStyleToSource(
   const openTag = source.slice(tag.tagStart, tag.tagEnd);
   const styleMatch = /(\sstyle\s*=\s*)("([^"]*)"|'([^']*)')/i.exec(openTag);
 
-  const declarations = styleMatch ? parseStyleDeclarations(styleMatch[3] ?? styleMatch[4] ?? "") : new Map<string, string>();
+  const declarations = styleMatch
+    ? parseStyleDeclarations(styleMatch[3] ?? styleMatch[4] ?? "")
+    : new Map<string, string>();
   for (const [property, value] of Object.entries(css)) {
     if (value === "") {
       declarations.delete(property.toLowerCase());
@@ -166,7 +168,10 @@ export function applyInlineStyleToSource(
     const usesDoubleQuote = styleMatch[3] != null;
     const quote = usesDoubleQuote ? '"' : "'";
     const replacement = `${styleMatch[1]}${quote}${serialized}${quote}`;
-    newOpenTag = openTag.slice(0, styleMatch.index) + replacement + openTag.slice(styleMatch.index + styleMatch[0].length);
+    newOpenTag =
+      openTag.slice(0, styleMatch.index) +
+      replacement +
+      openTag.slice(styleMatch.index + styleMatch[0].length);
   } else {
     const relativeInsert = tag.attrsStart - tag.tagStart;
     newOpenTag = `${openTag.slice(0, relativeInsert)} style="${serialized}"${openTag.slice(relativeInsert)}`;

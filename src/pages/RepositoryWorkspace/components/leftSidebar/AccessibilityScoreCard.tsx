@@ -15,7 +15,10 @@ export default function AccessibilityScoreCard({ score }: AccessibilityScoreCard
 
         <ul className="space-y-2">
           {score.categories.map((category) => (
-            <li key={category.id} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <li
+              key={category.id}
+              className="flex items-center gap-2 text-xs font-medium text-slate-600"
+            >
               <span
                 className="h-2.5 w-2.5 rounded-full"
                 style={{ backgroundColor: category.color }}
