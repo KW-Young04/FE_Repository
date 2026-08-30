@@ -5,10 +5,80 @@ export function createDesignRuntimeScript(): string {
   const PANEL_SOURCE = "codee-design-panel";
   let selected = null;
   let selectedId = 0;
+  const issueOverlays = [];
 
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;display:none;pointer-events:none;z-index:2147483647;border:2px solid #7c3aed;box-shadow:0 0 0 1px rgba(255,255,255,.9);box-sizing:border-box;";
   document.documentElement.appendChild(overlay);
+
+  function removeIssueOverlays() {
+    while (issueOverlays.length) {
+      const item = issueOverlays.pop();
+      if (item && item.parentElement) item.parentElement.removeChild(item);
+    }
+  }
+
+  function createIssueOverlay(rect, issue, index) {
+    const box = document.createElement("div");
+    box.__codeeIssue = issue;
+    box.setAttribute("data-codee-issue-overlay", "1");
+    box.style.cssText = [
+      "position:fixed",
+      "left:" + rect.left + "px",
+      "top:" + rect.top + "px",
+      "width:" + rect.width + "px",
+      "height:" + rect.height + "px",
+      "pointer-events:none",
+      "z-index:2147483646",
+      "border:2px solid #ff2d20",
+      "border-radius:8px",
+      "box-shadow:0 0 0 9999px rgba(255,45,32,0.02),0 0 0 1px rgba(255,255,255,.95)",
+      "box-sizing:border-box",
+    ].join(";");
+
+    const label = document.createElement("div");
+    label.setAttribute("data-codee-issue-label", "1");
+    label.textContent = issue.code || String(index + 1);
+    label.style.cssText = [
+      "position:absolute",
+      "left:16px",
+      "top:-20px",
+      "height:20px",
+      "min-width:58px",
+      "padding:0 8px",
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "border-radius:4px 4px 0 0",
+      "background:#ff2d20",
+      "color:#fff",
+      "font:700 10px/1 Arial,Helvetica,sans-serif",
+      "white-space:nowrap",
+      "box-sizing:border-box",
+    ].join(";");
+    box.appendChild(label);
+    document.documentElement.appendChild(box);
+    issueOverlays.push(box);
+  }
+
+  function highlightIssues(issues) {
+    removeIssueOverlays();
+    if (!Array.isArray(issues)) return;
+
+    issues.slice(0, 20).forEach((issue, index) => {
+      if (!issue || !issue.selector) return;
+      let target = null;
+      try {
+        target = document.querySelector(issue.selector);
+      } catch (error) {
+        return;
+      }
+      if (!(target instanceof HTMLElement)) return;
+      const rect = target.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      createIssueOverlay(rect, issue, index);
+    });
+  }
 
   function toHex(color, fallback) {
     if (!color || color === "transparent" || color === "rgba(0, 0, 0, 0)") return fallback;
@@ -145,7 +215,12 @@ export function createDesignRuntimeScript(): string {
 
   window.addEventListener("message", (event) => {
     const data = event.data;
-    if (!data || data.source !== PANEL_SOURCE || data.type !== "apply-css" || !selected) return;
+    if (!data || data.source !== PANEL_SOURCE) return;
+    if (data.type === "highlight-issues") {
+      highlightIssues(data.payload && data.payload.issues);
+      return;
+    }
+    if (data.type !== "apply-css" || !selected) return;
     const css = (data.payload && data.payload.css) || {};
     for (const property in css) {
       if (!Object.prototype.hasOwnProperty.call(css, property)) continue;
@@ -155,14 +230,30 @@ export function createDesignRuntimeScript(): string {
   });
 
   window.addEventListener("scroll", updateOverlay, true);
-  window.addEventListener("resize", updateOverlay);
+  window.addEventListener("scroll", function () {
+    const issues = issueOverlays.map(function (item) {
+      return item.__codeeIssue;
+    }).filter(Boolean);
+    highlightIssues(issues);
+  }, true);
+  window.addEventListener("resize", function () {
+    updateOverlay();
+    const issues = issueOverlays.map(function (item) {
+      return item.__codeeIssue;
+    }).filter(Boolean);
+    highlightIssues(issues);
+  });
   window.parent.postMessage({ source: SOURCE, type: "ready" }, "*");
 })();`;
 }
 
 export function injectDesignRuntimeIntoHtml(html: string): string {
-  if (html.includes("/codee-design-runtime.js")) return html;
-  const script = '<script src="/codee-design-runtime.js?v=css-writeback-4"></script>';
+  const script = '<script src="/codee-design-runtime.js?v=issue-highlight-1"></script>';
+  const existingRuntimePattern =
+    /<script\b[^>]*\bsrc=["']\/codee-design-runtime\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/i;
+  if (existingRuntimePattern.test(html)) {
+    return html.replace(existingRuntimePattern, script);
+  }
   if (html.includes("</body>")) {
     return html.replace("</body>", `${script}</body>`);
   }
