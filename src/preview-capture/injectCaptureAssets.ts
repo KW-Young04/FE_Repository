@@ -193,8 +193,8 @@ export async function injectCaptureAssets(
 
   for (const htmlPath of candidateSet) {
     const fromMemory = files[htmlPath]?.content;
-    const fromDisk = fromMemory ? null : await readWorkspaceText(container, htmlPath);
-    const current = fromMemory ?? fromDisk;
+    const fromDisk = await readWorkspaceText(container, htmlPath);
+    const current = fromDisk ?? fromMemory;
     if (!current) continue;
 
     const patched = injectBridgeIntoHtml(current, html2canvasText, isBundler);
