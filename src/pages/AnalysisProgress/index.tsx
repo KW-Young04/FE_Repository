@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "@/components/Button";
 import { type RepositoryTreeResponse } from "@/api/repository";
 import { runAnalysisSnapshotPipeline } from "@/preview-capture/runAnalysisSnapshotPipeline";
-import { prewarmWebContainer } from "@/utils/webContainerRuntime";
+import {
+  WEBCONTAINER_INSTANCE_LIMIT_MESSAGE,
+  WEBCONTAINER_ISOLATION_MESSAGE,
+  isWebContainerInstanceLimitError,
+  prewarmWebContainer,
+} from "@/utils/webContainerRuntime";
 import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
 
 type StepStatus = "pending" | "running" | "done" | "error";
@@ -68,7 +73,9 @@ export default function AnalysisProgressPage() {
     if (!repositoryUrl) return;
 
     void getOrStartWorkspaceWarmup(repositoryUrl, branchName);
-    void prewarmWebContainer();
+    void prewarmWebContainer().catch((error) => {
+      console.warn("[렌더링 스냅샷][UI] WebContainer 사전 부팅 실패", error);
+    });
 
     const runSteps = async () => {
       setStepStatuses((prev) => setStep(prev, 0, "running"));
@@ -203,7 +210,12 @@ export default function AnalysisProgressPage() {
         setCurrentStep(3);
         setIsComplete(true);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const rawMessage = error instanceof Error ? error.message : String(error);
+        const message = isWebContainerInstanceLimitError(error)
+          ? WEBCONTAINER_INSTANCE_LIMIT_MESSAGE
+          : rawMessage.includes("교차 출처 격리")
+            ? WEBCONTAINER_ISOLATION_MESSAGE
+            : rawMessage;
         console.error("[렌더링 스냅샷][UI] 파이프라인 실패", error);
         setPipelineError(message);
         setStepStatuses((prev) => {

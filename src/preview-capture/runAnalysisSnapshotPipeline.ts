@@ -20,7 +20,7 @@ import {
   findPreviewEntryPath,
   withTimeout,
 } from "@/pages/RepositoryWorkspaceTest/utils";
-import { acquireWebContainer, teardownWebContainer } from "@/utils/webContainerRuntime";
+import { acquireCleanWebContainer } from "@/utils/webContainerRuntime";
 import {
   mountOrSyncWorkspace,
   writeWorkspaceBinaryFile,
@@ -276,8 +276,7 @@ export async function runAnalysisSnapshotPipeline(
   }
 
   reportProgress(onProgress, "WebContainer 준비 중…");
-  await teardownWebContainer();
-  const container = await acquireWebContainer();
+  const container = await acquireCleanWebContainer();
   snapshotLog("WebContainer 확보 완료");
 
   let textFiles = options.files;
