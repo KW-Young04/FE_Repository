@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useRepositoryWorkspace } from "@/pages/RepositoryWorkspaceTest/useRepositoryWorkspace";
 
@@ -25,6 +25,7 @@ export default function RepositoryWorkspacePage() {
   const git = useGitWorkspace();
 
   const analysis = useRealtimeAnalysis({
+    repositoryUrl: workspace.repositoryUrl,
     activePath: workspace.activePath,
     code: workspace.activeFile?.content ?? null,
     encoding: workspace.activeFile?.encoding,
@@ -34,6 +35,22 @@ export default function RepositoryWorkspacePage() {
     () => findIssueInGroups(analysis.issueGroups, selectedIssueId),
     [analysis.issueGroups, selectedIssueId],
   );
+  const previewIssueHighlights = useMemo(
+    () => analysis.issueGroups.flatMap((group) => group.issues),
+    [analysis.issueGroups],
+  );
+
+  useEffect(() => {
+    const firstIssue = previewIssueHighlights[0];
+    if (!firstIssue) {
+      setSelectedIssueId(null);
+      return;
+    }
+    const hasSelectedIssue = previewIssueHighlights.some((issue) => issue.id === selectedIssueId);
+    if (!hasSelectedIssue) {
+      setSelectedIssueId(firstIssue.id);
+    }
+  }, [previewIssueHighlights, selectedIssueId]);
 
   const previewSrc = buildPreviewSrc(
     workspace.previewUrl,
@@ -127,7 +144,9 @@ export default function RepositoryWorkspacePage() {
                 runtimeError={workspace.runtimeError}
                 loadError={workspace.loadError}
                 loadingMessage={workspace.loadingMessage}
-                iframeRef={isDesignTab ? design.iframeRef : undefined}
+                iframeRef={design.iframeRef}
+                issueHighlights={previewIssueHighlights}
+                selectedIssueId={selectedIssueId}
                 trailingBadge={
                   isDesignTab ? (
                     <span className="hidden shrink-0 text-[11px] font-semibold text-violet-600 sm:block">

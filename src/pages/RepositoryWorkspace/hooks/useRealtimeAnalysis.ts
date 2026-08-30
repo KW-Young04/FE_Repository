@@ -1,7 +1,12 @@
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { analyzeRealtimeCode, type RealtimeIssueDetail } from "@/api/analysis";
+import {
+  analyzeRealtimeCode,
+  getStoredWcagAnalysis,
+  type RealtimeIssueDetail,
+} from "@/api/analysis";
+import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
 
 import type {
   AccessibilityCategoryGroup,
@@ -26,7 +31,24 @@ function isAnalyzablePath(path: string | null): boolean {
   return ANALYZABLE_EXTENSIONS.some((extension) => lowered.endsWith(extension));
 }
 
+function readStoredAnalysisResultId(repositoryUrl: string): number | null {
+  const fromQuery = new URLSearchParams(window.location.search).get("resultId");
+  const queryResultId = fromQuery ? Number(fromQuery) : NaN;
+  if (Number.isSafeInteger(queryResultId) && queryResultId > 0) {
+    return queryResultId;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(`wcag-analysis:${normalizeRepositoryUrl(repositoryUrl)}`);
+    const parsed = raw ? (JSON.parse(raw) as { resultId?: unknown }) : null;
+    return typeof parsed?.resultId === "number" ? parsed.resultId : null;
+  } catch {
+    return null;
+  }
+}
+
 interface UseRealtimeAnalysisParams {
+  repositoryUrl: string;
   activePath: string | null;
   code: string | null;
   /** base64 등 텍스트가 아닌 파일은 분석 대상에서 제외한다. */
@@ -47,15 +69,18 @@ export interface RealtimeAnalysisState {
 }
 
 export function useRealtimeAnalysis({
+  repositoryUrl,
   activePath,
   code,
   encoding,
 }: UseRealtimeAnalysisParams): RealtimeAnalysisState {
   const [issues, setIssues] = useState<RealtimeIssueDetail[]>([]);
+  const [storedIssues, setStoredIssues] = useState<RealtimeIssueDetail[] | null>(null);
   const [analyzedPath, setAnalyzedPath] = useState<string | null>(null);
   const [analyzedCode, setAnalyzedCode] = useState("");
   const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoadingStoredAnalysis, setIsLoadingStoredAnalysis] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manualTrigger, setManualTrigger] = useState(0);
 
@@ -67,6 +92,52 @@ export function useRealtimeAnalysis({
   const isTooLarge = (code?.length ?? 0) > MAX_ANALYZED_BYTES;
 
   useEffect(() => {
+    if (!repositoryUrl) {
+      setStoredIssues(null);
+      return;
+    }
+
+    const resultId = readStoredAnalysisResultId(repositoryUrl);
+
+    if (resultId == null) {
+      setStoredIssues(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsLoadingStoredAnalysis(true);
+
+    void getStoredWcagAnalysis(resultId, controller.signal)
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        setStoredIssues(response.issues ?? []);
+        setAnalyzedAt(response.timestamp ?? new Date().toISOString());
+        setError(null);
+      })
+      .catch((requestError) => {
+        if (axios.isCancel(requestError) || controller.signal.aborted) return;
+        console.warn("[WCAG] 저장된 분석 결과 조회 실패", requestError);
+        setStoredIssues(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoadingStoredAnalysis(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [repositoryUrl]);
+
+  useEffect(() => {
+    if (storedIssues !== null) {
+      abortRef.current?.abort();
+      setIssues([]);
+      setAnalyzedPath(null);
+      setAnalyzedCode("");
+      setIsAnalyzing(false);
+      return;
+    }
+
     if (!isSupported || !activePath || !code?.trim()) {
       abortRef.current?.abort();
       setIssues([]);
@@ -126,14 +197,14 @@ export function useRealtimeAnalysis({
     );
 
     return () => window.clearTimeout(timerId);
-  }, [activePath, code, isSupported, isTooLarge, manualTrigger]);
+  }, [activePath, code, isSupported, isTooLarge, manualTrigger, storedIssues]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   // 다른 파일로 이동한 직후에는 이전 파일의 결과를 그대로 두지 않는다.
   const visibleIssues = useMemo(
-    () => (analyzedPath === activePath ? issues : []),
-    [analyzedPath, activePath, issues],
+    () => storedIssues ?? (analyzedPath === activePath ? issues : []),
+    [analyzedPath, activePath, issues, storedIssues],
   );
 
   const issueGroups = useMemo(() => toAccessibilityIssueGroups(visibleIssues), [visibleIssues]);
@@ -143,16 +214,24 @@ export function useRealtimeAnalysis({
     [visibleIssues, analyzedPath, analyzedCode],
   );
 
-  const reanalyze = useCallback(() => setManualTrigger((count) => count + 1), []);
+  const reanalyze = useCallback(() => {
+    setStoredIssues(null);
+    setManualTrigger((count) => count + 1);
+  }, []);
 
   return {
     issues: visibleIssues,
     issueGroups,
     score,
     problemGroups,
-    analyzedPath: analyzedPath === activePath ? analyzedPath : null,
+    analyzedPath:
+      storedIssues !== null
+        ? "저장된 AI 분석 결과"
+        : analyzedPath === activePath
+          ? analyzedPath
+          : null,
     analyzedAt,
-    isAnalyzing,
+    isAnalyzing: isAnalyzing || isLoadingStoredAnalysis,
     isSupported,
     error,
     reanalyze,
