@@ -131,8 +131,7 @@ export default function AnalysisProgressPage() {
     }
   }, [tree, repositoryUrl]);
 
-  const workspaceUrl = `/repository-workspace?repo=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(branchName)}`;
-
+const workspaceUrl = `/analysis-workspace?repo=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(branchName)}`;
   return (
     <main className="flex min-h-screen items-center bg-white px-6 py-10 md:px-10">
       <section className="mx-auto w-full max-w-5xl -translate-y-6">
