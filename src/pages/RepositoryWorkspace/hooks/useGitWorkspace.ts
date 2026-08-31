@@ -5,6 +5,7 @@ import {
   toGitErrorMessage,
   type GitFileChangeResponse,
   type GitStatusResponse,
+  type GitWorkspaceParams,
 } from "@/api/git";
 
 import type { BranchItem } from "../types";
@@ -45,7 +46,17 @@ export interface GitWorkspaceState {
   dismissCommandMessage: () => void;
 }
 
-export function useGitWorkspace(): GitWorkspaceState {
+interface UseGitWorkspaceOptions {
+  repositoryUrl: string;
+  branchName: string;
+  localChangedFiles?: GitFileChangeResponse[];
+}
+
+export function useGitWorkspace({
+  repositoryUrl,
+  branchName,
+  localChangedFiles = [],
+}: UseGitWorkspaceOptions): GitWorkspaceState {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [currentBranch, setCurrentBranch] = useState("");
   const [status, setStatus] = useState<GitStatusResponse | null>(null);
@@ -67,27 +78,45 @@ export function useGitWorkspace(): GitWorkspaceState {
     };
   }, []);
 
+  const workspaceParams = useMemo<GitWorkspaceParams | null>(() => {
+    if (!repositoryUrl || !branchName) return null;
+    return { repositoryUrl, branchName };
+  }, [repositoryUrl, branchName]);
+
   const refresh = useCallback(async () => {
+    if (!workspaceParams) {
+      setBranches([]);
+      setCurrentBranch(branchName);
+      setStatus(null);
+      setSelectedPaths(localChangedFiles.map((file) => file.path));
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+    setCurrentBranch((current) => current || branchName);
 
     const [branchResult, statusResult] = await Promise.allSettled([
-      gitApi.getBranches(),
-      gitApi.getStatus(),
+      gitApi.getBranches(workspaceParams),
+      gitApi.getStatus(workspaceParams),
     ]);
 
     if (!isMountedRef.current) return;
 
     if (branchResult.status === "fulfilled") {
       const { currentBranch: current, branches: names } = branchResult.value;
-      setCurrentBranch(current ?? "");
+      setCurrentBranch(current ?? branchName);
       setBranches(toBranchItems(names ?? [], current ?? ""));
     }
 
     if (statusResult.status === "fulfilled") {
       const nextStatus = statusResult.value;
+      setCurrentBranch((current) => current || nextStatus.branch || branchName);
       setStatus(nextStatus);
-      const changedPaths = (nextStatus.files ?? []).map((file) => file.path);
+      const changedPaths = [
+        ...(nextStatus.files ?? []).map((file) => file.path),
+        ...localChangedFiles.map((file) => file.path),
+      ];
       // 새로 감지된 변경 파일은 기본 선택, 사라진 파일은 선택 해제한다.
       setSelectedPaths((prev) => {
         const kept = prev.filter((path) => changedPaths.includes(path));
@@ -96,7 +125,12 @@ export function useGitWorkspace(): GitWorkspaceState {
       });
     } else {
       setStatus(null);
-      setSelectedPaths([]);
+      setSelectedPaths((prev) => {
+        const localPaths = localChangedFiles.map((file) => file.path);
+        const kept = prev.filter((path) => localPaths.includes(path));
+        const added = localPaths.filter((path) => !prev.includes(path));
+        return [...kept, ...added];
+      });
     }
 
     const failure = [branchResult, statusResult].find((result) => result.status === "rejected");
@@ -110,7 +144,7 @@ export function useGitWorkspace(): GitWorkspaceState {
     }
 
     setIsLoading(false);
-  }, []);
+  }, [branchName, localChangedFiles, workspaceParams]);
 
   useEffect(() => {
     void refresh();
@@ -122,7 +156,14 @@ export function useGitWorkspace(): GitWorkspaceState {
     );
   }, []);
 
-  const changedFiles = useMemo(() => status?.files ?? [], [status]);
+  const changedFiles = useMemo(() => {
+    const serverFiles = status?.files ?? [];
+    if (localChangedFiles.length === 0) return serverFiles;
+
+    const serverPaths = new Set(serverFiles.map((file) => file.path));
+    const localOnlyFiles = localChangedFiles.filter((file) => !serverPaths.has(file.path));
+    return [...serverFiles, ...localOnlyFiles];
+  }, [localChangedFiles, status]);
 
   const setAllSelected = useCallback(
     (selected: boolean) => {
@@ -131,23 +172,28 @@ export function useGitWorkspace(): GitWorkspaceState {
     [changedFiles],
   );
 
-  const openDiff = useCallback(async (path: string) => {
-    setDiffPath(path);
-    setDiff(null);
-    setIsDiffLoading(true);
+  const openDiff = useCallback(
+    async (path: string) => {
+      if (!workspaceParams) return;
 
-    try {
-      const response = await gitApi.getDiff(path);
-      if (!isMountedRef.current) return;
-      setDiff(response.diff ?? "");
-    } catch (diffError) {
-      if (!isMountedRef.current) return;
+      setDiffPath(path);
       setDiff(null);
-      setError(toGitErrorMessage(diffError, `${path} 의 변경 내용을 불러오지 못했습니다.`));
-    } finally {
-      if (isMountedRef.current) setIsDiffLoading(false);
-    }
-  }, []);
+      setIsDiffLoading(true);
+
+      try {
+        const response = await gitApi.getDiff(workspaceParams, path);
+        if (!isMountedRef.current) return;
+        setDiff(response.diff ?? "");
+      } catch (diffError) {
+        if (!isMountedRef.current) return;
+        setDiff(null);
+        setError(toGitErrorMessage(diffError, `${path} 의 변경 내용을 불러오지 못했습니다.`));
+      } finally {
+        if (isMountedRef.current) setIsDiffLoading(false);
+      }
+    },
+    [workspaceParams],
+  );
 
   const clearDiff = useCallback(() => {
     setDiffPath(null);
@@ -182,7 +228,10 @@ export function useGitWorkspace(): GitWorkspaceState {
   const commit = useCallback(
     (message: string) =>
       runCommand(async () => {
-        const response = await gitApi.commit({ message, files: selectedPaths });
+        if (!workspaceParams) {
+          return { ok: false, message: "저장소 또는 브랜치 정보가 없습니다." };
+        }
+        const response = await gitApi.commit({ ...workspaceParams, message, files: selectedPaths });
         return {
           ok: response.success,
           message: response.success
@@ -190,13 +239,16 @@ export function useGitWorkspace(): GitWorkspaceState {
             : (response.message ?? "커밋에 실패했습니다."),
         };
       }, "커밋에 실패했습니다."),
-    [runCommand, selectedPaths],
+    [runCommand, selectedPaths, workspaceParams],
   );
 
   const push = useCallback(
     (remote?: string) =>
       runCommand(async () => {
-        const response = await gitApi.push(remote ? { remote } : {});
+        if (!workspaceParams) {
+          return { ok: false, message: "저장소 또는 브랜치 정보가 없습니다." };
+        }
+        const response = await gitApi.push({ ...workspaceParams, ...(remote ? { remote } : {}) });
         return {
           ok: response.success,
           message: response.success
@@ -204,13 +256,17 @@ export function useGitWorkspace(): GitWorkspaceState {
             : "푸시에 실패했습니다.",
         };
       }, "푸시에 실패했습니다."),
-    [runCommand],
+    [runCommand, workspaceParams],
   );
 
   const commitAndPush = useCallback(
     (message: string, remote?: string) =>
       runCommand(async () => {
+        if (!workspaceParams) {
+          return { ok: false, message: "저장소 또는 브랜치 정보가 없습니다." };
+        }
         const response = await gitApi.commitAndPush({
+          ...workspaceParams,
           message,
           files: selectedPaths,
           ...(remote ? { remote } : {}),
@@ -225,7 +281,7 @@ export function useGitWorkspace(): GitWorkspaceState {
             : (failed.message ?? "커밋 & 푸시에 실패했습니다."),
         };
       }, "커밋 & 푸시에 실패했습니다."),
-    [runCommand, selectedPaths],
+    [runCommand, selectedPaths, workspaceParams],
   );
 
   return {
