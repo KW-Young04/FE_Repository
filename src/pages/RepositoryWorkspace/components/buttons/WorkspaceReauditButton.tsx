@@ -35,7 +35,7 @@ export default function WorkspaceReauditButton({
     <button
       type={type}
       className={[
-        "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300",
+        "inline-flex h-[33px] w-full items-center justify-center gap-1.5 rounded bg-[#6d3df5] px-3 text-xs font-bold text-white transition-colors hover:bg-[#5b2de8] disabled:cursor-not-allowed disabled:bg-[#cbbffb]",
         className,
       ]
         .filter(Boolean)

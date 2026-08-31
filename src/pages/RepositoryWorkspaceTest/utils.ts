@@ -1,6 +1,8 @@
 import type { FileSystemTree } from "@webcontainer/api";
+import axios from "axios";
 import { decodeBase64FileContent, type WorkspaceFileContent } from "@/utils/webContainerFilesystem";
 import { repositoryApi, type RepositoryFileResponse } from "@/api/repository";
+import { CAPTURE_PAGE_BRIDGE_SCRIPT } from "@/preview-capture/capturePageBridgeScript";
 import {
   BATCH_SIZE,
   BUNDLER_CONFIG_PATHS,
@@ -86,7 +88,11 @@ export function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       reject(new Error(message));
@@ -109,7 +115,10 @@ export function inferLanguage(path: string): string {
   return EDITOR_LANGUAGE_BY_EXT[extension] ?? "plaintext";
 }
 
-export function isPreviewAffectingPath(path: string, runtimeKind: "static" | "bundler" = "static"): boolean {
+export function isPreviewAffectingPath(
+  path: string,
+  runtimeKind: "static" | "bundler" = "static",
+): boolean {
   if (runtimeKind === "bundler") {
     const extension = getFileExtension(path);
     if (PREVIEW_AFFECTING_EXTENSIONS.has(extension)) return true;
@@ -166,7 +175,9 @@ export function buildTree(paths: string[]): TreeItem[] {
   return root;
 }
 
-export function toWorkspaceFileContent(file: Pick<LoadedFile, "content" | "encoding">): WorkspaceFileContent {
+export function toWorkspaceFileContent(
+  file: Pick<LoadedFile, "content" | "encoding">,
+): WorkspaceFileContent {
   return file.encoding === "base64" ? decodeBase64FileContent(file.content) : file.content;
 }
 
@@ -200,7 +211,13 @@ export function buildFileSystemTree(files: Record<string, LoadedFile>): FileSyst
 
 export function findPreviewEntryPath(files: Record<string, LoadedFile>): string | null {
   const paths = Object.keys(files);
-  const preferred = ["index.html", "index.htm", "public/index.html", "public/index.htm", "dist/index.html"];
+  const preferred = [
+    "index.html",
+    "index.htm",
+    "public/index.html",
+    "public/index.htm",
+    "dist/index.html",
+  ];
   const found = preferred.find((path) => Boolean(files[path]));
   if (found) return found;
 
@@ -211,12 +228,15 @@ export function findPreviewEntryPath(files: Record<string, LoadedFile>): string 
 }
 
 export function createStaticServerScript(): string {
+  const captureBridgeLiteral = JSON.stringify(CAPTURE_PAGE_BRIDGE_SCRIPT);
+
   return `import http from "node:http";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, normalize, relative, resolve } from "node:path";
 
 const rootDir = resolve(process.cwd());
 const port = Number(process.env.PORT || ${PREVIEW_PORT});
+const captureBridge = ${captureBridgeLiteral};
 const mimeByExt = {
   ".html": "text/html; charset=utf-8",
   ".htm": "text/html; charset=utf-8",
@@ -270,12 +290,130 @@ function resolveRequestPath(rawPath) {
     }
   }
 
-  const rootIndex = join(rootDir, "index.html");
-  if (existsSync(rootIndex)) {
-    return rootIndex;
+  // Only fall back to index.html for navigations without a file extension.
+  const requestExt = extname(trimmed).toLowerCase();
+  if (!requestExt || requestExt === ".html" || requestExt === ".htm") {
+    const rootIndex = join(rootDir, "index.html");
+    if (existsSync(rootIndex)) {
+      return rootIndex;
+    }
   }
 
   return null;
+}
+
+function shouldInjectCapture(rawUrl) {
+  return String(rawUrl ?? "").includes("__cursor_capture=1");
+}
+
+function stripExternalFontsFromHtml(html) {
+  return html
+    .replace(/<link\\b[^>]*fonts\\.googleapis\\.com[^>]*>/gi, "")
+    .replace(/<link\\b[^>]*fonts\\.gstatic\\.com[^>]*>/gi, "")
+    .replace(/<link\\b[^>]*fonts\\.adobe\\.com[^>]*>/gi, "")
+    .replace(/<link\\b[^>]*use\\.typekit\\.net[^>]*>/gi, "")
+    .replace(/@import\\s+(?:url\\()?['"]?https?:\\/\\/fonts\\.googleapis\\.com[^;]+;?/gi, "");
+}
+
+function stripExternalFontsFromCss(css) {
+  return css.replace(/@import\\s+(?:url\\()?['"]?https?:\\/\\/fonts\\.googleapis\\.com[^;]+;?/gi, "");
+}
+
+function resolveLocalAsset(rootDir, href) {
+  if (!href || href.startsWith("data:") || href.startsWith("blob:")) return null;
+  if (/^https?:\\/\\//i.test(href) || href.startsWith("//")) return null;
+
+  const cleaned = decodeURIComponent(href.split("?")[0].split("#")[0]).replace(/^\\/+/, "");
+  const candidates = [
+    resolve(rootDir, cleaned),
+    resolve(rootDir, "public", cleaned),
+  ];
+
+  for (const candidate of candidates) {
+    if (!isWithinRoot(candidate)) continue;
+    if (existsSync(candidate) && statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function mimeFromPath(filePath) {
+  const ext = extname(filePath).toLowerCase();
+  return mimeByExt[ext] ?? "application/octet-stream";
+}
+
+function inlineLocalAssets(html, rootDir) {
+  let next = html;
+
+  next = next.replace(/<link\\b([^>]*?)href=["']([^"']+)["']([^>]*)>/gi, function (match, pre, href, post) {
+    const rel = ((pre + post).match(/rel=["']([^"']+)["']/i) || [])[1] || "";
+    if (rel && rel.toLowerCase().indexOf("stylesheet") === -1) {
+      return match;
+    }
+    if (/fonts\\.googleapis|fonts\\.gstatic|fonts\\.adobe|typekit/i.test(href)) {
+      return "";
+    }
+    const assetPath = resolveLocalAsset(rootDir, href);
+    if (!assetPath || extname(assetPath).toLowerCase() !== ".css") {
+      return match;
+    }
+    try {
+      const css = stripExternalFontsFromCss(readFileSync(assetPath, "utf8"));
+      console.log("STATIC_INLINE_CSS", href, "->", relative(rootDir, assetPath));
+      return "<style data-cursor-inlined=\\"1\\">" + css + "</style>";
+    } catch (error) {
+      console.log("STATIC_INLINE_CSS_FAIL", href, error instanceof Error ? error.message : String(error));
+      return match;
+    }
+  });
+
+  next = next.replace(/<img\\b([^>]*?)\\bsrc=["']([^"']+)["']([^>]*)>/gi, function (match, pre, src, post) {
+    const assetPath = resolveLocalAsset(rootDir, src);
+    if (!assetPath) return match;
+    try {
+      const bytes = readFileSync(assetPath);
+      const mime = mimeFromPath(assetPath);
+      const base64 = Buffer.from(bytes).toString("base64");
+      console.log("STATIC_INLINE_IMG", src, "->", relative(rootDir, assetPath));
+      return "<img" + pre + "src=\\"data:" + mime + ";base64," + base64 + "\\"" + post + ">";
+    } catch (error) {
+      console.log("STATIC_INLINE_IMG_FAIL", src, error instanceof Error ? error.message : String(error));
+      return match;
+    }
+  });
+
+  return next;
+}
+
+function injectCaptureBridge(html, rootDir) {
+  var cleaned = stripExternalFontsFromHtml(html);
+  cleaned = inlineLocalAssets(cleaned, rootDir);
+
+  var fontOverride =
+    "<style data-cursor-font-override=\\"1\\">html,body{font-family:Arial,Helvetica,sans-serif;}</style>";
+  if (!cleaned.includes("data-cursor-font-override")) {
+    if (cleaned.includes("</head>")) {
+      cleaned = cleaned.replace("</head>", fontOverride + "</head>");
+    } else if (cleaned.includes("</HEAD>")) {
+      cleaned = cleaned.replace("</HEAD>", fontOverride + "</HEAD>");
+    } else {
+      cleaned = fontOverride + cleaned;
+    }
+  }
+
+  if (cleaned.includes('data-cursor-capture="1"') || cleaned.includes("__CURSOR_CAPTURE_BRIDGE__")) {
+    return cleaned;
+  }
+
+  var snippet = "<script data-cursor-capture=\\"1\\">" + captureBridge + "</script>";
+  if (cleaned.includes("</body>")) {
+    return cleaned.replace("</body>", snippet + "</body>");
+  }
+  if (cleaned.includes("</BODY>")) {
+    return cleaned.replace("</BODY>", snippet + "</BODY>");
+  }
+  return cleaned + snippet;
 }
 
 const server = http.createServer((req, res) => {
@@ -283,6 +421,9 @@ const server = http.createServer((req, res) => {
 
   if (!target) {
     console.log("STATIC_NOT_FOUND", req.url ?? "/");
+    try {
+      console.log("STATIC_ROOT_LIST", readdirSync(rootDir).join(", "));
+    } catch {}
     res.statusCode = 404;
     res.end("Not Found");
     return;
@@ -292,6 +433,28 @@ const server = http.createServer((req, res) => {
   const ext = extname(target).toLowerCase();
   const mime = mimeByExt[ext] ?? "text/plain; charset=utf-8";
   res.setHeader("Content-Type", mime);
+
+  if (ext === ".html" || ext === ".htm") {
+    let html = readFileSync(target, "utf8");
+    const relativePath = relative(rootDir, target).replace(/\\\\/g, "/");
+    // Do not rewrite capture-host / vendor pages — they ship their own scripts.
+    if (relativePath.includes("__cursor__/")) {
+      res.end(html);
+      return;
+    }
+    html = stripExternalFontsFromHtml(html);
+    // Always inject bridge so clean preview URLs can be captured without query params.
+    html = injectCaptureBridge(html, rootDir);
+    res.end(html);
+    return;
+  }
+
+  if (ext === ".css") {
+    const css = stripExternalFontsFromCss(readFileSync(target, "utf8"));
+    res.end(css);
+    return;
+  }
+
   res.end(readFileSync(target));
 });
 
@@ -306,8 +469,11 @@ server.listen(port, "0.0.0.0", () => {
 });`;
 }
 
-
-export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: string, files: Record<string, LoadedFile>): string {
+export function createRepositoryFallbackHtml(
+  repositoryUrl: string,
+  branchName: string,
+  files: Record<string, LoadedFile>,
+): string {
   const escapeHtml = (value: string) =>
     value
       .replace(/&/g, "&amp;")
@@ -319,17 +485,22 @@ export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: 
   const filePaths = Object.keys(files).sort((a, b) => a.localeCompare(b));
   const readme = files["README.md"]?.content ?? files["readme.md"]?.content ?? "";
   const appEntry = Object.entries(files).find(
-    ([path, file]) => path.endsWith("app.py") && /import\s+streamlit|from\s+streamlit|\bst\./.test(file.content),
+    ([path, file]) =>
+      path.endsWith("app.py") && /import\s+streamlit|from\s+streamlit|\bst\./.test(file.content),
   );
   const requirements = Object.entries(files)
     .filter(([path]) => path.endsWith("requirements.txt"))
     .map(([, file]) => file.content)
     .join("\n");
-  const isStreamlit = Boolean(appEntry) || /(^|\n)\s*streamlit\b/i.test(requirements) || /Streamlit/i.test(readme);
+  const isStreamlit =
+    Boolean(appEntry) || /(^|\n)\s*streamlit\b/i.test(requirements) || /Streamlit/i.test(readme);
 
   const repoName = repositoryUrl.replace(/^https:\/\/github\.com\//, "");
   const readmePreview = readme.split(/\r?\n/).slice(0, 28).join("\n").trim();
-  const listItems = filePaths.slice(0, 28).map((path) => `<li><span>${escapeHtml(path)}</span></li>`).join("");
+  const listItems = filePaths
+    .slice(0, 28)
+    .map((path) => `<li><span>${escapeHtml(path)}</span></li>`)
+    .join("");
 
   if (isStreamlit) {
     const source = appEntry?.[1].content ?? readme;
@@ -337,18 +508,36 @@ export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: 
       const match = source.match(new RegExp(`st\\.${name}\\(\\s*[\"']([^\"']+)[\"']`));
       return match?.[1] ?? "";
     };
-    const allLabels = Array.from(source.matchAll(/st\.(selectbox|radio|multiselect|slider|text_input|number_input)\(\s*["']([^"']+)["']/g))
+    const allLabels = Array.from(
+      source.matchAll(
+        /st\.(selectbox|radio|multiselect|slider|text_input|number_input)\(\s*["']([^"']+)["']/g,
+      ),
+    )
       .map((match) => ({ type: match[1], label: match[2] }))
       .slice(0, 6);
-    const buttons = Array.from(source.matchAll(/st\.button\(\s*["']([^"']+)["']/g)).map((match) => match[1]).slice(0, 3);
-    const title = stringArg("title") || stringArg("header") || readme.match(/^#\s+(.+)$/m)?.[1] || "Streamlit App";
-    const subtitle = stringArg("caption") || stringArg("subheader") || "Streamlit 기반 웹 애플리케이션 미리보기";
-    const controlHtml = allLabels.length > 0
-      ? allLabels.map((item) => `<label><span>${escapeHtml(item.label)}</span><div class="control">${item.type === "slider" ? "50" : "선택하세요"}</div></label>`).join("")
-      : `<label><span>입력 항목</span><div class="control">선택하세요</div></label>`;
-    const buttonHtml = buttons.length > 0
-      ? buttons.map((label) => `<button>${escapeHtml(label)}</button>`).join("")
-      : `<button>추천 받기</button>`;
+    const buttons = Array.from(source.matchAll(/st\.button\(\s*["']([^"']+)["']/g))
+      .map((match) => match[1])
+      .slice(0, 3);
+    const title =
+      stringArg("title") ||
+      stringArg("header") ||
+      readme.match(/^#\s+(.+)$/m)?.[1] ||
+      "Streamlit App";
+    const subtitle =
+      stringArg("caption") || stringArg("subheader") || "Streamlit 기반 웹 애플리케이션 미리보기";
+    const controlHtml =
+      allLabels.length > 0
+        ? allLabels
+            .map(
+              (item) =>
+                `<label><span>${escapeHtml(item.label)}</span><div class="control">${item.type === "slider" ? "50" : "선택하세요"}</div></label>`,
+            )
+            .join("")
+        : `<label><span>입력 항목</span><div class="control">선택하세요</div></label>`;
+    const buttonHtml =
+      buttons.length > 0
+        ? buttons.map((label) => `<button>${escapeHtml(label)}</button>`).join("")
+        : `<button>추천 받기</button>`;
 
     return `<!doctype html>
 <html lang="ko">
@@ -444,8 +633,11 @@ export function createRepositoryFallbackHtml(repositoryUrl: string, branchName: 
 </html>`;
 }
 
-
-export function createRuntimeFailureHtml(repositoryUrl: string, branchName: string, errorMessage: string): string {
+export function createRuntimeFailureHtml(
+  repositoryUrl: string,
+  branchName: string,
+  errorMessage: string,
+): string {
   const escapeHtml = (value: string) =>
     value
       .replace(/&/g, "&amp;")
@@ -524,7 +716,9 @@ export async function ensurePreviewFilesLoaded(
     "public/index.htm",
     ...candidatePaths.filter((path) => path.endsWith(".html") || path.endsWith(".htm")),
     ...candidatePaths.filter((path) => /\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)),
-    ...candidatePaths.filter((path) => path.startsWith("src/assets/") || path.startsWith("public/")),
+    ...candidatePaths.filter(
+      (path) => path.startsWith("src/assets/") || path.startsWith("public/"),
+    ),
   ];
 
   for (const path of requiredPaths) {
@@ -615,7 +809,12 @@ export function getBundlerPreloadPaths(
   deferredPaths: readonly string[],
   allTreePaths: readonly string[],
 ): string[] {
-  const candidates = collectBundlerCandidatePaths(workspaceRoot, deferredPaths, allTreePaths, false);
+  const candidates = collectBundlerCandidatePaths(
+    workspaceRoot,
+    deferredPaths,
+    allTreePaths,
+    false,
+  );
   return sortAndCapBundlerPaths(candidates, BUNDLER_PRELOAD_MAX_FILES);
 }
 
@@ -692,14 +891,38 @@ export async function preloadRepositoryPaths(
   return nextFiles;
 }
 
+/**
+ * 4xx는 "그 브랜치에 그 파일이 없다"는 확정 응답이므로 재시도하지 않는다.
+ * 타임아웃·네트워크 오류·5xx 만 브랜치 전용 엔드포인트로 다시 시도한다.
+ */
+function isRetryableFileError(error: unknown): boolean {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    return status === undefined || status >= 500;
+  }
+  return true;
+}
+
 export async function fetchRepositoryFileWithTimeout(
   repositoryUrl: string,
   path: string,
   branchName?: string,
 ): Promise<RepositoryFileResponse> {
-  return withTimeout(
-    repositoryApi.getFile(repositoryUrl, path, branchName),
-    FILE_FETCH_TIMEOUT_MS,
-    `파일 로드 타임아웃(${FILE_FETCH_TIMEOUT_MS}ms): ${path}`,
-  );
+  const timeoutMessage = `파일 로드 타임아웃(${FILE_FETCH_TIMEOUT_MS}ms): ${path}`;
+
+  try {
+    return await withTimeout(
+      repositoryApi.getFile(repositoryUrl, path, branchName),
+      FILE_FETCH_TIMEOUT_MS,
+      timeoutMessage,
+    );
+  } catch (error) {
+    if (!branchName || !isRetryableFileError(error)) throw error;
+
+    return withTimeout(
+      repositoryApi.getBranchFile(repositoryUrl, branchName, path),
+      FILE_FETCH_TIMEOUT_MS,
+      timeoutMessage,
+    );
+  }
 }

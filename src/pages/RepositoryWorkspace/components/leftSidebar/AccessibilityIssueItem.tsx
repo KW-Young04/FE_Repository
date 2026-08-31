@@ -7,9 +7,9 @@ const STATUS_LABEL: Record<IssueStatus, string> = {
 };
 
 const STATUS_CLASS: Record<IssueStatus, string> = {
-  in_progress: "text-sky-500",
+  in_progress: "text-[#008cff]",
   complete: "text-cyan-500",
-  pending: "text-slate-400",
+  pending: "text-[#858791]",
 };
 
 interface AccessibilityIssueItemProps {
@@ -28,19 +28,23 @@ export default function AccessibilityIssueItem({
       type="button"
       onClick={() => onSelect(issue.id)}
       className={[
-        "flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0",
-        isSelected ? "bg-violet-50" : "hover:bg-slate-50",
+        "grid min-h-14 w-full cursor-pointer grid-cols-[minmax(0,1fr)_36px_75px] items-center border-t border-[#ededf1] py-0 pr-3 pl-10 text-left transition-colors max-[1360px]:pl-7",
+        isSelected ? "bg-[#f7f4ff]" : "bg-white hover:bg-[#fbfaff]",
       ].join(" ")}
       aria-current={isSelected ? "true" : undefined}
     >
-      <span className="min-w-0">
-        <span className="block text-xs font-medium text-slate-400">{issue.code}</span>
-        <span className="block truncate text-sm font-bold text-slate-900">{issue.title}</span>
+      <span className="flex min-w-0 flex-col gap-px">
+        <small className="text-[9px] text-[#8c8e98]">{issue.code}</small>
+        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-medium text-[#36383f]">
+          {issue.title}
+        </strong>
       </span>
 
-      <span className="shrink-0 text-sm font-bold text-sky-500">{issue.level}</span>
+      <span className="text-[10px] font-bold text-[#008cff]">{issue.level}</span>
 
-      <span className={`w-20 shrink-0 text-right text-xs font-semibold ${STATUS_CLASS[issue.status]}`}>
+      <span
+        className={`justify-self-end whitespace-nowrap text-[10px] font-semibold ${STATUS_CLASS[issue.status]}`}
+      >
         {STATUS_LABEL[issue.status]}
       </span>
     </button>

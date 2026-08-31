@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { AccessibilityCategoryGroup } from "../../types";
 import AccessibilityIssueItem from "./AccessibilityIssueItem";
 
@@ -12,22 +14,40 @@ export default function AccessibilityIssueGroup({
   selectedIssueId,
   onSelectIssue,
 }: AccessibilityIssueGroupProps) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <header className="border-b border-slate-100 px-4 py-2.5">
-        <h3 className="text-xs font-bold text-slate-500">{group.label}</h3>
-      </header>
+  const [opened, setOpened] = useState(true);
 
-      <div>
-        {group.issues.map((issue) => (
-          <AccessibilityIssueItem
-            key={issue.id}
-            issue={issue}
-            isSelected={selectedIssueId === issue.id}
-            onSelect={onSelectIssue}
-          />
-        ))}
-      </div>
+  return (
+    <section className="border-t border-[#e3e1e9]">
+      <button
+        type="button"
+        className="flex min-h-[43px] w-full cursor-pointer items-center gap-1.5 border-0 bg-[#f7f4ff] px-2 text-left text-[11px] font-semibold text-[#2e3037] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6d3df5]"
+        onClick={() => setOpened((current) => !current)}
+        aria-expanded={opened}
+      >
+        <span
+          className={[
+            "inline-flex text-[#6d3df5] transition-transform duration-150",
+            opened ? "rotate-90" : "rotate-0",
+          ].join(" ")}
+          aria-hidden="true"
+        >
+          ›
+        </span>
+        <span>{group.label}</span>
+      </button>
+
+      {opened && (
+        <div className="bg-white">
+          {group.issues.map((issue) => (
+            <AccessibilityIssueItem
+              key={issue.id}
+              issue={issue}
+              isSelected={selectedIssueId === issue.id}
+              onSelect={onSelectIssue}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

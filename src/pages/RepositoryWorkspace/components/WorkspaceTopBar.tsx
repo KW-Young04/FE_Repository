@@ -14,7 +14,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "overview",
     label: "Overview",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <rect x="1.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <rect x="9.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <rect x="1.5" y="9.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
@@ -26,13 +26,8 @@ const NAV_ITEMS: NavItem[] = [
     id: "design",
     label: "Design",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path
-          d="M3 13L13 3"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 13L13 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         <path
           d="M9 3H13V7"
           stroke="currentColor"
@@ -48,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "code",
     label: "Code",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path
           d="M5 4.5L1.5 8L5 11.5"
           stroke="currentColor"
@@ -70,17 +65,26 @@ const NAV_ITEMS: NavItem[] = [
 
 interface WorkspaceTopBarProps {
   activeTab: WorkspaceTab;
+  changedFileCount: number;
+  isCommitting: boolean;
   onTabChange: (tab: WorkspaceTab) => void;
+  onCommitClick: () => void;
 }
 
-export default function WorkspaceTopBar({ activeTab, onTabChange }: WorkspaceTopBarProps) {
+export default function WorkspaceTopBar({
+  activeTab,
+  changedFileCount,
+  isCommitting,
+  onTabChange,
+  onCommitClick,
+}: WorkspaceTopBarProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-4 md:px-6">
-      <div className="w-36 shrink-0">
+    <header className="relative z-20 flex h-[42px] shrink-0 items-stretch border-b border-slate-200 bg-white">
+      <div className="flex w-[298px] shrink-0 items-center gap-1.5 pl-2.5 max-[1360px]:w-[270px]">
         <CodeeLogo />
       </div>
 
-      <nav className="flex flex-1 items-center justify-center gap-1" aria-label="워크스페이스 탭">
+      <nav className="flex flex-1 items-stretch" aria-label="워크스페이스 탭">
         {NAV_ITEMS.map((item) => {
           const isActive = activeTab === item.id;
 
@@ -96,8 +100,14 @@ export default function WorkspaceTopBar({ activeTab, onTabChange }: WorkspaceTop
         })}
       </nav>
 
-      <div className="flex w-36 shrink-0 justify-end">
-        <WorkspaceCommitButton />
+      <div className="flex w-[248px] shrink-0 items-center justify-end pr-2.5 max-[1360px]:w-[225px]">
+        <WorkspaceCommitButton onClick={onCommitClick} disabled={isCommitting}>
+          {isCommitting
+            ? "처리 중..."
+            : changedFileCount > 0
+              ? `Commit ${changedFileCount}`
+              : "Commit"}
+        </WorkspaceCommitButton>
       </div>
     </header>
   );

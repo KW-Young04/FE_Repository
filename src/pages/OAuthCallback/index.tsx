@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
+import { consumeAccessTokenFromUrl, parseUserFromToken } from "@/utils/auth";
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -12,8 +13,7 @@ export default function OAuthCallbackPage() {
     if (processed.current) return;
     processed.current = true;
 
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    const token = consumeAccessTokenFromUrl();
 
     if (!token) {
       setStatus("error");
@@ -21,18 +21,9 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    localStorage.setItem("access_token", token);
-
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      setUser({
-        id: String(payload.userId ?? payload.sub ?? ""),
-        name: payload.loginId ?? "",
-        email: payload.email ?? "",
-      });
-    } catch {
-      // JWT 파싱 실패 시에도 토큰만 저장하고 진행
-    }
+    // JWT 파싱에 실패해도 토큰만으로 API 호출은 가능하므로 그대로 진행한다.
+    const user = parseUserFromToken(token);
+    if (user) setUser(user);
 
     navigate("/repository-connect", { replace: true });
   }, [navigate, setUser]);
@@ -52,11 +43,7 @@ export default function OAuthCallbackPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white">
       <div className="flex flex-col items-center gap-4">
-        <svg
-          className="h-10 w-10 animate-spin text-slate-900"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
+        <svg className="h-10 w-10 animate-spin text-slate-900" viewBox="0 0 24 24" fill="none">
           <circle
             className="opacity-25"
             cx="12"
@@ -71,9 +58,7 @@ export default function OAuthCallbackPage() {
             d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
           />
         </svg>
-        <p className="text-lg font-semibold text-slate-700">
-          GitHub 로그인 처리 중…
-        </p>
+        <p className="text-lg font-semibold text-slate-700">GitHub 로그인 처리 중…</p>
       </div>
     </div>
   );

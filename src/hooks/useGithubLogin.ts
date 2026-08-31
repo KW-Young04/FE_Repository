@@ -15,7 +15,8 @@ export function useGithubLogin() {
   }, [searchParams, setSearchParams]);
 
   const login = () => {
-    window.location.href = `${API_BASE_URL}/api/auth/login`;
+    const redirectOrigin = encodeURIComponent(window.location.origin);
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/github?redirectOrigin=${redirectOrigin}`;
   };
 
   const closeLoginError = () => setIsLoginErrorOpen(false);

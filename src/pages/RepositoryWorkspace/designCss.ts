@@ -52,12 +52,18 @@ function effectDeclarations(values: VisualDesignValues): Record<string, string> 
     return { "box-shadow": "none", filter: "none" };
   }
   if (values.effectType === "inner-shadow") {
-    return { "box-shadow": `inset 0 8px 22px rgba(15, 23, 42, ${Number((0.28 * alpha).toFixed(3))})`, filter: "none" };
+    return {
+      "box-shadow": `inset 0 8px 22px rgba(15, 23, 42, ${Number((0.28 * alpha).toFixed(3))})`,
+      filter: "none",
+    };
   }
   if (values.effectType === "layer-blur") {
     return { "box-shadow": "none", filter: `blur(${Math.round(8 * alpha)}px)` };
   }
-  return { "box-shadow": `0 16px 34px rgba(15, 23, 42, ${Number((0.28 * alpha).toFixed(3))})`, filter: "none" };
+  return {
+    "box-shadow": `0 16px 34px rgba(15, 23, 42, ${Number((0.28 * alpha).toFixed(3))})`,
+    filter: "none",
+  };
 }
 
 /**
@@ -65,7 +71,10 @@ function effectDeclarations(values: VisualDesignValues): Record<string, string> 
  * @param changedKeys 이번에 바뀐 필드 목록 — 이 필드에 영향받는 CSS만 출력하여
  *   사용자가 건드리지 않은 속성이 인라인 style에 끼어들어 레이아웃을 깨는 일을 막는다.
  */
-export function designPatchToCss(next: VisualDesignValues, changedKeys: readonly string[]): Record<string, string> {
+export function designPatchToCss(
+  next: VisualDesignValues,
+  changedKeys: readonly string[],
+): Record<string, string> {
   const changed = new Set(changedKeys);
   const touched = (...keys: (keyof VisualDesignValues)[]) => keys.some((key) => changed.has(key));
   const css: Record<string, string> = {};
