@@ -30,7 +30,24 @@ export interface GitBranchResponse {
   branches: string[];
 }
 
+export interface GitWorkspaceParams {
+  repositoryUrl: string;
+  branchName: string;
+}
+
+export interface GitFileWriteRequest extends GitWorkspaceParams {
+  path: string;
+  content: string;
+}
+
+export interface GitFileWriteResponse {
+  success: boolean;
+  path: string;
+}
+
 export interface GitCommitRequest {
+  repositoryUrl: string;
+  branchName: string;
   message: string;
   files: string[];
 }
@@ -43,6 +60,8 @@ export interface GitCommitResponse {
 }
 
 export interface GitPushRequest {
+  repositoryUrl: string;
+  branchName: string;
   remote?: string;
 }
 
@@ -87,20 +106,25 @@ export function toGitErrorMessage(error: unknown, fallback: string): string {
 }
 
 export const gitApi = {
-  getStatus: async (): Promise<GitStatusResponse> => {
-    const response = await apiClient.get<GitStatusResponse>("/api/git/status");
+  getStatus: async (params: GitWorkspaceParams): Promise<GitStatusResponse> => {
+    const response = await apiClient.get<GitStatusResponse>("/api/git/status", { params });
     return response.data;
   },
 
-  getDiff: async (path: string): Promise<GitDiffResponse> => {
+  getDiff: async (params: GitWorkspaceParams, path: string): Promise<GitDiffResponse> => {
     const response = await apiClient.get<GitDiffResponse>("/api/git/diff", {
-      params: { path },
+      params: { ...params, path },
     });
     return response.data;
   },
 
-  getBranches: async (): Promise<GitBranchResponse> => {
-    const response = await apiClient.get<GitBranchResponse>("/api/git/branches");
+  getBranches: async (params: GitWorkspaceParams): Promise<GitBranchResponse> => {
+    const response = await apiClient.get<GitBranchResponse>("/api/git/branches", { params });
+    return response.data;
+  },
+
+  writeFile: async (request: GitFileWriteRequest): Promise<GitFileWriteResponse> => {
+    const response = await apiClient.put<GitFileWriteResponse>("/api/git/file", request);
     return response.data;
   },
 
@@ -111,7 +135,7 @@ export const gitApi = {
     return response.data;
   },
 
-  push: async (request: GitPushRequest = {}): Promise<GitPushResponse> => {
+  push: async (request: GitPushRequest): Promise<GitPushResponse> => {
     const response = await apiClient.post<GitPushResponse>("/api/git/push", request, {
       timeout: GIT_COMMAND_TIMEOUT_MS,
     });

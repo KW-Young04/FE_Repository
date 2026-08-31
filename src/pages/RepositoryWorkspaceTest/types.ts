@@ -29,6 +29,7 @@ export interface LoadDiagnostics {
 
 export interface RepositoryWorkspaceViewProps {
   repositoryUrl: string;
+  branchName: string;
   tree: RepositoryTreeResponse | null;
   filesByPath: Record<string, LoadedFile>;
   openPaths: string[];
@@ -53,6 +54,7 @@ export interface RepositoryWorkspaceViewProps {
   onFileClick: (path: string) => void | Promise<void>;
   onCloseTab: (path: string) => void;
   onEditorChange: (nextValue: string | undefined) => void;
+  onFlushPendingWrites: () => Promise<void>;
   onRestartPreview: () => void | Promise<void>;
   onDesignPatch: (sourceId: number | null, css: Record<string, string>) => void;
   onNavigateToConnect: () => void;

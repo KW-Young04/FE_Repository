@@ -1,6 +1,7 @@
 import { WebContainer, type WebContainerProcess } from "@webcontainer/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { gitApi, toGitErrorMessage } from "@/api/git";
 import type { RepositoryTreeResponse } from "@/api/repository";
 import { injectCaptureAssets } from "@/preview-capture/injectCaptureAssets";
 import type { SnapshotCaptureStatus } from "@/preview-capture/types";
@@ -110,7 +111,14 @@ const INITIAL_DIAGNOSTICS: LoadDiagnostics = {
   lastError: null,
 };
 
-export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
+interface UseRepositoryWorkspaceOptions {
+  onServerFileSynced?: () => void | Promise<void>;
+}
+
+export function useRepositoryWorkspace(
+  options: UseRepositoryWorkspaceOptions = {},
+): RepositoryWorkspaceViewProps {
+  const { onServerFileSynced } = options;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
@@ -145,6 +153,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
   const serverReadySubscribedRef = useRef(false);
   const previewReadyRef = useRef(false);
   const serverReadyTimeoutRef = useRef<number | null>(null);
+  const activeWriteTasksRef = useRef<Map<string, Promise<void>>>(new Map());
   const runtimeGenerationRef = useRef(0);
   const previewEntryPathRef = useRef<string | null>(null);
   const previewRuntimeKindRef = useRef<PreviewRuntimeKind>("static");
@@ -174,6 +183,38 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       return next;
     });
   }, []);
+
+  const syncFileToGitWorkspace = useCallback(
+    async (path: string, content: string) => {
+      if (!repositoryUrl || !branchName) return;
+
+      const response = await gitApi.writeFile({
+        repositoryUrl,
+        branchName,
+        path,
+        content,
+      });
+
+      if (!response.success) {
+        throw new Error(`${path} 파일을 Git 작업공간에 저장하지 못했습니다.`);
+      }
+
+      setFilesByPath((prev) => {
+        const current = prev[path];
+        if (!current || current.content !== content) return prev;
+        return {
+          ...prev,
+          [path]: {
+            ...current,
+            dirty: false,
+          },
+        };
+      });
+
+      await onServerFileSynced?.();
+    },
+    [branchName, onServerFileSynced, repositoryUrl],
+  );
 
   const logEvent = useCallback(
     (message: string) => {
@@ -426,7 +467,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       logEvent("정적 서버 프로세스 시작");
       attachProcessOutputPump(process, generation);
     },
-    [appendRuntimeLog, attachProcessOutputPump, logEvent, stopRuntimeProcess],
+    [appendRuntimeLog, attachProcessOutputPump, branchName, logEvent, repositoryUrl, stopRuntimeProcess],
   );
 
   const startRuntime = useCallback(
@@ -538,7 +579,15 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       runtimeStartInFlightRef.current = task;
       return task;
     },
-    [logEvent, appendRuntimeLog, startBundlerRuntime, startStaticRuntime, subscribeServerReady],
+    [
+      appendRuntimeLog,
+      branchName,
+      logEvent,
+      repositoryUrl,
+      startBundlerRuntime,
+      startStaticRuntime,
+      subscribeServerReady,
+    ],
   );
 
   const startRuntimeRef = useRef(startRuntime);
@@ -630,6 +679,45 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     }
   }, []);
 
+  const syncEditedFile = useCallback(
+    async (path: string, content: string) => {
+      const task = (async () => {
+        await syncFileToPreviewRuntime(path, content);
+        await syncFileToGitWorkspace(path, content);
+      })();
+
+      activeWriteTasksRef.current.set(path, task);
+      try {
+        await task;
+      } finally {
+        if (activeWriteTasksRef.current.get(path) === task) {
+          activeWriteTasksRef.current.delete(path);
+        }
+      }
+    },
+    [syncFileToGitWorkspace, syncFileToPreviewRuntime],
+  );
+
+  const flushPendingWrites = useCallback(async () => {
+    const pendingPaths = Array.from(pendingWriteTimersRef.current.keys());
+    pendingPaths.forEach((path) => {
+      const timerId = pendingWriteTimersRef.current.get(path);
+      if (timerId) {
+        window.clearTimeout(timerId);
+      }
+      pendingWriteTimersRef.current.delete(path);
+    });
+
+    const dirtyFiles = Object.values(filesByPathRef.current).filter(
+      (file) => file.dirty && file.encoding !== "base64",
+    );
+
+    await Promise.all([
+      ...Array.from(activeWriteTasksRef.current.values()),
+      ...dirtyFiles.map((file) => syncEditedFile(file.path, file.content)),
+    ]);
+  }, [syncEditedFile]);
+
   const handleEditorChange = useCallback(
     (nextValue: string | undefined) => {
       if (!activePath || nextValue === undefined) return;
@@ -656,15 +744,19 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
       const timerId = window.setTimeout(async () => {
         pendingWriteTimersRef.current.delete(activePath);
         try {
-          await syncFileToPreviewRuntime(activePath, nextValue);
+          await syncEditedFile(activePath, nextValue);
         } catch (error) {
-          setRuntimeError(`실시간 반영 중 오류가 발생했습니다: ${toDisplayError(error)}`);
+          const message = toGitErrorMessage(
+            error,
+            `실시간 반영 중 오류가 발생했습니다: ${toDisplayError(error)}`,
+          );
+          setRuntimeError(message);
         }
       }, PREVIEW_SYNC_DEBOUNCE_MS);
 
       pendingWriteTimersRef.current.set(activePath, timerId);
     },
-    [activePath, syncFileToPreviewRuntime],
+    [activePath, syncEditedFile],
   );
 
   const applyDesignToCode = useCallback((sourceId: number | null, css: Record<string, string>) => {
@@ -707,7 +799,15 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
         },
       );
     }
-  }, []);
+    void syncFileToGitWorkspace(entryPath, patched).catch((error) => {
+      setRuntimeError(
+        toGitErrorMessage(
+          error,
+          `디자인 변경을 Git 작업공간에 저장하지 못했습니다: ${toDisplayError(error)}`,
+        ),
+      );
+    });
+  }, [syncFileToGitWorkspace]);
 
   const handleRestartPreview = useCallback(async () => {
     if (!Object.keys(filesByPath).length) return;
@@ -966,6 +1066,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
 
   return {
     repositoryUrl,
+    branchName,
     tree,
     filesByPath,
     openPaths,
@@ -990,6 +1091,7 @@ export function useRepositoryWorkspace(): RepositoryWorkspaceViewProps {
     onFileClick: handleFileClick,
     onCloseTab: closeTab,
     onEditorChange: handleEditorChange,
+    onFlushPendingWrites: flushPendingWrites,
     onRestartPreview: handleRestartPreview,
     onDesignPatch: applyDesignToCode,
     onNavigateToConnect: () => navigate("/repository-connect"),

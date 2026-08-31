@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
+import type { GitFileChangeResponse } from "@/api/git";
 import { useRepositoryWorkspace } from "@/pages/RepositoryWorkspaceTest/useRepositoryWorkspace";
+import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
 
 import WorkspaceChatSidebar from "./components/chat/WorkspaceChatSidebar";
 import CodeTabView from "./components/code/CodeTabView";
@@ -21,8 +24,34 @@ export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
-  const workspace = useRepositoryWorkspace();
-  const git = useGitWorkspace();
+  const [searchParams] = useSearchParams();
+  const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
+  const branchName = searchParams.get("branch") ?? "";
+  const gitRefreshRef = useRef<(() => Promise<void>) | null>(null);
+  const workspace = useRepositoryWorkspace({
+    onServerFileSynced: () => gitRefreshRef.current?.(),
+  });
+  const localChangedFiles = useMemo<GitFileChangeResponse[]>(
+    () =>
+      Object.values(workspace.filesByPath)
+        .filter((file) => file.dirty)
+        .map((file) => ({
+          path: file.path,
+          status: "MODIFIED",
+          addedLines: 0,
+          deletedLines: 0,
+        })),
+    [workspace.filesByPath],
+  );
+  const git = useGitWorkspace({
+    repositoryUrl,
+    branchName,
+    localChangedFiles,
+  });
+
+  useEffect(() => {
+    gitRefreshRef.current = git.refresh;
+  }, [git.refresh]);
 
   const analysis = useRealtimeAnalysis({
     repositoryUrl: workspace.repositoryUrl,
@@ -57,6 +86,16 @@ export default function RepositoryWorkspacePage() {
     workspace.previewStatus,
     workspace.previewRevision,
   );
+
+  const commitAfterFlush = async (message: string) => {
+    await workspace.onFlushPendingWrites();
+    return git.commit(message);
+  };
+
+  const commitAndPushAfterFlush = async (message: string, remote?: string) => {
+    await workspace.onFlushPendingWrites();
+    return git.commitAndPush(message, remote);
+  };
 
   const design = useDesignInspector({
     previewSrc,
@@ -181,9 +220,9 @@ export default function RepositoryWorkspacePage() {
           commandFailed={git.commandFailed}
           onToggleSelect={git.toggleSelectedPath}
           onSelectAll={git.setAllSelected}
-          onCommit={git.commit}
+          onCommit={commitAfterFlush}
           onPush={git.push}
-          onCommitAndPush={git.commitAndPush}
+          onCommitAndPush={commitAndPushAfterFlush}
           onClose={() => {
             setIsCommitDialogOpen(false);
             git.dismissCommandMessage();
