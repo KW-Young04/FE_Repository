@@ -1,8 +1,8 @@
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 export interface TreeNode {
   path: string;
-  type: 'blob' | 'tree';
+  type: "blob" | "tree";
   size?: number;
 }
 
@@ -19,7 +19,7 @@ export interface RepositoryFileResponse {
   branch?: string;
   path: string;
   content: string;
-  encoding?: 'utf-8' | 'base64' | string;
+  encoding?: "utf-8" | "base64" | string;
 }
 
 export interface GithubRepositoryResponse {
@@ -48,7 +48,7 @@ interface ApiResponse<T> {
 export const repositoryApi = {
   getTree: async (repositoryUrl: string): Promise<RepositoryTreeResponse> => {
     const response = await apiClient.get<ApiResponse<RepositoryTreeResponse>>(
-      '/api/repositories/tree',
+      "/api/repositories/tree",
       { params: { repositoryUrl } },
     );
     return response.data.data;
@@ -59,7 +59,7 @@ export const repositoryApi = {
     branchName: string,
   ): Promise<RepositoryTreeResponse> => {
     const response = await apiClient.post<ApiResponse<RepositoryTreeResponse>>(
-      '/api/repositories/branch',
+      "/api/repositories/branch",
       { repositoryUrl, branchName },
     );
     return response.data.data;
@@ -71,7 +71,7 @@ export const repositoryApi = {
     branchName?: string,
   ): Promise<RepositoryFileResponse> => {
     const response = await apiClient.get<ApiResponse<RepositoryFileResponse>>(
-      '/api/repositories/file',
+      "/api/repositories/file",
       { params: { repositoryUrl, path, branchName } },
     );
     return response.data.data;
@@ -83,7 +83,7 @@ export const repositoryApi = {
     path: string,
   ): Promise<RepositoryFileResponse> => {
     const response = await apiClient.post<ApiResponse<RepositoryFileResponse>>(
-      '/api/repositories/branch/file',
+      "/api/repositories/branch/file",
       { repositoryUrl, branchName, path },
     );
     return response.data.data;
@@ -91,7 +91,7 @@ export const repositoryApi = {
 
   getRecentRepositories: async (): Promise<GithubRepositoryResponse[]> => {
     const response = await apiClient.get<GithubRepositoryResponse[]>(
-      '/api/github/repositories/recent',
+      "/api/github/repositories/recent",
     );
     return response.data;
   },

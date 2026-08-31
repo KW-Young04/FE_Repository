@@ -17,6 +17,12 @@ export default function AccessibilityDetailSection({
       <h2 className="px-1 text-sm font-bold text-slate-900">상세보기</h2>
 
       <div className="mt-3 space-y-3 pb-2">
+        {groups.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-xs font-medium text-slate-400">
+            표시할 위반 항목이 없습니다.
+          </p>
+        )}
+
         {groups.map((group) => (
           <AccessibilityIssueGroup
             key={group.id}
