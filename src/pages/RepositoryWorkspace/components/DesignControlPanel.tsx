@@ -180,25 +180,36 @@ export default function DesignControlPanel({
           <div className="grid gap-3">
             <div>
               <FieldLabel>Alignment</FieldLabel>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="mb-3 grid grid-cols-[repeat(3,minmax(0,1fr))_1px_repeat(3,minmax(0,1fr))] gap-1">
                 <AlignmentButton
                   active={values.alignment === "left"}
-                  label="왼쪽"
+                  label="≡"
                   onClick={() => onChange({ alignment: "left" })}
                 />
                 <AlignmentButton
                   active={values.alignment === "center"}
-                  label="가운데"
+                  label="≣"
                   onClick={() => onChange({ alignment: "center" })}
                 />
                 <AlignmentButton
                   active={values.alignment === "right"}
-                  label="오른쪽"
+                  label="≡"
                   onClick={() => onChange({ alignment: "right" })}
                 />
+                <span className="h-[18px] w-px self-center bg-slate-300" />
                 <AlignmentButton
-                  active={values.alignment === "justify"}
-                  label="양쪽"
+                  active={values.alignment === "left"}
+                  label="⫯"
+                  onClick={() => onChange({ alignment: "left" })}
+                />
+                <AlignmentButton
+                  active={values.alignment === "center"}
+                  label="⫰"
+                  onClick={() => onChange({ alignment: "center" })}
+                />
+                <AlignmentButton
+                  active={values.alignment === "right"}
+                  label="⫯"
                   onClick={() => onChange({ alignment: "justify" })}
                 />
               </div>
@@ -220,7 +231,12 @@ export default function DesignControlPanel({
                     onChange={(rotation) => onChange({ rotation })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-3 gap-[3px]">
+                  <ToggleButton
+                    active={false}
+                    label="♙"
+                    onClick={() => undefined}
+                  />
                   <ToggleButton
                     active={values.flipH}
                     label="↔"

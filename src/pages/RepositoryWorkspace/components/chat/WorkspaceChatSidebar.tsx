@@ -45,7 +45,7 @@ export default function WorkspaceChatSidebar() {
 
   return (
     <aside
-      className="flex w-[248px] shrink-0 flex-col border-l border-[#e5e7eb] bg-[#fcfcfc] px-3 py-8 text-[#171717] max-[1360px]:w-[225px]"
+      className="flex min-h-0 min-w-0 flex-col border-l border-[#e5e7eb] bg-[#fcfcfc] px-3 py-8 text-[#171717]"
       aria-label="AI 채팅 사이드바"
     >
       <h2 className="m-0 px-2 text-[16px] leading-7 font-bold">

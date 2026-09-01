@@ -40,7 +40,7 @@ export default function WorkspaceLeftSidebar({
 
   return (
     <aside
-      className="flex w-[298px] shrink-0 flex-col border-r border-[#e7e7ec] bg-[#f7f4ff] max-[1360px]:w-[270px]"
+      className="flex min-h-0 min-w-0 flex-col border-r border-[#e7e7ec] bg-[#f7f4ff]"
       aria-label="접근성 검사 사이드바"
     >
       <AccessibilityScoreCard score={score} />
