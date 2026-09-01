@@ -10,7 +10,7 @@ export default function AccessibilityDonutChart({ score }: AccessibilityDonutCha
   const chartData = buildScoreChartData(score);
 
   return (
-    <div className="relative h-[102px] w-[102px] shrink-0">
+    <div className="relative h-[114px] w-[114px] shrink-0">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -33,7 +33,7 @@ export default function AccessibilityDonutChart({ score }: AccessibilityDonutCha
       </ResponsiveContainer>
 
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <p className="text-lg font-extrabold text-slate-950">{score.totalScore}점</p>
+        <p className="text-[22px] font-extrabold text-slate-950">{score.totalScore}점</p>
       </div>
     </div>
   );

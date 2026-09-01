@@ -17,17 +17,17 @@ export default function AccessibilityIssueGroup({
   const [opened, setOpened] = useState(true);
 
   return (
-    <section className="border-t border-[#e3e1e9]">
+    <section className="border-b border-[#dedde3] first:border-t">
       <button
         type="button"
-        className="flex min-h-[43px] w-full cursor-pointer items-center gap-1.5 border-0 bg-[#f7f4ff] px-2 text-left text-[11px] font-semibold text-[#2e3037] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6d3df5]"
+        className="flex h-[45px] w-full cursor-pointer items-center gap-2 border-0 bg-[#f7f4ff] px-2.5 text-left text-[14px] font-medium text-[#17181c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6d3df5]"
         onClick={() => setOpened((current) => !current)}
         aria-expanded={opened}
       >
         <span
           className={[
-            "inline-flex text-[#6d3df5] transition-transform duration-150",
-            opened ? "rotate-90" : "rotate-0",
+            "inline-flex h-3 w-3 shrink-0 text-[0px] text-[#17181c] transition-transform duration-150 after:block after:h-2 after:w-2 after:rotate-45 after:border-r-[1.5px] after:border-b-[1.5px] after:border-current after:content-['']",
+            opened ? "rotate-0" : "-rotate-90",
           ].join(" ")}
           aria-hidden="true"
         >

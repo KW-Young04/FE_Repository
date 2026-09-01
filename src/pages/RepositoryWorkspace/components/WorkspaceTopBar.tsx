@@ -65,7 +65,16 @@ export default function WorkspaceTopBar({
   onCommitClick,
 }: WorkspaceTopBarProps) {
   return (
-    <header className="relative z-20 grid h-[42px] shrink-0 grid-cols-[298px_minmax(650px,1fr)_248px] items-stretch border-b border-slate-200 bg-white max-[1360px]:grid-cols-[270px_minmax(650px,1fr)_225px]">
+    <header
+      className={[
+        "relative z-20 grid h-[47px] shrink-0 items-stretch border-b border-slate-200 bg-white",
+        activeTab === "code"
+          ? "grid-cols-[300px_minmax(560px,1fr)_320px] max-[1360px]:grid-cols-[280px_minmax(560px,1fr)_300px]"
+          : activeTab === "overview"
+            ? "grid-cols-[300px_minmax(620px,1fr)_285px] max-[1360px]:grid-cols-[280px_minmax(620px,1fr)_260px]"
+            : "grid-cols-[300px_minmax(650px,1fr)_248px] max-[1360px]:grid-cols-[280px_minmax(650px,1fr)_225px]",
+      ].join(" ")}
+    >
       <div className="flex items-center gap-[7px] pl-2.5">
         <CodeeLogo />
       </div>

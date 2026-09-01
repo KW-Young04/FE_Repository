@@ -63,3 +63,31 @@ select {
 .codee-diff-removed-glyph {
   border-left: 2px solid rgb(244 63 94 / 0.7);
 }
+
+.selected-issue-panel > h2 {
+  font-size: 14px;
+}
+
+.selected-issue-panel section strong {
+  font-size: 12px;
+}
+
+.selected-issue-panel section p,
+.selected-issue-panel section span,
+.selected-issue-panel section h3 {
+  font-size: 11px;
+}
+
+.selected-issue-panel section code,
+.selected-issue-panel section pre {
+  font-size: 10px;
+}
+
+.selected-issue-panel section button,
+.selected-issue-panel > button {
+  font-size: 12px;
+}
+
+.selected-issue-panel > p {
+  font-size: 12px;
+}
