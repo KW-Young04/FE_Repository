@@ -40,14 +40,14 @@ export default function WorkspaceLeftSidebar({
 
   return (
     <aside
-      className="flex w-72 shrink-0 flex-col border-r border-slate-200 bg-[#F7F7FB] p-3"
+      className="flex min-h-0 min-w-0 flex-col border-r border-[#e7e7ec] bg-[#f7f4ff]"
       aria-label="접근성 검사 사이드바"
     >
       <AccessibilityScoreCard score={score} />
 
       {statusMessage && (
         <p
-          className={`mt-2 truncate px-1 text-[11px] font-medium ${
+          className={`truncate px-2.5 pb-2 text-[11px] font-medium ${
             error ? "text-rose-500" : "text-slate-400"
           }`}
           title={statusMessage}
@@ -56,7 +56,7 @@ export default function WorkspaceLeftSidebar({
         </p>
       )}
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         <AccessibilityDetailSection
           groups={groups}
           selectedIssueId={selectedIssueId}
@@ -64,7 +64,7 @@ export default function WorkspaceLeftSidebar({
         />
       </div>
 
-      <div className="mt-3 shrink-0 pt-1">
+      <div className="m-2.5 shrink-0">
         <WorkspaceReauditButton onClick={onReaudit} disabled={isAnalyzing || !isSupported}>
           {isAnalyzing ? "검사 중..." : undefined}
         </WorkspaceReauditButton>

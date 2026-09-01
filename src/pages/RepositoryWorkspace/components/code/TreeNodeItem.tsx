@@ -28,8 +28,8 @@ export default function TreeNodeItem({
         className={[
           "flex w-full items-center gap-1.5 rounded px-1.5 py-[3px] text-left text-[12px]",
           isActive
-            ? "font-bold text-sky-500"
-            : "font-medium text-slate-600 hover:bg-slate-200/60 hover:text-slate-900",
+            ? "bg-[#eaf3ff] font-semibold text-[#178cf3]"
+            : "font-medium text-slate-600 hover:bg-[#f0f3f8] hover:text-slate-900",
         ].join(" ")}
         style={{ paddingLeft }}
         onClick={() => {

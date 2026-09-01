@@ -60,7 +60,7 @@ export default function ExplorerSidebar({
 
   return (
     <aside
-      className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-[#FAFAFC]"
+      className="flex w-55 shrink-0 flex-col border-r border-[#e5e7eb] bg-[#fafafa]"
       aria-label="탐색기 사이드바"
     >
       <FileTreePanel
@@ -92,7 +92,7 @@ export default function ExplorerSidebar({
                 onClick={() => setBottomTab(tab.id)}
                 className={[
                   "text-[10px] font-bold tracking-[0.08em]",
-                  bottomTab === tab.id ? "text-violet-600" : "text-slate-400 hover:text-slate-600",
+                  bottomTab === tab.id ? "text-[#6c47ff]" : "text-[#7b8494] hover:text-slate-600",
                 ].join(" ")}
               >
                 {tab.label}

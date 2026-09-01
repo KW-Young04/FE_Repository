@@ -9,15 +9,15 @@ interface DesignControlPanelProps {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-b border-slate-200 px-3 py-4 last:border-b-0">
-      <h3 className="mb-3 text-[15px] font-bold text-slate-950">{title}</h3>
+    <section className="border-b border-slate-200 px-3 pt-3.5 pb-4 last:border-b-0">
+      <h3 className="mb-3.5 text-sm font-bold text-slate-900">{title}</h3>
       {children}
     </section>
   );
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
-  return <p className="mb-1 text-[11px] font-bold text-slate-700">{children}</p>;
+  return <p className="mb-1.5 text-[11px] font-semibold text-slate-700">{children}</p>;
 }
 
 function NumberInput({
@@ -38,16 +38,16 @@ function NumberInput({
   return (
     <label className="block min-w-0">
       {label ? <FieldLabel>{label}</FieldLabel> : null}
-      <div className="flex h-8 items-center border border-slate-200 bg-slate-50 px-2 focus-within:border-violet-400">
+      <div className="flex h-[29px] items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-[#7d61ff] focus-within:bg-white">
         <input
           type="number"
           min={min}
           max={max}
           value={Number.isFinite(value) ? value : 0}
           onChange={(event) => onChange(Number(event.target.value))}
-          className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-950 outline-none"
+          className="min-w-0 flex-1 appearance-none bg-transparent p-0 text-[11px] font-semibold text-slate-700 outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
-        <span className="ml-1 text-[10px] font-semibold text-slate-500">{unit}</span>
+        <span className="ml-1 text-[10px] text-slate-500">{unit}</span>
       </div>
     </label>
   );
@@ -63,18 +63,18 @@ function PercentInput({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="block w-20 shrink-0">
+    <label className={label ? "block min-w-0" : "block w-[55px] shrink-0"}>
       {label ? <FieldLabel>{label}</FieldLabel> : null}
-      <div className="flex h-8 items-center border border-slate-200 bg-slate-50 px-2 focus-within:border-violet-400">
+      <div className="flex h-[29px] items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-[#7d61ff] focus-within:bg-white">
         <input
           type="number"
           min={0}
           max={100}
           value={Number.isFinite(value) ? value : 0}
           onChange={(event) => onChange(Number(event.target.value))}
-          className="min-w-0 flex-1 bg-transparent text-right text-xs font-semibold text-slate-950 outline-none"
+          className="min-w-0 flex-1 appearance-none bg-transparent p-0 text-right text-[11px] font-semibold text-slate-700 outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
-        <span className="ml-1 text-[10px] font-semibold text-slate-500">%</span>
+        <span className="ml-1 text-[10px] text-slate-500">%</span>
       </div>
     </label>
   );
@@ -97,19 +97,19 @@ function ColorRow({
     <div>
       <FieldLabel>{label}</FieldLabel>
       <div className="flex items-center gap-2">
-        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 border border-slate-200 bg-slate-50 px-2 focus-within:border-violet-400">
+        <label className="flex h-[29px] min-w-0 flex-1 items-center gap-1.5 rounded-sm bg-slate-100 px-1.5 focus-within:ring-2 focus-within:ring-[#7d61ff]/40">
           <input
             type="color"
             value={/^#[0-9a-fA-F]{6}$/.test(value || "") ? value : "#ffffff"}
             onChange={(event) => onColorChange(event.target.value)}
-            className="h-4 w-5 shrink-0 border border-slate-300 bg-transparent p-0"
+            className="h-3.5 w-3.5 shrink-0 cursor-pointer border-0 bg-transparent p-0 [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0"
             aria-label={`${label} 색상`}
           />
           <span className="text-[10px] font-bold text-slate-500">#</span>
           <input
             value={value ? value.replace("#", "").toUpperCase() : "투명"}
             onChange={(event) => onColorChange(`#${event.target.value.replace(/^#/, "")}`)}
-            className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-950 outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[10px] font-semibold text-slate-700 outline-none"
             aria-label={`${label} HEX 코드`}
           />
         </label>
@@ -132,7 +132,7 @@ function AlignmentButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-8 border text-[11px] font-bold ${active ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+      className={`h-[27px] w-full rounded-sm text-[11px] font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff] ${active ? "bg-[#f7f4ff] text-[#6d3df5]" : "bg-transparent text-slate-700"}`}
       aria-pressed={active}
     >
       {label}
@@ -153,7 +153,7 @@ function ToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-8 border px-2 text-[11px] font-bold ${active ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+      className={`h-[27px] rounded-sm px-2 text-[11px] font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff] ${active ? "bg-[#f7f4ff] text-[#6d3df5]" : "bg-transparent text-slate-700"}`}
     >
       {label}
     </button>
@@ -180,25 +180,36 @@ export default function DesignControlPanel({
           <div className="grid gap-3">
             <div>
               <FieldLabel>Alignment</FieldLabel>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="mb-3 grid grid-cols-[repeat(3,minmax(0,1fr))_1px_repeat(3,minmax(0,1fr))] gap-1">
                 <AlignmentButton
                   active={values.alignment === "left"}
-                  label="왼쪽"
+                  label="≡"
                   onClick={() => onChange({ alignment: "left" })}
                 />
                 <AlignmentButton
                   active={values.alignment === "center"}
-                  label="가운데"
+                  label="≣"
                   onClick={() => onChange({ alignment: "center" })}
                 />
                 <AlignmentButton
                   active={values.alignment === "right"}
-                  label="오른쪽"
+                  label="≡"
                   onClick={() => onChange({ alignment: "right" })}
                 />
+                <span className="h-[18px] w-px self-center bg-slate-300" />
                 <AlignmentButton
-                  active={values.alignment === "justify"}
-                  label="양쪽"
+                  active={values.alignment === "left"}
+                  label="⫯"
+                  onClick={() => onChange({ alignment: "left" })}
+                />
+                <AlignmentButton
+                  active={values.alignment === "center"}
+                  label="⫰"
+                  onClick={() => onChange({ alignment: "center" })}
+                />
+                <AlignmentButton
+                  active={values.alignment === "right"}
+                  label="⫯"
                   onClick={() => onChange({ alignment: "justify" })}
                 />
               </div>
@@ -220,7 +231,12 @@ export default function DesignControlPanel({
                     onChange={(rotation) => onChange({ rotation })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-3 gap-[3px]">
+                  <ToggleButton
+                    active={false}
+                    label="♙"
+                    onClick={() => undefined}
+                  />
                   <ToggleButton
                     active={values.flipH}
                     label="↔"
@@ -319,7 +335,7 @@ export default function DesignControlPanel({
           <div className="grid gap-2">
             <FieldLabel>Effect type</FieldLabel>
             <div className="flex items-center gap-2">
-              <label className="flex h-8 min-w-0 flex-1 items-center gap-2 border border-slate-200 bg-slate-50 px-2">
+              <label className="flex h-[29px] min-w-0 flex-1 items-center gap-2 rounded-sm bg-slate-100 px-1.5">
                 <input
                   type="checkbox"
                   checked={values.dropShadow}

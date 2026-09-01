@@ -73,7 +73,7 @@ export default function CodeTabView({
   onRefreshGit,
 }: CodeTabViewProps) {
   return (
-    <>
+    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-white">
       <ExplorerSidebar
         treeItems={treeItems}
         activePath={activePath}
@@ -119,6 +119,6 @@ export default function CodeTabView({
           isDiffLoading={isDiffLoading}
         />
       </main>
-    </>
+    </div>
   );
 }

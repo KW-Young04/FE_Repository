@@ -56,7 +56,6 @@ export default function PreviewFrame({
   previewSrc,
   previewRevision,
   placeholderMessage,
-  isLoading,
   iframeRef,
   issueHighlights = [],
   selectedIssueId,
@@ -130,13 +129,10 @@ export default function PreviewFrame({
 
   if (!previewSrc) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        {isLoading && (
-          <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-violet-600" />
-        )}
-        <p className="max-w-md text-sm leading-relaxed font-medium text-slate-500">
-          {placeholderMessage}
-        </p>
+      <div className="flex h-full min-h-[420px] w-full flex-col items-center justify-center gap-2.5 bg-[#f8f8fb] text-center">
+          <div className="h-[30px] w-[30px] rounded-full border-[3px] border-[#e2dcff] border-t-[#6d3df5] [animation:spin_0.8s_linear_infinite]" />
+        <strong className="text-base font-bold text-[#202124]">프로젝트를 실행하고 있습니다.</strong>
+        <p className="m-0 max-w-md text-[13px] text-[#8b8d98]">{placeholderMessage}</p>
       </div>
     );
   }

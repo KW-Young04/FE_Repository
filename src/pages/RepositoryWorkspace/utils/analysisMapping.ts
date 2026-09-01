@@ -20,9 +20,9 @@ interface CategoryMeta {
 }
 
 const CATEGORY_META: Record<CategoryId, CategoryMeta> = {
-  visual: { label: "시각 품질 (Visual)", color: "#22D3EE", maxScore: 34 },
-  interaction: { label: "구조/동작 품질 (Interaction)", color: "#60A5FA", maxScore: 33 },
-  ux: { label: "전체 경험 (UX)", color: "#3B82F6", maxScore: 33 },
+  visual: { label: "시각 품질 (Visual)", color: "#0fc3cd", maxScore: 34 },
+  interaction: { label: "구조/동작 품질 (Interaction)", color: "#bfe4ff", maxScore: 33 },
+  ux: { label: "전체 경험 (UX)", color: "#1a8ff0", maxScore: 33 },
 };
 
 const CATEGORY_ORDER: CategoryId[] = ["visual", "interaction", "ux"];

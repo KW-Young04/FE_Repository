@@ -24,6 +24,7 @@ export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
+  const [showErrors, setShowErrors] = useState(true);
   const [searchParams] = useSearchParams();
   const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
   const branchName = searchParams.get("branch") ?? "";
@@ -119,7 +120,7 @@ export default function RepositoryWorkspacePage() {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-white">
+    <div className="flex h-screen min-w-[1180px] flex-col overflow-hidden bg-white text-[#202124]">
       <WorkspaceTopBar
         activeTab={activeTab}
         changedFileCount={git.changedFiles.length}
@@ -128,11 +129,11 @@ export default function RepositoryWorkspacePage() {
         onCommitClick={() => setIsCommitDialogOpen(true)}
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="grid min-h-0 flex-1 grid-cols-[298px_minmax(650px,1fr)_248px] max-[1360px]:grid-cols-[270px_minmax(650px,1fr)_225px]">
+        {leftSidebar}
+
         {activeTab === "code" ? (
           <>
-            {leftSidebar}
-
             <CodeTabView
               treeItems={workspace.treeItems}
               filesByPath={workspace.filesByPath}
@@ -171,28 +172,25 @@ export default function RepositoryWorkspacePage() {
           </>
         ) : (
           <>
-            {leftSidebar}
-
-            <main className="min-w-0 flex-1" aria-label="미리보기 영역">
+            <main className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto" aria-label="미리보기 영역">
               <WorkspacePreviewMain
                 repositoryUrl={workspace.repositoryUrl}
                 previewStatus={workspace.previewStatus}
                 previewUrl={workspace.previewUrl}
                 previewRevision={workspace.previewRevision}
-                previewProjectLabel={workspace.previewProjectLabel}
                 runtimeError={workspace.runtimeError}
                 loadError={workspace.loadError}
                 loadingMessage={workspace.loadingMessage}
                 iframeRef={design.iframeRef}
                 issueHighlights={previewIssueHighlights}
                 selectedIssueId={selectedIssueId}
-                trailingBadge={
-                  isDesignTab ? (
-                    <span className="hidden shrink-0 text-[11px] font-semibold text-violet-600 sm:block">
-                      요소를 클릭해 편집
-                    </span>
-                  ) : null
-                }
+                isDesignTab={isDesignTab}
+                showErrors={showErrors}
+                onToggleErrors={() => setShowErrors((current) => !current)}
+                onRefresh={() => {
+                  void workspace.onRestartPreview();
+                }}
+                onSelectIssue={setSelectedIssueId}
               />
             </main>
 
@@ -200,11 +198,18 @@ export default function RepositoryWorkspacePage() {
               <DesignInspectorSidebar
                 selectedElement={design.selectedElement}
                 values={design.designValues}
-                designWriteEnabled={workspace.designWriteEnabled}
                 onChange={design.handleDesignChange}
               />
             ) : (
-              <WorkspaceRightSidebar selectedIssue={selectedIssue} />
+              <WorkspaceRightSidebar
+                selectedIssue={selectedIssue}
+                onEditInCode={() => {
+                  setActiveTab("code");
+                  if (selectedIssue?.targetFilePath) {
+                    void workspace.onFileClick(selectedIssue.targetFilePath);
+                  }
+                }}
+              />
             )}
           </>
         )}

@@ -29,34 +29,49 @@ function PlusIcon() {
 
 export default function WorkspaceChatSidebar() {
   const [message, setMessage] = useState("");
+  const [sentMessages, setSentMessages] = useState<string[]>([]);
+
+  const send = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setSentMessages((items) => [...items, trimmed]);
+    setMessage("");
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!message.trim()) return;
-
-    setMessage("");
+    send(message);
   };
 
   return (
     <aside
-      className="flex w-72 shrink-0 flex-col border-l border-slate-200 bg-[#F7F7FB] px-4 py-5"
+      className="flex min-h-0 min-w-0 flex-col border-l border-[#e5e7eb] bg-[#fcfcfc] px-3 py-8 text-[#171717]"
       aria-label="AI 채팅 사이드바"
     >
-      <h2 className="text-[13px] leading-6 font-bold text-slate-900">
+      <h2 className="m-0 px-2 text-[16px] leading-7 font-bold">
         현재 웹사이트에서
         <br />
         수정하고 싶은 내용이 무엇인가요?
       </h2>
 
-      <div className="min-h-0 flex-1" />
+      <div className="scrollbar-subtle mt-4 min-h-0 flex-1 overflow-y-auto">
+        {sentMessages.map((item, index) => (
+          <div
+            key={`${item}-${index}`}
+            className="mt-2 ml-2 rounded-xl bg-[#eee] px-3 py-2 text-[12px] leading-5"
+          >
+            {item}
+          </div>
+        ))}
+      </div>
 
-      <ul className="space-y-2">
+      <ul className="mb-4 space-y-2">
         {CHAT_SUGGESTIONS.map((suggestion) => (
           <li key={suggestion}>
             <button
               type="button"
-              onClick={() => setMessage(suggestion)}
-              className="flex w-full items-center gap-2 rounded-full bg-slate-200/70 px-3 py-2 text-left text-[11px] font-semibold text-slate-600 hover:bg-slate-200"
+              onClick={() => send(suggestion)}
+              className="flex max-w-full items-center gap-2 rounded-full bg-[#f0f0f0] px-4 py-2.5 text-left text-[11px] font-medium hover:bg-[#e8e4ff]"
             >
               <span className="shrink-0 text-slate-500">
                 <SearchIcon />
@@ -67,36 +82,42 @@ export default function WorkspaceChatSidebar() {
         ))}
       </ul>
 
-      <form onSubmit={handleSubmit} className="mt-3 rounded-2xl bg-white p-3 shadow-sm">
-        <div className="flex items-center gap-2">
-          <label htmlFor="workspace-chat-input" className="sr-only">
-            메시지 입력
-          </label>
-          <input
-            id="workspace-chat-input"
-            type="text"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="메시지를 입력해주세요"
-            className="min-w-0 flex-1 text-[12px] font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none"
-          />
+      <form
+        onSubmit={handleSubmit}
+        className="shrink-0 rounded-2xl bg-white p-3 shadow-[0_2px_8px_rgb(0_0_0/12%)]"
+      >
+        <label htmlFor="workspace-chat-input" className="sr-only">
+          메시지 입력
+        </label>
+        <textarea
+          id="workspace-chat-input"
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              send(message);
+            }
+          }}
+          placeholder="메시지를 입력해주세요"
+          rows={2}
+          className="w-full resize-none border-0 bg-transparent text-[13px] outline-none placeholder:text-[#b4b4b4]"
+        />
+        <div className="mt-2 flex items-center justify-between">
+          <button
+            type="button"
+            aria-label="첨부 추가"
+            className="rounded-full p-1 text-xl font-light text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <PlusIcon />
+          </button>
           <button
             type="submit"
             aria-label="메시지 보내기"
             disabled={!message.trim()}
-            className="shrink-0 rounded-full p-1 text-slate-800 hover:bg-slate-100 disabled:text-slate-300"
+            className="grid size-7 place-items-center rounded-full hover:bg-[#f0edff] disabled:text-slate-300"
           >
             <SendIcon />
-          </button>
-        </div>
-
-        <div className="mt-3 flex items-center">
-          <button
-            type="button"
-            aria-label="첨부 추가"
-            className="rounded-full p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <PlusIcon />
           </button>
         </div>
       </form>

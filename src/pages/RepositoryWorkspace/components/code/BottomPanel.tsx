@@ -106,8 +106,8 @@ export default function BottomPanel({
                 className={[
                   "flex items-center gap-1.5 border-b-2 py-2 text-[10px] font-bold tracking-[0.04em]",
                   isActive
-                    ? "border-violet-500 text-violet-600"
-                    : "border-transparent text-slate-500 hover:text-slate-700",
+                    ? "border-[#6c47ff] text-[#6c47ff]"
+                    : "border-transparent text-[#7b8494] hover:text-slate-700",
                 ].join(" ")}
               >
                 {tab.label}
