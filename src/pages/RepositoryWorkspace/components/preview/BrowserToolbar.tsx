@@ -38,12 +38,25 @@ export default function BrowserToolbar({
         aria-pressed={showErrors}
         onClick={onToggleErrors}
         className={[
-          "inline-flex h-7 items-center gap-[5px] rounded-[14px] py-0 pr-2 pl-1 text-[10px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]",
+          "relative inline-flex h-7 w-[78px] items-center rounded-[14px] p-0 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]",
           showErrors ? "bg-[#6d3df5]" : "bg-[#b8b0d6]",
         ].join(" ")}
       >
-        <span className="h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/15%)]" />
-        오류 표시
+        <span
+          className={[
+            "absolute left-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/15%)] transition-transform duration-200 ease-out",
+            showErrors ? "translate-x-0" : "translate-x-[50px]",
+          ].join(" ")}
+          aria-hidden="true"
+        />
+        <span
+          className={[
+            "absolute whitespace-nowrap transition-[left,right] duration-200",
+            showErrors ? "right-[7px]" : "left-[7px]",
+          ].join(" ")}
+        >
+          오류 표시
+        </span>
       </button>
     </div>
   );

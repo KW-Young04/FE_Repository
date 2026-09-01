@@ -64,7 +64,7 @@ export default function WorkspaceLeftSidebar({
         />
       </div>
 
-      <div className="m-2.5 shrink-0">
+      <div className="mx-2.5 mb-2.5 mt-5 shrink-0">
         <WorkspaceReauditButton onClick={onReaudit} disabled={isAnalyzing || !isSupported}>
           {isAnalyzing ? "검사 중..." : undefined}
         </WorkspaceReauditButton>
