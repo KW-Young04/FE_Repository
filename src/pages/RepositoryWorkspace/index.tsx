@@ -135,7 +135,7 @@ export default function RepositoryWorkspacePage() {
           activeTab === "code"
             ? "grid-cols-[300px_minmax(560px,1fr)_320px] max-[1360px]:grid-cols-[280px_minmax(560px,1fr)_300px]"
             : activeTab === "overview"
-              ? "grid-cols-[300px_minmax(620px,1fr)_285px] max-[1360px]:grid-cols-[280px_minmax(620px,1fr)_260px]"
+              ? "grid-cols-[300px_minmax(620px,1fr)_300px] max-[1360px]:grid-cols-[280px_minmax(620px,1fr)_280px]"
               : "grid-cols-[300px_minmax(650px,1fr)_248px] max-[1360px]:grid-cols-[280px_minmax(650px,1fr)_225px]",
         ].join(" ")}
       >

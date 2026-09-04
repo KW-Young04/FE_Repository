@@ -42,6 +42,7 @@ export default function BrowserToolbar({
           showErrors ? "bg-[#6d3df5]" : "bg-[#b8b0d6]",
         ].join(" ")}
       >
+
         <span
           className={[
             "absolute left-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/15%)] transition-transform duration-200 ease-out",
