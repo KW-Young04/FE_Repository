@@ -14,7 +14,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "overview",
     label: "Overview",
     icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="4" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.9" />
         <rect x="14" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.9" />
         <rect x="4" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.9" />
@@ -26,7 +26,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "design",
     label: "Design",
     icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
           d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"
           stroke="currentColor"
@@ -40,7 +40,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "code",
     label: "Code",
     icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="m8 9-3 3 3 3" stroke="currentColor" strokeWidth="1.9" />
         <path d="m16 9 3 3-3 3" stroke="currentColor" strokeWidth="1.9" />
         <path d="m14 5-4 14" stroke="currentColor" strokeWidth="1.9" />
