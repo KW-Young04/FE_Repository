@@ -61,26 +61,19 @@ export default function RepositoryWorkspacePage() {
     encoding: workspace.activeFile?.encoding,
   });
 
-  const selectedIssue = useMemo(
-    () => findIssueInGroups(analysis.issueGroups, selectedIssueId),
-    [analysis.issueGroups, selectedIssueId],
-  );
   const previewIssueHighlights = useMemo(
     () => analysis.issueGroups.flatMap((group) => group.issues),
     [analysis.issueGroups],
   );
-
-  useEffect(() => {
-    const firstIssue = previewIssueHighlights[0];
-    if (!firstIssue) {
-      setSelectedIssueId(null);
-      return;
-    }
-    const hasSelectedIssue = previewIssueHighlights.some((issue) => issue.id === selectedIssueId);
-    if (!hasSelectedIssue) {
-      setSelectedIssueId(firstIssue.id);
-    }
-  }, [previewIssueHighlights, selectedIssueId]);
+  const visibleSelectedIssueId = previewIssueHighlights.some(
+    (issue) => issue.id === selectedIssueId,
+  )
+    ? selectedIssueId
+    : (previewIssueHighlights[0]?.id ?? null);
+  const selectedIssue = useMemo(
+    () => findIssueInGroups(analysis.issueGroups, visibleSelectedIssueId),
+    [analysis.issueGroups, visibleSelectedIssueId],
+  );
 
   const previewSrc = buildPreviewSrc(
     workspace.previewUrl,
@@ -109,7 +102,7 @@ export default function RepositoryWorkspacePage() {
     <WorkspaceLeftSidebar
       score={analysis.score}
       groups={analysis.issueGroups}
-      selectedIssueId={selectedIssueId}
+      selectedIssueId={visibleSelectedIssueId}
       isAnalyzing={analysis.isAnalyzing}
       isSupported={analysis.isSupported}
       analyzedPath={analysis.analyzedPath}
@@ -181,7 +174,10 @@ export default function RepositoryWorkspacePage() {
           </>
         ) : (
           <>
-            <main className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto" aria-label="미리보기 영역">
+            <main
+              className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
+              aria-label="미리보기 영역"
+            >
               <WorkspacePreviewMain
                 repositoryUrl={workspace.repositoryUrl}
                 previewStatus={workspace.previewStatus}
@@ -192,7 +188,7 @@ export default function RepositoryWorkspacePage() {
                 loadingMessage={workspace.loadingMessage}
                 iframeRef={design.iframeRef}
                 issueHighlights={previewIssueHighlights}
-                selectedIssueId={selectedIssueId}
+                selectedIssueId={visibleSelectedIssueId}
                 isDesignTab={isDesignTab}
                 showErrors={showErrors}
                 onToggleErrors={() => setShowErrors((current) => !current)}
@@ -226,7 +222,11 @@ export default function RepositoryWorkspacePage() {
 
       {isCommitDialogOpen && (
         <CommitDialog
+          repositoryUrl={repositoryUrl}
+          branchName={branchName}
+          issues={previewIssueHighlights}
           currentBranch={git.currentBranch}
+          branches={git.branches.map((branch) => branch.name)}
           changedFiles={git.changedFiles}
           selectedPaths={git.selectedPaths}
           isCommitting={git.isCommitting}
@@ -235,7 +235,6 @@ export default function RepositoryWorkspacePage() {
           onToggleSelect={git.toggleSelectedPath}
           onSelectAll={git.setAllSelected}
           onCommit={commitAfterFlush}
-          onPush={git.push}
           onCommitAndPush={commitAndPushAfterFlush}
           onClose={() => {
             setIsCommitDialogOpen(false);
