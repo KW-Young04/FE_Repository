@@ -186,8 +186,9 @@ export default function RepositoryConnectPage() {
         <h1 className="text-4xl font-extrabold text-slate-900">{TEXT.title}</h1>
         <p className="mt-3 text-2xl font-semibold text-slate-600">{TEXT.subtitle}</p>
 
-        <div className="mt-12 flex items-start gap-4">
-          <div className="min-w-0 flex-1 space-y-3">
+        <div className="mt-12 overflow-hidden rounded-2xl border border-slate-300 bg-white">
+          <label className="flex h-20 items-center border-b border-slate-200">
+            <span className="w-24 shrink-0 px-4 text-xl font-medium text-slate-400">URL</span>
             <input
               type="text"
               value={repositoryUrl}
@@ -201,8 +202,11 @@ export default function RepositoryConnectPage() {
                 }
               }}
               placeholder={TEXT.repositoryPlaceholder}
-              className="h-14 w-full rounded-none border border-slate-300 bg-white px-4 text-base font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:border-slate-400"
+              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-2xl font-extrabold text-slate-800 outline-none placeholder:font-bold placeholder:text-slate-300"
             />
+          </label>
+          <label className="flex h-20 items-center">
+            <span className="w-24 shrink-0 px-4 text-xl font-medium text-slate-400">Branch</span>
             <input
               type="text"
               value={branchName}
@@ -216,21 +220,21 @@ export default function RepositoryConnectPage() {
                 }
               }}
               placeholder={TEXT.branchPlaceholder}
-              className="h-14 w-full rounded-none border border-slate-300 bg-white px-4 text-base font-medium text-slate-900 outline-none placeholder:text-slate-300 focus:border-slate-400"
+              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-2xl font-extrabold text-slate-800 outline-none placeholder:font-bold placeholder:text-slate-300"
             />
-          </div>
-
-          <Button
-            variant={isAnalyzeEnabled ? "default" : "disabled"}
-            disabled={!isAnalyzeEnabled}
-            onClick={() => {
-              void handleAnalyze();
-            }}
-            className="h-14 min-w-44 rounded-none text-xl"
-          >
-            {isLoading ? TEXT.loading : TEXT.start}
-          </Button>
+          </label>
         </div>
+
+        <Button
+          variant={isAnalyzeEnabled ? "default" : "disabled"}
+          disabled={!isAnalyzeEnabled}
+          onClick={() => {
+            void handleAnalyze();
+          }}
+          className="mt-5 h-14 w-full rounded-none text-xl"
+        >
+          {isLoading ? TEXT.loading : TEXT.start}
+        </Button>
 
         {errorMessage && <p className="mt-3 text-sm font-medium text-red-500">{errorMessage}</p>}
 
