@@ -5,7 +5,6 @@ import { getTopIssues } from "../../utils/issueVisual";
 import { buildPreviewSrc } from "../../utils/previewSrc";
 import BrowserToolbar from "../preview/BrowserToolbar";
 import PreviewFrame from "../preview/PreviewFrame";
-import PreviewIssueOverlays from "../preview/PreviewIssueOverlays";
 import TopIssuesSection from "./TopIssuesSection";
 
 interface WorkspacePreviewMainProps {
@@ -82,9 +81,6 @@ export default function WorkspacePreviewMain({
     loadingMessage,
   });
   const topIssues = getTopIssues(issueHighlights);
-  const overlayIssues = selectedIssueId
-    ? issueHighlights.filter((issue) => issue.id === selectedIssueId)
-    : issueHighlights;
 
   return (
     <section
@@ -116,8 +112,6 @@ export default function WorkspacePreviewMain({
           issueHighlights={showErrors ? issueHighlights : []}
           selectedIssueId={selectedIssueId}
         />
-
-        {isDesignTab && showErrors && <PreviewIssueOverlays issues={overlayIssues} />}
       </div>
 
       <TopIssuesSection

@@ -49,7 +49,7 @@ function selectorFromCodeBlock(codeBlock: string | undefined): string | null {
   const firstClass = className?.split(/\s+/).find(Boolean);
   if (firstClass) return `${tag}[class~="${quoteCssAttributeValue(firstClass)}"]`;
 
-  return tag;
+  return null;
 }
 
 export default function PreviewFrame({
