@@ -1,4 +1,10 @@
 import { repositoryApi, type RepositoryTreeResponse, type TreeNode } from "@/api/repository";
+import {
+  BATCH_SIZE,
+  FILE_FETCH_TIMEOUT_MS,
+  MAX_CORE_FILE_COUNT,
+  MAX_PREVIEW_FILE_BYTES,
+} from "@/pages/RepositoryWorkspaceTest/constants";
 
 interface WarmupFile {
   path: string;
@@ -106,12 +112,6 @@ const SKIP_PATH_PARTS = [
   "coverage/",
 ];
 
-const MAX_INITIAL_FILES = 180;
-const FAST_PREVIEW_FILE_COUNT = 100;
-const BATCH_SIZE = 10;
-const FILE_FETCH_TIMEOUT_MS = 15000;
-const MAX_PREVIEW_FILE_BYTES = 500 * 1024;
-
 const WARMUP_CACHE_VERSION = "binary-assets-v1";
 
 const warmupCache = new Map<string, Promise<WorkspaceWarmupResult>>();
@@ -142,6 +142,13 @@ function getFileExtension(path: string): string {
 
 function isSkippedPath(path: string): boolean {
   return SKIP_PATH_PARTS.some((part) => path.includes(part));
+}
+
+function isSafeRepositoryPath(path: string): boolean {
+  if (!path || path.length > 1024) return false;
+  if (path.includes("\0") || path.includes("\\")) return false;
+  if (path.startsWith("/") || /^[a-z]:/i.test(path)) return false;
+  return path.split("/").every((segment) => segment && segment !== "." && segment !== "..");
 }
 
 function isEditablePath(path: string): boolean {
@@ -200,7 +207,7 @@ function splitFastPreviewPaths(paths: string[]): { corePaths: string[]; deferred
 
   const coreSet = new Set<string>(mustIncludePaths);
   for (const path of sorted) {
-    if (coreSet.size >= FAST_PREVIEW_FILE_COUNT) break;
+    if (coreSet.size >= MAX_CORE_FILE_COUNT) break;
     coreSet.add(path);
   }
 
@@ -234,6 +241,7 @@ async function buildWarmup(
 
   const candidateNodes = tree.nodes
     .filter((node: TreeNode) => node.type === "blob")
+    .filter((node) => isSafeRepositoryPath(node.path))
     .filter((node) => !node.size || node.size <= MAX_PREVIEW_FILE_BYTES)
     .filter((node) => !isSkippedPath(node.path))
     .filter((node) => isEditablePath(node.path));
@@ -247,9 +255,8 @@ async function buildWarmup(
     .map((node: TreeNode) => node.path)
     .sort((a, b) => a.localeCompare(b));
 
-  const selectedPaths = orderedPaths.slice(0, MAX_INITIAL_FILES);
-  const truncatedCount = Math.max(0, orderedPaths.length - selectedPaths.length);
-  const { corePaths, deferredPaths } = splitFastPreviewPaths(selectedPaths);
+  const { corePaths, deferredPaths } = splitFastPreviewPaths(orderedPaths);
+  const truncatedCount = deferredPaths.length;
   const files: Record<string, WarmupFile> = {};
   const coreFailedPaths: string[] = [];
   let loadedCoreCount = 0;

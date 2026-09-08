@@ -58,6 +58,7 @@ import {
   preloadRepositoryPaths,
   getBundlerPreloadPaths,
   getBundlerBackgroundPaths,
+  getBackgroundPreloadPaths,
   toWorkspaceFileContent,
 } from "./utils";
 
@@ -167,7 +168,11 @@ export function useRepositoryWorkspace(
     return filesByPath[activePath] ?? null;
   }, [activePath, filesByPath]);
 
-  const treeItems = useMemo(() => buildTree(Object.keys(filesByPath)), [filesByPath]);
+  const treeItems = useMemo(() => {
+    const treePaths =
+      tree?.nodes.filter((node) => node.type === "blob").map((node) => node.path) ?? [];
+    return buildTree(treePaths.length > 0 ? treePaths : Object.keys(filesByPath));
+  }, [filesByPath, tree]);
 
   const filesByPathRef = useRef(filesByPath);
   useEffect(() => {
@@ -908,12 +913,18 @@ export function useRepositoryWorkspace(
         const allTreePaths = warmed.tree.nodes
           .filter((node) => node.type === "blob")
           .map((node) => node.path);
+        const treePathSizes = new Map(
+          warmed.tree.nodes
+            .filter((node) => node.type === "blob")
+            .map((node) => [node.path, node.size ?? 0] as const),
+        );
         const allPaths = [...loaded.corePaths, ...loaded.deferredPaths];
         let previewFiles = await ensurePreviewFilesLoaded(
           loaded.files,
           allPaths,
           repositoryUrl,
           branchName,
+          treePathSizes,
         );
         previewFiles = await ensurePackageJsonDiscovery(
           previewFiles,
@@ -938,6 +949,8 @@ export function useRepositoryWorkspace(
               preloadPaths,
               repositoryUrl,
               branchName,
+              undefined,
+              treePathSizes,
             );
             logEvent(`번들러 핵심 소스 로드 완료 (총 ${Object.keys(previewFiles).length}개)`);
           }
@@ -958,7 +971,17 @@ export function useRepositoryWorkspace(
         setDiagnostics((prev) => ({ ...prev, runtimeMs }));
 
         const backgroundPaths =
-          bundlerProfile.kind === "bundler" ? bundlerBackgroundPaths : loaded.deferredPaths;
+          bundlerProfile.kind === "bundler"
+            ? getBackgroundPreloadPaths(
+                bundlerBackgroundPaths,
+                new Set(Object.keys(previewFiles)),
+                treePathSizes,
+              )
+            : getBackgroundPreloadPaths(
+                loaded.deferredPaths,
+                new Set(Object.keys(previewFiles)),
+                treePathSizes,
+              );
 
         if (backgroundPaths.length > 0) {
           setIsBackgroundLoading(true);

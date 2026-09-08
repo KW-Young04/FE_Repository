@@ -8,6 +8,7 @@ import {
 } from "@/pages/RepositoryWorkspaceTest/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
+  MAX_STATIC_SNAPSHOT_PAGES,
   NPM_INSTALL_TIMEOUT_MS,
   PREVIEW_PORT,
   SERVER_READY_TIMEOUT_MS,
@@ -72,6 +73,37 @@ function toLoadedFiles(
       },
     ]),
   );
+}
+
+function getStaticSnapshotPagePaths(
+  files: Record<string, LoadedFile>,
+  previewEntryPath: string | null,
+): string[] {
+  const htmlPaths = Object.keys(files)
+    .filter((path) => path.endsWith(".html") || path.endsWith(".htm"))
+    .sort((a, b) => {
+      const aDepth = a.split("/").length;
+      const bDepth = b.split("/").length;
+      return aDepth - bDepth || a.localeCompare(b);
+    });
+
+  const ordered = [
+    previewEntryPath,
+    "index.html",
+    "index.htm",
+    "public/index.html",
+    "public/index.htm",
+    ...htmlPaths,
+  ].filter((path): path is string => typeof path === "string" && Boolean(files[path]));
+
+  return Array.from(new Set(ordered)).slice(0, MAX_STATIC_SNAPSHOT_PAGES);
+}
+
+function buildStaticSnapshotUrl(previewUrl: string, pagePath: string, index: number): string {
+  if (index === 0 && (pagePath === "index.html" || pagePath === "index.htm")) {
+    return previewUrl;
+  }
+  return new URL(encodeURI(pagePath), previewUrl).toString();
 }
 
 function waitForServerReady(container: WebContainer, timeoutMs: number): Promise<string> {
@@ -401,51 +433,84 @@ export async function runAnalysisSnapshotPipeline(
       projectLabel: projectProfile.label,
     });
 
-    let captured;
-    try {
-      captured = await capturePreviewSnapshot({
-        previewUrl,
-        mode: "direct",
-        waitMs: isBundler ? 3500 : 1000,
-        timeoutMs: isBundler ? 90_000 : 45_000,
+    const snapshotPagePaths = isBundler
+      ? [previewEntryPath ?? "index.html"]
+      : getStaticSnapshotPagePaths(files, previewEntryPath);
+    const snapshotItems = [];
+    let firstCaptured = null;
+    let firstSnapshotId = "";
+    let firstRenderedFilePaths: string[] = [];
+
+    for (let index = 0; index < snapshotPagePaths.length; index += 1) {
+      const pagePath = snapshotPagePaths[index];
+      const pageUrl = isBundler ? previewUrl : buildStaticSnapshotUrl(previewUrl, pagePath, index);
+      reportProgress(
+        onProgress,
+        snapshotPagePaths.length > 1
+          ? `렌더링 스냅샷 캡처 중 (${index + 1}/${snapshotPagePaths.length})…`
+          : "렌더링 스냅샷 캡처 중…",
+      );
+
+      let captured;
+      try {
+        captured = await capturePreviewSnapshot({
+          previewUrl: pageUrl,
+          mode: "direct",
+          waitMs: isBundler ? 3500 : 1000,
+          timeoutMs: isBundler ? 90_000 : 45_000,
+        });
+      } catch (directError) {
+        if (!isBundler) throw directError;
+        snapshotWarn("direct 캡처 실패 — React SPA hash host 폴백 시도", directError);
+        reportProgress(onProgress, "React SPA 캡처 폴백(hash host) 시도 중…");
+        captured = await capturePreviewSnapshot({
+          previewUrl,
+          mode: "host",
+          hostStrategy: "hash",
+          waitMs: 3500,
+          timeoutMs: 90_000,
+        });
+      }
+
+      snapshotLog("스냅샷 캡처 완료", {
+        pagePath,
+        width: captured.width,
+        height: captured.height,
+        blobSize: captured.blob.size,
+        elapsedMs: Date.now() - captureStartedAt,
       });
-    } catch (directError) {
-      if (!isBundler) throw directError;
-      snapshotWarn("direct 캡처 실패 — React SPA hash host 폴백 시도", directError);
-      reportProgress(onProgress, "React SPA 캡처 폴백(hash host) 시도 중…");
-      captured = await capturePreviewSnapshot({
-        previewUrl,
-        mode: "host",
-        hostStrategy: "hash",
-        waitMs: 3500,
-        timeoutMs: 90_000,
+
+      const snapshotId = `snap-${Date.now()}-${index + 1}`;
+      const renderedFilePaths = buildSnapshotMeta(files, pagePath);
+      snapshotItems.push({
+        snapshotId,
+        image: captured.blob,
+        renderedFilePaths,
       });
+
+      if (!firstCaptured) {
+        firstCaptured = captured;
+        firstSnapshotId = snapshotId;
+        firstRenderedFilePaths = renderedFilePaths;
+      }
     }
 
-    snapshotLog("스냅샷 캡처 완료", {
-      width: captured.width,
-      height: captured.height,
-      blobSize: captured.blob.size,
-      elapsedMs: Date.now() - captureStartedAt,
-    });
+    if (!firstCaptured) {
+      throw new Error("캡처할 HTML 페이지를 찾지 못했습니다.");
+    }
 
-    const snapshotId = `snap-${Date.now()}`;
-    const renderedFilePaths = buildSnapshotMeta(files, previewEntryPath);
-    const imageObjectUrl = URL.createObjectURL(captured.blob);
-    snapshotLog("스냅샷 메타 생성", { snapshotId, renderedFilePaths });
+    const imageObjectUrl = URL.createObjectURL(firstCaptured.blob);
+    snapshotLog("스냅샷 메타 생성", {
+      snapshotCount: snapshotItems.length,
+      snapshotIds: snapshotItems.map((item) => item.snapshotId),
+    });
 
     reportProgress(onProgress, "스냅샷을 백엔드로 전송 중…");
     const uploadStartedAt = Date.now();
     const resultId = await uploadWcagAnalysis({
       repositoryUrl,
       branchName,
-      snapshots: [
-        {
-          snapshotId,
-          image: captured.blob,
-          renderedFilePaths,
-        },
-      ],
+      snapshots: snapshotItems,
     });
     snapshotLog("백엔드 분석 완료", {
       resultId,
@@ -455,11 +520,11 @@ export async function runAnalysisSnapshotPipeline(
 
     return {
       resultId,
-      snapshotId,
+      snapshotId: firstSnapshotId,
       previewUrl,
-      imageBlob: captured.blob,
+      imageBlob: firstCaptured.blob,
       imageObjectUrl,
-      renderedFilePaths,
+      renderedFilePaths: firstRenderedFilePaths,
       previewEntryPath,
     };
   } finally {

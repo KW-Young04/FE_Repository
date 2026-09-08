@@ -8,6 +8,11 @@ import {
   BUNDLER_CONFIG_PATHS,
   EDITOR_LANGUAGE_BY_EXT,
   FILE_FETCH_TIMEOUT_MS,
+  MAX_BACKGROUND_PRELOAD_BYTES,
+  MAX_BACKGROUND_PRELOAD_FILES,
+  MAX_PREVIEW_EXPANSION_BYTES,
+  MAX_PREVIEW_EXPANSION_FILES,
+  MAX_PREVIEW_FILE_BYTES,
   PRELOAD_BATCH_SIZE,
   PREVIEW_AFFECTING_EXTENSIONS,
   PREVIEW_PORT,
@@ -129,6 +134,13 @@ export function isPreviewAffectingPath(
   return PREVIEW_AFFECTING_EXTENSIONS.has(extension);
 }
 
+export function isSafeRepositoryPath(path: string): boolean {
+  if (!path || path.length > 1024) return false;
+  if (path.includes("\0") || path.includes("\\")) return false;
+  if (path.startsWith("/") || /^[a-z]:/i.test(path)) return false;
+  return path.split("/").every((segment) => segment && segment !== "." && segment !== "..");
+}
+
 export function buildTree(paths: string[]): TreeItem[] {
   const root: TreeItem[] = [];
 
@@ -185,6 +197,7 @@ export function buildFileSystemTree(files: Record<string, LoadedFile>): FileSyst
   const root: FileSystemTree = {};
 
   for (const [path, file] of Object.entries(files)) {
+    if (!isSafeRepositoryPath(path)) continue;
     const segments = path.split("/");
     let current = root;
 
@@ -207,6 +220,50 @@ export function buildFileSystemTree(files: Record<string, LoadedFile>): FileSyst
   }
 
   return root;
+}
+
+function uniquePaths(paths: readonly string[]): string[] {
+  return Array.from(new Set(paths.filter(isSafeRepositoryPath)));
+}
+
+function estimatedPathSize(path: string, pathSizes?: ReadonlyMap<string, number>): number {
+  return pathSizes?.get(path) ?? 0;
+}
+
+function takeWithinBudget(
+  paths: readonly string[],
+  options: {
+    maxFiles: number;
+    maxBytes: number;
+    pathSizes?: ReadonlyMap<string, number>;
+  },
+): string[] {
+  const selected: string[] = [];
+  let totalBytes = 0;
+
+  for (const path of uniquePaths(paths)) {
+    const size = estimatedPathSize(path, options.pathSizes);
+    if (selected.length >= options.maxFiles) break;
+    if (size > MAX_PREVIEW_FILE_BYTES) continue;
+    if (size > 0 && totalBytes + size > options.maxBytes) continue;
+    selected.push(path);
+    totalBytes += size;
+  }
+
+  return selected;
+}
+
+function getPreviewExpansionPriority(path: string): number {
+  if (path === "package.json") return 0;
+  if (path.endsWith("/package.json")) return 1;
+  if (path === "index.html" || path === "index.htm") return 2;
+  if (path === "public/index.html" || path === "public/index.htm") return 3;
+  if (path.endsWith(".html") || path.endsWith(".htm")) return 4;
+  if (path.endsWith(".css")) return 5;
+  if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(path)) return 6;
+  if (/^public\//.test(path) || /^src\/assets\//.test(path)) return 7;
+  if (/\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)) return 8;
+  return 9;
 }
 
 export function findPreviewEntryPath(files: Record<string, LoadedFile>): string | null {
@@ -704,6 +761,7 @@ export async function ensurePreviewFilesLoaded(
   candidatePaths: readonly string[],
   repositoryUrl: string,
   branchName?: string,
+  pathSizes?: ReadonlyMap<string, number>,
 ): Promise<Record<string, LoadedFile>> {
   let nextFiles = files;
 
@@ -715,29 +773,46 @@ export async function ensurePreviewFilesLoaded(
     "public/index.html",
     "public/index.htm",
     ...candidatePaths.filter((path) => path.endsWith(".html") || path.endsWith(".htm")),
+    ...candidatePaths.filter((path) => path.endsWith(".css")),
+    ...candidatePaths.filter((path) => /\.(js|jsx|ts|tsx|mjs|cjs)$/.test(path)),
     ...candidatePaths.filter((path) => /\.(svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$/.test(path)),
     ...candidatePaths.filter(
       (path) => path.startsWith("src/assets/") || path.startsWith("public/"),
     ),
-  ];
+  ].sort((a, b) => {
+    const byPriority = getPreviewExpansionPriority(a) - getPreviewExpansionPriority(b);
+    if (byPriority !== 0) return byPriority;
+    return a.localeCompare(b);
+  });
 
-  for (const path of requiredPaths) {
-    if (nextFiles[path]) continue;
-    if (!candidatePaths.includes(path)) continue;
-    try {
-      const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path, branchName);
-      nextFiles = {
-        ...nextFiles,
-        [path]: {
-          path,
-          content: response.content,
-          dirty: false,
-        },
-      };
-    } catch {
-      continue;
-    }
-  }
+  const previewPaths = takeWithinBudget(requiredPaths, {
+    maxFiles: MAX_PREVIEW_EXPANSION_FILES,
+    maxBytes: MAX_PREVIEW_EXPANSION_BYTES,
+    pathSizes,
+  });
+
+  await runBatched(
+    previewPaths,
+    async (path) => {
+      if (nextFiles[path]) return;
+      if (!candidatePaths.includes(path)) return;
+      try {
+        const response = await fetchRepositoryFileWithTimeout(repositoryUrl, path, branchName);
+        nextFiles = {
+          ...nextFiles,
+          [path]: {
+            path,
+            content: response.content,
+            encoding: response.encoding,
+            dirty: false,
+          },
+        };
+      } catch {
+        // 개별 파일 실패는 프리뷰 전체 실패로 보지 않는다.
+      }
+    },
+    PRELOAD_BATCH_SIZE,
+  );
 
   if (findPreviewEntryPath(nextFiles) || nextFiles["package.json"]) {
     return nextFiles;
@@ -828,6 +903,27 @@ export function getBundlerBackgroundPaths(
   return candidates.filter((path) => !loadedPaths.has(path));
 }
 
+export function getBackgroundPreloadPaths(
+  paths: readonly string[],
+  loadedPaths: ReadonlySet<string>,
+  pathSizes?: ReadonlyMap<string, number>,
+): string[] {
+  const candidates = paths
+    .filter((path) => !loadedPaths.has(path))
+    .filter((path) => isPreviewAffectingPath(path, "static"))
+    .sort((a, b) => {
+      const byPriority = getPreviewExpansionPriority(a) - getPreviewExpansionPriority(b);
+      if (byPriority !== 0) return byPriority;
+      return a.localeCompare(b);
+    });
+
+  return takeWithinBudget(candidates, {
+    maxFiles: MAX_BACKGROUND_PRELOAD_FILES,
+    maxBytes: MAX_BACKGROUND_PRELOAD_BYTES,
+    pathSizes,
+  });
+}
+
 export async function ensurePackageJsonDiscovery(
   files: Record<string, LoadedFile>,
   allTreePaths: readonly string[],
@@ -868,9 +964,17 @@ export async function preloadRepositoryPaths(
   repositoryUrl: string,
   branchName?: string,
   maxFiles: number = BUNDLER_PRELOAD_MAX_FILES,
+  pathSizes?: ReadonlyMap<string, number>,
 ): Promise<Record<string, LoadedFile>> {
   let nextFiles = files;
-  const pending = paths.filter((path) => !nextFiles[path]).slice(0, maxFiles);
+  const pending = takeWithinBudget(
+    paths.filter((path) => !nextFiles[path]),
+    {
+      maxFiles,
+      maxBytes: MAX_PREVIEW_EXPANSION_BYTES,
+      pathSizes,
+    },
+  );
 
   await runBatched(
     pending,

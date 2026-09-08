@@ -10,6 +10,7 @@ export interface RepositoryTreeResponse {
   owner: string;
   repo: string;
   branch?: string;
+  truncated?: boolean;
   nodes: TreeNode[];
 }
 

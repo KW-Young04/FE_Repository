@@ -1,4 +1,9 @@
 import type { RepositoryTreeResponse } from "@/api/repository";
+import {
+  MAX_PREVIEW_EXPANSION_BYTES,
+  MAX_PREVIEW_EXPANSION_FILES,
+  PRELOAD_BATCH_SIZE,
+} from "@/pages/RepositoryWorkspaceTest/constants";
 
 const TEXT_ASSET_EXTENSIONS = new Set([
   ".css",
@@ -35,6 +40,59 @@ function getExtension(path: string): string {
 function isPreviewAssetPath(path: string): boolean {
   const extension = getExtension(path);
   return TEXT_ASSET_EXTENSIONS.has(extension) || BINARY_ASSET_EXTENSIONS.has(extension);
+}
+
+function isSafeRepositoryPath(path: string): boolean {
+  if (!path || path.length > 1024) return false;
+  if (path.includes("\0") || path.includes("\\")) return false;
+  if (path.startsWith("/") || /^[a-z]:/i.test(path)) return false;
+  return path.split("/").every((segment) => segment && segment !== "." && segment !== "..");
+}
+
+function getAssetPriority(path: string): number {
+  if (path === "index.html" || path === "index.htm") return 0;
+  if (path === "public/index.html" || path === "public/index.htm") return 1;
+  if (path.endsWith(".html") || path.endsWith(".htm")) return 2;
+  if (path.endsWith(".css")) return 3;
+  if (/\.(js|mjs|cjs|json)$/.test(path)) return 4;
+  if (/^public\//.test(path) || /^src\/assets\//.test(path)) return 5;
+  if (BINARY_ASSET_EXTENSIONS.has(getExtension(path))) return 6;
+  return 7;
+}
+
+async function runBatched<T>(
+  items: readonly T[],
+  handler: (item: T) => Promise<void>,
+  batchSize: number,
+): Promise<void> {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const chunk = items.slice(i, i + batchSize);
+    await Promise.all(chunk.map((item) => handler(item)));
+  }
+}
+
+function selectAssetsWithinBudget(tree: RepositoryTreeResponse): string[] {
+  const candidates = tree.nodes
+    .filter((node) => node.type === "blob")
+    .filter((node) => isSafeRepositoryPath(node.path))
+    .filter((node) => isPreviewAssetPath(node.path))
+    .sort((a, b) => {
+      const byPriority = getAssetPriority(a.path) - getAssetPriority(b.path);
+      if (byPriority !== 0) return byPriority;
+      return a.path.localeCompare(b.path);
+    });
+
+  const selected: string[] = [];
+  let totalBytes = 0;
+  for (const node of candidates) {
+    const size = node.size ?? 0;
+    if (selected.length >= MAX_PREVIEW_EXPANSION_FILES) break;
+    if (size > 0 && totalBytes + size > MAX_PREVIEW_EXPANSION_BYTES) continue;
+    selected.push(node.path);
+    totalBytes += size;
+  }
+
+  return selected;
 }
 
 function parseGithubRepo(repositoryUrl: string): { owner: string; repo: string } | null {
@@ -96,13 +154,11 @@ export async function ensureStaticPreviewAssets(options: {
   const textFiles: Record<string, { path: string; content: string }> = { ...options.files };
   const binaryFiles: Record<string, Uint8Array> = {};
 
-  const assetPaths = options.tree.nodes
-    .filter((node) => node.type === "blob")
-    .map((node) => node.path)
-    .filter((path) => isPreviewAssetPath(path));
+  const assetPaths = selectAssetsWithinBudget(options.tree);
 
-  await Promise.all(
-    assetPaths.map(async (path) => {
+  await runBatched(
+    assetPaths,
+    async (path) => {
       const extension = getExtension(path);
       try {
         const bytes = await fetchFromRawGithub(options.repositoryUrl, options.branchName, path);
@@ -118,7 +174,8 @@ export async function ensureStaticPreviewAssets(options: {
       } catch (error) {
         console.warn("[ensureStaticPreviewAssets] asset failed:", path, error);
       }
-    }),
+    },
+    PRELOAD_BATCH_SIZE,
   );
 
   return { textFiles, binaryFiles };
