@@ -38,10 +38,41 @@ const STEPS: AnalysisStep[] = [
   },
 ];
 
+const STEP_WEIGHT = 100 / STEPS.length;
+
 function setStep(statuses: StepStatus[], index: number, status: StepStatus): StepStatus[] {
   const next = [...statuses];
   next[index] = status;
   return next;
+}
+
+function setProgress(progresses: number[], index: number, progress: number): number[] {
+  const next = [...progresses];
+  next[index] = Math.max(0, Math.min(1, progress));
+  return next;
+}
+
+function getSnapshotProgress(message: string): number {
+  if (message.includes("WebContainer")) return 0.05;
+  if (message.includes("CSS/이미지")) return 0.12;
+  if (message.includes("엔트리")) return 0.2;
+  if (message.includes("파일 시스템") || message.includes("마운트")) return 0.34;
+  if (message.includes("브리지")) return 0.48;
+  if (message.includes("서버 실행") || message.includes("개발 서버")) return 0.62;
+  if (message.includes("서버 준비")) return 0.72;
+  if (message.includes("캡처 중")) return 0.86;
+  if (message.includes("백엔드로 전송")) return 1;
+  return 0.5;
+}
+
+function getAiAnalysisProgress(message: string): number {
+  if (message.includes("전송")) return 0.35;
+  if (message.includes("분석 완료")) return 1;
+  return 0.65;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export default function AnalysisProgressPage() {
@@ -54,6 +85,7 @@ export default function AnalysisProgressPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepStatuses, setStepStatuses] = useState<StepStatus[]>(STEPS.map(() => "pending"));
   const [stepMessages, setStepMessages] = useState<string[]>(STEPS.map(() => "대기 중"));
+  const [stepProgress, setStepProgress] = useState<number[]>(STEPS.map(() => 0));
   const [isComplete, setIsComplete] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [snapshotImageUrl, setSnapshotImageUrl] = useState<string | null>(null);
@@ -62,10 +94,10 @@ export default function AnalysisProgressPage() {
   const initialized = useRef(false);
 
   const progress = useMemo(() => {
-    const doneCount = stepStatuses.filter((status) => status === "done").length;
     if (isComplete) return 100;
-    return Math.round((doneCount / STEPS.length) * 100);
-  }, [stepStatuses, isComplete]);
+    const weightedProgress = stepProgress.reduce((sum, value) => sum + value * STEP_WEIGHT, 0);
+    return Math.round(weightedProgress);
+  }, [stepProgress, isComplete]);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -73,7 +105,6 @@ export default function AnalysisProgressPage() {
 
     if (!repositoryUrl) return;
 
-    void getOrStartWorkspaceWarmup(repositoryUrl, branchName);
     void prewarmWebContainer().catch((error) => {
       console.warn("[렌더링 스냅샷][UI] WebContainer 사전 부팅 실패", error);
     });
@@ -88,7 +119,23 @@ export default function AnalysisProgressPage() {
 
       let warmed: Awaited<ReturnType<typeof getOrStartWorkspaceWarmup>> | undefined;
       try {
-        warmed = await getOrStartWorkspaceWarmup(repositoryUrl, branchName);
+        warmed = await getOrStartWorkspaceWarmup(repositoryUrl, branchName, (warmupProgress) => {
+          if (warmupProgress.phase === "tree") {
+            setStepProgress((prev) =>
+              setProgress(prev, 0, warmupProgress.loaded === warmupProgress.total ? 0.15 : 0.05),
+            );
+            return;
+          }
+
+          const fileProgress =
+            warmupProgress.total > 0 ? warmupProgress.loaded / warmupProgress.total : 1;
+          setStepProgress((prev) => setProgress(prev, 0, 0.15 + fileProgress * 0.85));
+          setStepMessages((prev) => {
+            const next = [...prev];
+            next[0] = `${warmupProgress.loaded}/${warmupProgress.total}개 파일 로드 중…`;
+            return next;
+          });
+        });
         setTree(warmed.tree);
         const fileCount = warmed.tree.nodes.filter((n) => n.type === "blob").length;
         setStepMessages((prev) => {
@@ -96,6 +143,7 @@ export default function AnalysisProgressPage() {
           next[0] = `${fileCount}개 파일 완료`;
           return next;
         });
+        setStepProgress((prev) => setProgress(prev, 0, 1));
       } catch {
         setFetchError(true);
         setStepMessages((prev) => {
@@ -103,6 +151,7 @@ export default function AnalysisProgressPage() {
           next[0] = "트리 조회 실패 (계속 진행)";
           return next;
         });
+        setStepProgress((prev) => setProgress(prev, 0, 1));
       }
 
       setStepStatuses((prev) => setStep(prev, 0, "done"));
@@ -115,17 +164,33 @@ export default function AnalysisProgressPage() {
         return next;
       });
 
-      const tsxCount =
+      const componentPaths =
         warmed?.tree.nodes.filter(
           (node) => node.path.endsWith(".tsx") || node.path.endsWith(".jsx"),
-        ).length ?? 0;
-      await new Promise((resolve) => window.setTimeout(resolve, 800));
+        ) ?? [];
+      const tsxCount = componentPaths.length;
+      const parseDelayMs = Math.min(600, Math.max(120, tsxCount * 10));
+      for (let parsedCount = 1; parsedCount <= Math.max(tsxCount, 1); parsedCount += 1) {
+        const visibleCount = Math.min(parsedCount, tsxCount);
+        const codeProgress = tsxCount > 0 ? visibleCount / tsxCount : 1;
+        setStepProgress((prev) => setProgress(prev, 1, codeProgress));
+        setStepMessages((prev) => {
+          const next = [...prev];
+          next[1] =
+            tsxCount > 0
+              ? `${visibleCount}/${tsxCount}개 컴포넌트 파싱 중…`
+              : "컴포넌트 없음";
+          return next;
+        });
+        await wait(parseDelayMs / Math.max(tsxCount, 1));
+      }
       setStepMessages((prev) => {
         const next = [...prev];
         next[1] = `${tsxCount}개 컴포넌트 완료`;
         return next;
       });
       setStepStatuses((prev) => setStep(prev, 1, "done"));
+      setStepProgress((prev) => setProgress(prev, 1, 1));
 
       setCurrentStep(2);
       setStepStatuses((prev) => setStep(prev, 2, "running"));
@@ -137,6 +202,7 @@ export default function AnalysisProgressPage() {
 
       if (!warmed || Object.keys(warmed.files).length === 0) {
         setStepStatuses((prev) => setStep(prev, 2, "error"));
+        setStepProgress((prev) => setProgress(prev, 2, 1));
         setStepMessages((prev) => {
           const next = [...prev];
           next[2] = "스냅샷용 파일이 없습니다";
@@ -155,6 +221,12 @@ export default function AnalysisProgressPage() {
           files: warmed.files,
           onProgress: (message) => {
             console.log("[렌더링 스냅샷][UI]", message);
+            setStepProgress((prev) => {
+              if (message.includes("백엔드로 전송")) {
+                return setProgress(setProgress(prev, 2, 1), 3, getAiAnalysisProgress(message));
+              }
+              return setProgress(prev, 2, getSnapshotProgress(message));
+            });
             setStepMessages((prev) => {
               const next = [...prev];
               if (prev[2] !== "done" && prev[3] !== "running" && prev[3] !== "done") {
@@ -171,6 +243,7 @@ export default function AnalysisProgressPage() {
                 const next = setStep(prev, 2, "done");
                 return setStep(next, 3, "running");
               });
+              setStepProgress((prev) => setProgress(setProgress(prev, 2, 1), 3, 0.35));
               setStepMessages((prev) => {
                 const next = [...prev];
                 next[2] = "스냅샷 완료";
@@ -202,6 +275,10 @@ export default function AnalysisProgressPage() {
           const next = setStep(prev, 2, "done");
           return setStep(next, 3, "done");
         });
+        setStepProgress((prev) => {
+          const next = setProgress(prev, 2, 1);
+          return setProgress(next, 3, 1);
+        });
         setStepMessages((prev) => {
           const next = [...prev];
           next[2] = "스냅샷 완료";
@@ -227,6 +304,10 @@ export default function AnalysisProgressPage() {
             next[2] = "error";
           }
           return next;
+        });
+        setStepProgress((prev) => {
+          const next = setProgress(prev, 2, 1);
+          return prev[3] > 0 ? setProgress(next, 3, 1) : next;
         });
         setStepMessages((prev) => {
           const next = [...prev];

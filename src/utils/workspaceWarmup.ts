@@ -16,6 +16,12 @@ export interface WorkspaceWarmupResult {
   skippedLargePaths: string[];
 }
 
+export interface WorkspaceWarmupProgress {
+  phase: "tree" | "files";
+  loaded: number;
+  total: number;
+}
+
 const EDITABLE_EXTENSIONS = [
   ".html",
   ".css",
@@ -218,10 +224,13 @@ async function runBatched<T>(
 async function buildWarmup(
   repositoryUrl: string,
   branchName?: string,
+  onProgress?: (progress: WorkspaceWarmupProgress) => void,
 ): Promise<WorkspaceWarmupResult> {
+  onProgress?.({ phase: "tree", loaded: 0, total: 1 });
   const tree = branchName
     ? await repositoryApi.getBranchTree(repositoryUrl, branchName)
     : await repositoryApi.getTree(repositoryUrl);
+  onProgress?.({ phase: "tree", loaded: 1, total: 1 });
 
   const candidateNodes = tree.nodes
     .filter((node: TreeNode) => node.type === "blob")
@@ -243,6 +252,9 @@ async function buildWarmup(
   const { corePaths, deferredPaths } = splitFastPreviewPaths(selectedPaths);
   const files: Record<string, WarmupFile> = {};
   const coreFailedPaths: string[] = [];
+  let loadedCoreCount = 0;
+
+  onProgress?.({ phase: "files", loaded: 0, total: corePaths.length });
 
   await runBatched(
     corePaths,
@@ -260,6 +272,9 @@ async function buildWarmup(
         };
       } catch {
         coreFailedPaths.push(path);
+      } finally {
+        loadedCoreCount += 1;
+        onProgress?.({ phase: "files", loaded: loadedCoreCount, total: corePaths.length });
       }
     },
     BATCH_SIZE,
@@ -287,6 +302,7 @@ function getWarmupCacheKey(repositoryUrl: string, branchName?: string): string {
 export function getOrStartWorkspaceWarmup(
   repositoryUrl: string,
   branchName?: string,
+  onProgress?: (progress: WorkspaceWarmupProgress) => void,
 ): Promise<WorkspaceWarmupResult> {
   const key = getWarmupCacheKey(repositoryUrl, branchName);
   if (!key) {
@@ -298,7 +314,7 @@ export function getOrStartWorkspaceWarmup(
     return cached;
   }
 
-  const warmupPromise = buildWarmup(repositoryUrl.trim(), branchName?.trim())
+  const warmupPromise = buildWarmup(repositoryUrl.trim(), branchName?.trim(), onProgress)
     .then((result) => {
       const hasCandidates = result.corePaths.length > 0;
       const hasFiles = Object.keys(result.files).length > 0;
