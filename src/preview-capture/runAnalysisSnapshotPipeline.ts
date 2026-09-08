@@ -5,6 +5,7 @@ import {
   resolvePreviewProject,
   explainUnsupportedPreviewRepo,
   type PreviewProjectProfile,
+  withPreviewDependencyFixes,
 } from "@/pages/RepositoryWorkspaceTest/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
@@ -251,6 +252,16 @@ async function startBundlerPreview(
     throw new Error(`의존성 설치에 실패했습니다.${detail}`);
   }
 
+  const viteCachePath = profile.workspaceRoot
+    ? `${profile.workspaceRoot}/node_modules/.vite`
+    : "node_modules/.vite";
+  try {
+    await container.fs.rm(viteCachePath, { recursive: true, force: true });
+    snapshotLog("Vite 의존성 캐시 초기화 완료", { path: viteCachePath });
+  } catch (error) {
+    snapshotWarn("Vite 의존성 캐시 초기화 스킵", error);
+  }
+
   const devCwd = profile.workspaceRoot || undefined;
   const devCommands = [profile.devCommand, ...profile.devCommandFallbacks];
   let lastError: Error | null = null;
@@ -311,7 +322,7 @@ export async function runAnalysisSnapshotPipeline(
   const container = await acquireCleanWebContainer();
   snapshotLog("WebContainer 확보 완료");
 
-  let textFiles = options.files;
+  let textFiles = withPreviewDependencyFixes(options.files);
   let binaryFiles: Record<string, Uint8Array> = {};
 
   const provisionalProfile = resolvePreviewProject(toLoadedFiles(textFiles));
@@ -335,7 +346,7 @@ export async function runAnalysisSnapshotPipeline(
       tree,
       files: textFiles,
     });
-    textFiles = ensured.textFiles;
+    textFiles = withPreviewDependencyFixes(ensured.textFiles);
     binaryFiles = ensured.binaryFiles;
     snapshotLog("정적 자산 로드 완료", {
       textFileCount: Object.keys(textFiles).length,

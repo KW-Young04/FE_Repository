@@ -27,6 +27,7 @@ import {
   resolvePreviewProject,
   type PreviewProjectProfile,
   type PreviewRuntimeKind,
+  withPreviewDependencyFixes,
 } from "./previewProject";
 import {
   createDesignRuntimeScript,
@@ -369,6 +370,16 @@ export function useRepositoryWorkspace(
       }
       logEvent("의존성 설치 완료");
 
+      const viteCachePath = profile.workspaceRoot
+        ? `${profile.workspaceRoot}/node_modules/.vite`
+        : "node_modules/.vite";
+      try {
+        await container.fs.rm(viteCachePath, { recursive: true, force: true });
+        logEvent("Vite 의존성 캐시 초기화 완료");
+      } catch {
+        // 캐시가 없거나 삭제 API가 실패해도 개발 서버 실행은 계속 시도한다.
+      }
+
       const devCwd = profile.workspaceRoot || undefined;
       if (devCwd) {
         logEvent(`개발 서버 작업 디렉터리: ${devCwd}`);
@@ -503,9 +514,10 @@ export function useRepositoryWorkspace(
 
         appendRuntimeLog("=== 프리뷰 런타임 ===");
 
-        const projectProfile = resolvePreviewProject(files);
+        const previewSourceFiles = withPreviewDependencyFixes(files);
+        const projectProfile = resolvePreviewProject(previewSourceFiles);
         const runtimeFiles = withDesignRuntimeFiles(
-          files,
+          previewSourceFiles,
           projectProfile.kind === "bundler" ? projectProfile.workspaceRoot : undefined,
         );
         const isBundler = projectProfile.kind === "bundler";
@@ -531,16 +543,16 @@ export function useRepositoryWorkspace(
         const flatFiles = Object.fromEntries(
           Object.entries(runtimeFiles).map(([path, file]) => [path, toWorkspaceFileContent(file)]),
         );
-        logEvent(`파일 시스템 준비 중 (${Object.keys(files).length}개)...`);
+        logEvent(`파일 시스템 준비 중 (${Object.keys(runtimeFiles).length}개)...`);
         const mountMode = await mountOrSyncWorkspace(container, fsTree, flatFiles);
         if (runtimeToken !== previewRuntimeTokenRef.current) return;
         logEvent(
           mountMode === "mounted"
-            ? `WebContainer 최초 마운트 완료 (파일 ${Object.keys(files).length}개)`
-            : `WebContainer 파일 동기화 완료 (파일 ${Object.keys(files).length}개)`,
+            ? `WebContainer 최초 마운트 완료 (파일 ${Object.keys(runtimeFiles).length}개)`
+            : `WebContainer 파일 동기화 완료 (파일 ${Object.keys(runtimeFiles).length}개)`,
         );
 
-        const injected = await injectCaptureAssets(container, projectProfile, files);
+        const injected = await injectCaptureAssets(container, projectProfile, previewSourceFiles);
         if (runtimeToken !== previewRuntimeTokenRef.current) return;
         logEvent(
           `스냅샷 캡처 에셋 주입 완료 (host: ${injected.captureHostPath}, html: ${
@@ -933,7 +945,8 @@ export function useRepositoryWorkspace(
           branchName,
         );
 
-        const bundlerProfile = resolvePreviewProject(previewFiles);
+        let runtimePreviewFiles = withPreviewDependencyFixes(previewFiles);
+        const bundlerProfile = resolvePreviewProject(runtimePreviewFiles);
         let bundlerBackgroundPaths: string[] = [];
         if (bundlerProfile.kind === "bundler") {
           const preloadPaths = getBundlerPreloadPaths(
@@ -952,6 +965,7 @@ export function useRepositoryWorkspace(
               undefined,
               treePathSizes,
             );
+            runtimePreviewFiles = withPreviewDependencyFixes(previewFiles);
             logEvent(`번들러 핵심 소스 로드 완료 (총 ${Object.keys(previewFiles).length}개)`);
           }
           bundlerBackgroundPaths = getBundlerBackgroundPaths(
@@ -965,7 +979,7 @@ export function useRepositoryWorkspace(
         if (Object.keys(previewFiles).length > Object.keys(loaded.files).length) {
           setFilesByPath((prev) => ({ ...prev, ...previewFiles }));
         }
-        await startRuntimeRef.current(previewFiles);
+        await startRuntimeRef.current(runtimePreviewFiles);
         const runtimeMs = Date.now() - runtimeStart;
         logEvent(`프리뷰 런타임 준비 완료 (${formatDuration(runtimeMs)})`);
         setDiagnostics((prev) => ({ ...prev, runtimeMs }));

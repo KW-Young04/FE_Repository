@@ -17,6 +17,8 @@ interface PackageJson {
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
   workspaces?: string[] | Record<string, string[]>;
 }
 
@@ -33,7 +35,56 @@ function readPackageJson(content: string): PackageJson | null {
 }
 
 function mergeDeps(pkg: PackageJson): Record<string, string> {
-  return { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+  return {
+    ...(pkg.dependencies ?? {}),
+    ...(pkg.devDependencies ?? {}),
+    ...(pkg.peerDependencies ?? {}),
+    ...(pkg.optionalDependencies ?? {}),
+  };
+}
+
+function hasDependency(pkg: PackageJson, name: string): boolean {
+  return Boolean(
+    pkg.dependencies?.[name] ||
+      pkg.devDependencies?.[name] ||
+      pkg.peerDependencies?.[name] ||
+      pkg.optionalDependencies?.[name],
+  );
+}
+
+function addPreviewDependencyFixes(pkg: PackageJson): boolean {
+  let changed = false;
+  const deps = mergeDeps(pkg);
+
+  if (deps.recharts && !hasDependency(pkg, "react-is")) {
+    pkg.dependencies = { ...(pkg.dependencies ?? {}), "react-is": "^19.2.0" };
+    changed = true;
+  }
+
+  return changed;
+}
+
+export function withPreviewDependencyFixes<T extends Record<string, { content: string }>>(
+  files: T,
+): T {
+  let next = files;
+
+  for (const [path, file] of Object.entries(files)) {
+    if (!path.endsWith("package.json")) continue;
+    const pkg = readPackageJson(file.content);
+    if (!pkg) continue;
+    if (!addPreviewDependencyFixes(pkg)) continue;
+
+    next = {
+      ...next,
+      [path]: {
+        ...file,
+        content: `${JSON.stringify(pkg, null, 2)}\n`,
+      },
+    };
+  }
+
+  return next;
 }
 
 function isMonorepoRoot(files: FileContentLookup, pkg: PackageJson): boolean {
