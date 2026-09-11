@@ -34,7 +34,7 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
         : 0;
 
   return (
-    <aside className="selected-issue-panel min-h-0 flex-1 overflow-y-auto px-3 py-3.5">
+    <div className="selected-issue-panel min-h-0 flex-1 overflow-y-auto px-3 py-3.5">
       <h2 className="mt-px mb-[13px] text-[15px] font-bold">선택한 이슈</h2>
 
       {issue ? (
@@ -161,6 +161,6 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
           여기에 내용이 표시됩니다.
         </p>
       )}
-    </aside>
+    </div>
   );
 }

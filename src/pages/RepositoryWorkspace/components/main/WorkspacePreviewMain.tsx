@@ -85,12 +85,7 @@ export default function WorkspacePreviewMain({
   const topIssues = getTopIssues(issueHighlights);
 
   return (
-    <section
-      className={[
-        "flex min-w-0 flex-col bg-white",
-        isDesignTab ? "min-h-full overflow-y-auto" : "h-full min-h-0 overflow-hidden",
-      ].join(" ")}
-    >
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
       <BrowserToolbar
         displayUrl={displayUrl}
         showErrors={showErrors}
@@ -99,10 +94,7 @@ export default function WorkspacePreviewMain({
       />
 
       <div
-        className={[
-          "relative min-h-0 w-full overflow-hidden border-b border-[#e6e7ec] bg-white",
-          isDesignTab ? "h-[620px] shrink-0" : "min-h-[420px] flex-1",
-        ].join(" ")}
+        className="relative min-h-0 w-full flex-1 overflow-hidden border-b border-[#e6e7ec] bg-white"
         aria-label={isDesignTab ? "디자인 편집 미리보기" : "연결된 GitHub 프로젝트 미리보기"}
       >
         <PreviewFrame
