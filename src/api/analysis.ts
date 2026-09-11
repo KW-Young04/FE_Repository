@@ -26,6 +26,9 @@ export interface RealtimeIssueDetail {
   status: string;
   targetFilePath: string;
   targetSelector: string;
+  /** 원본 파일 기준 1-based 줄 번호. 저장된 분석에는 없을 수 있다. */
+  startLine?: number | null;
+  endLine?: number | null;
   originalCodeBlock: string;
   suggestion: string;
   measuredValue: string;

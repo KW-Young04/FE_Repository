@@ -6,6 +6,7 @@ export function createDesignRuntimeScript(): string {
   let selected = null;
   let selectedId = 0;
   const issueOverlays = [];
+  let lastHighlightIssues = [];
 
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;display:none;pointer-events:none;z-index:2147483647;border:2px solid #7c3aed;box-shadow:0 0 0 1px rgba(255,255,255,.9);box-sizing:border-box;";
@@ -18,66 +19,135 @@ export function createDesignRuntimeScript(): string {
     }
   }
 
-  function createIssueOverlay(rect, issue, index) {
-    const box = document.createElement("div");
-    box.__codeeIssue = issue;
-    box.setAttribute("data-codee-issue-overlay", "1");
-    box.style.cssText = [
-      "position:fixed",
-      "left:" + rect.left + "px",
-      "top:" + rect.top + "px",
-      "width:" + rect.width + "px",
-      "height:" + rect.height + "px",
-      "pointer-events:none",
-      "z-index:2147483646",
-      "border:2px solid #ff2d20",
-      "border-radius:8px",
-      "box-shadow:0 0 0 9999px rgba(255,45,32,0.02),0 0 0 1px rgba(255,255,255,.95)",
-      "box-sizing:border-box",
-    ].join(";");
+  function readSnippetAttribute(tag, name) {
+    if (!tag || !name) return null;
+    const pattern = new RegExp("\\b" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')", "i");
+    const match = String(tag).match(pattern);
+    return match ? (match[1] != null ? match[1] : match[2]) : null;
+  }
 
-    const label = document.createElement("div");
-    label.setAttribute("data-codee-issue-label", "1");
-    label.textContent = issue.code || String(index + 1);
-    label.style.cssText = [
-      "position:absolute",
-      "left:16px",
-      "top:-20px",
-      "height:20px",
-      "min-width:58px",
-      "padding:0 8px",
-      "display:flex",
-      "align-items:center",
-      "justify-content:center",
-      "border-radius:4px 4px 0 0",
-      "background:#ff2d20",
-      "color:#fff",
-      "font:700 10px/1 Arial,Helvetica,sans-serif",
-      "white-space:nowrap",
-      "box-sizing:border-box",
-    ].join(";");
-    box.appendChild(label);
-    document.documentElement.appendChild(box);
-    issueOverlays.push(box);
+  function extractTagName(codeBlock, selector) {
+    const snippet = codeBlock && String(codeBlock).match(/<([a-zA-Z][\w:-]*)\b/);
+    if (snippet) return snippet[1].toLowerCase();
+    const fromSelector = selector && String(selector).match(/^([a-zA-Z][\w:-]*)/);
+    return fromSelector ? fromSelector[1].toLowerCase() : null;
+  }
+
+  function elementMatchesCode(element, codeBlock) {
+    if (!codeBlock) return false;
+    const attrs = ["id", "alt", "href", "src", "name", "type", "aria-label", "placeholder"];
+    let compared = false;
+    for (let index = 0; index < attrs.length; index++) {
+      const expected = readSnippetAttribute(codeBlock, attrs[index]);
+      if (!expected || expected.charAt(0) === "{") continue;
+      compared = true;
+      if ((element.getAttribute(attrs[index]) || "") !== expected) return false;
+    }
+    const className = readSnippetAttribute(codeBlock, "class") || readSnippetAttribute(codeBlock, "className");
+    const firstClass = className ? className.split(/\s+/).filter(Boolean).find(function (part) { return part.charAt(0) !== "{"; }) : null;
+    if (firstClass) {
+      compared = true;
+      if (!element.classList.contains(firstClass)) return false;
+    }
+    return compared;
+  }
+
+  function toElementList(nodeList) {
+    return Array.prototype.slice.call(nodeList || []).filter(function (node) {
+      return node instanceof HTMLElement;
+    });
+  }
+
+  function queryAllSafe(selector) {
+    if (!selector) return [];
+    try {
+      return toElementList(document.querySelectorAll(selector));
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function hasPaintedSize(element) {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  }
+
+  function pickVisible(elements, occurrenceIndex) {
+    const visible = elements.filter(hasPaintedSize);
+    const pool = visible.length ? visible : elements;
+    if (!pool.length) return null;
+    if (occurrenceIndex == null || occurrenceIndex < 0 || occurrenceIndex >= pool.length) return pool[0];
+    return pool[occurrenceIndex];
+  }
+
+  function findTarget(issue) {
+    if (!issue) return null;
+
+    if (issue.selector === "html" || issue.selector === "head") {
+      return document.documentElement;
+    }
+    if (issue.selector === "body" && document.body) {
+      return document.body;
+    }
+
+    if (issue.sourceId != null && issue.sourceId !== "") {
+      try {
+        const bySourceId = document.querySelector('[data-codee-id="' + String(issue.sourceId) + '"]');
+        if (bySourceId instanceof HTMLElement && hasPaintedSize(bySourceId)) return bySourceId;
+      } catch (error) {}
+    }
+
+    let candidates = queryAllSafe(issue.selector);
+    if (issue.codeBlock && candidates.length > 1) {
+      const matched = candidates.filter(function (element) { return elementMatchesCode(element, issue.codeBlock); });
+      if (matched.length) candidates = matched;
+    }
+
+    const picked = pickVisible(candidates, issue.occurrenceIndex);
+    if (picked) return picked;
+
+    if (issue.selector) {
+      try {
+        const fallback = document.querySelector(issue.selector);
+        if (fallback instanceof HTMLElement) return fallback;
+      } catch (error) {}
+    }
+
+    const tagName = extractTagName(issue.codeBlock, issue.selector);
+    if (tagName) {
+      return pickVisible(toElementList(document.getElementsByTagName(tagName)), issue.occurrenceIndex);
+    }
+    return null;
   }
 
   function highlightIssues(issues) {
+    if (Array.isArray(issues)) lastHighlightIssues = issues;
     removeIssueOverlays();
-    if (!Array.isArray(issues)) return;
+    if (!Array.isArray(lastHighlightIssues)) return;
 
-    issues.slice(0, 20).forEach((issue, index) => {
-      if (!issue || !issue.selector) return;
-      let target = null;
-      try {
-        target = document.querySelector(issue.selector);
-      } catch (error) {
-        return;
-      }
+    const overlays = [];
+    lastHighlightIssues.slice(0, 20).forEach(function (issue, index) {
+      const target = findTarget(issue);
       if (!(target instanceof HTMLElement)) return;
       const rect = target.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
-      createIssueOverlay(rect, issue, index);
+      overlays.push({
+        id: issue.id || String(index),
+        code: issue.code || "",
+        title: issue.title || "",
+        level: issue.level || "",
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
     });
+
+    window.parent.postMessage({
+      source: SOURCE,
+      type: "issue-overlays",
+      payload: { overlays: overlays },
+    }, "*");
   }
 
   function toHex(color, fallback) {
@@ -231,24 +301,18 @@ export function createDesignRuntimeScript(): string {
 
   window.addEventListener("scroll", updateOverlay, true);
   window.addEventListener("scroll", function () {
-    const issues = issueOverlays.map(function (item) {
-      return item.__codeeIssue;
-    }).filter(Boolean);
-    highlightIssues(issues);
+    highlightIssues(lastHighlightIssues, null);
   }, true);
   window.addEventListener("resize", function () {
     updateOverlay();
-    const issues = issueOverlays.map(function (item) {
-      return item.__codeeIssue;
-    }).filter(Boolean);
-    highlightIssues(issues);
+    highlightIssues(lastHighlightIssues, null);
   });
   window.parent.postMessage({ source: SOURCE, type: "ready" }, "*");
 })();`;
 }
 
 export function injectDesignRuntimeIntoHtml(html: string): string {
-  const script = '<script src="/codee-design-runtime.js?v=issue-highlight-1"></script>';
+  const script = '<script src="/codee-design-runtime.js?v=issue-highlight-5"></script>';
   const existingRuntimePattern =
     /<script\b[^>]*\bsrc=["']\/codee-design-runtime\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/i;
   if (existingRuntimePattern.test(html)) {

@@ -92,6 +92,13 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
                 {issue.targetSelector || "셀렉터 없음"}
               </code>
             </div>
+            {(issue.startLine || issue.endLine) && (
+              <p className="mt-2 mb-0 text-[10px] text-slate-400">
+                {issue.startLine && issue.endLine && issue.startLine !== issue.endLine
+                  ? `${issue.startLine}–${issue.endLine}행`
+                  : `${issue.startLine || issue.endLine}행`}
+              </p>
+            )}
 
             {issue.originalCodeBlock && (
               <pre className="mt-2 overflow-x-auto border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[10px] leading-4 whitespace-pre-wrap text-slate-500">
