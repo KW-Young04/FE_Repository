@@ -13,8 +13,8 @@ export default function DesignInspectorSidebar({
   onChange,
 }: DesignInspectorSidebarProps) {
   return (
-    <aside className="min-h-0 min-w-0 overflow-y-auto border-l border-slate-200 bg-white" aria-label="디자인 도구 사이드바">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <DesignControlPanel selectedElement={selectedElement} values={values} onChange={onChange} />
-    </aside>
+    </div>
   );
 }

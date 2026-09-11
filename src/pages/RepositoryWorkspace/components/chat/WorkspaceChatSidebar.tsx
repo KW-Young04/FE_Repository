@@ -44,10 +44,7 @@ export default function WorkspaceChatSidebar() {
   };
 
   return (
-    <aside
-      className="flex min-h-0 min-w-0 flex-col border-l border-[#e5e7eb] bg-[#fcfcfc] px-3 py-8 text-[#171717]"
-      aria-label="AI 채팅 사이드바"
-    >
+    <div className="flex min-h-0 flex-1 flex-col px-3 py-8 text-[#171717]">
       <h2 className="m-0 px-2 text-[16px] leading-7 font-bold">
         현재 웹사이트에서
         <br />
@@ -121,6 +118,6 @@ export default function WorkspaceChatSidebar() {
           </button>
         </div>
       </form>
-    </aside>
+    </div>
   );
 }

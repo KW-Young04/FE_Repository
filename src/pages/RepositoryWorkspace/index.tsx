@@ -5,9 +5,7 @@ import type { GitFileChangeResponse } from "@/api/git";
 import { useRepositoryWorkspace } from "@/pages/RepositoryWorkspaceTest/useRepositoryWorkspace";
 import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
 
-import WorkspaceChatSidebar from "./components/chat/WorkspaceChatSidebar";
 import CodeTabView from "./components/code/CodeTabView";
-import DesignInspectorSidebar from "./components/design/DesignInspectorSidebar";
 import CommitDialog from "./components/git/CommitDialog";
 import WorkspacePreviewMain from "./components/main/WorkspacePreviewMain";
 import WorkspaceLeftSidebar from "./components/WorkspaceLeftSidebar";
@@ -112,6 +110,29 @@ export default function RepositoryWorkspacePage() {
     />
   );
 
+  const rightSidebar =
+    activeTab === "code" ? (
+      <WorkspaceRightSidebar panel="chat" />
+    ) : isDesignTab ? (
+      <WorkspaceRightSidebar
+        panel="design"
+        selectedElement={design.selectedElement}
+        values={design.designValues}
+        onChange={design.handleDesignChange}
+      />
+    ) : (
+      <WorkspaceRightSidebar
+        panel="issue"
+        selectedIssue={selectedIssue}
+        onEditInCode={() => {
+          setActiveTab("code");
+          if (selectedIssue?.targetFilePath) {
+            void workspace.onFileClick(selectedIssue.targetFilePath);
+          }
+        }}
+      />
+    );
+
   return (
     <div className="flex h-screen min-w-[1180px] flex-col overflow-hidden bg-white text-[#202124]">
       <WorkspaceTopBar
@@ -135,90 +156,68 @@ export default function RepositoryWorkspacePage() {
         {leftSidebar}
 
         {activeTab === "code" ? (
-          <>
-            <CodeTabView
-              treeItems={workspace.treeItems}
-              filesByPath={workspace.filesByPath}
-              openPaths={workspace.openPaths}
-              activePath={workspace.activePath}
-              activeFile={workspace.activeFile}
-              truncatedCount={workspace.truncatedCount}
-              isBackgroundLoading={workspace.isBackgroundLoading}
+          <CodeTabView
+            treeItems={workspace.treeItems}
+            filesByPath={workspace.filesByPath}
+            openPaths={workspace.openPaths}
+            activePath={workspace.activePath}
+            activeFile={workspace.activeFile}
+            truncatedCount={workspace.truncatedCount}
+            isBackgroundLoading={workspace.isBackgroundLoading}
+            runtimeError={workspace.runtimeError}
+            loadError={workspace.loadError}
+            runtimeLog={workspace.runtimeLog}
+            isRestarting={workspace.isRestarting}
+            onFileClick={workspace.onFileClick}
+            onCloseTab={workspace.onCloseTab}
+            onEditorChange={workspace.onEditorChange}
+            onRestartPreview={workspace.onRestartPreview}
+            problemGroups={analysis.problemGroups}
+            isAnalyzing={analysis.isAnalyzing}
+            analysisError={analysis.error}
+            branches={git.branches}
+            currentBranch={git.currentBranch}
+            changedFiles={git.changedFiles}
+            selectedPaths={git.selectedPaths}
+            diffPath={git.diffPath}
+            diff={git.diff}
+            isDiffLoading={git.isDiffLoading}
+            isGitLoading={git.isLoading}
+            gitError={git.error}
+            onToggleChangeSelect={git.toggleSelectedPath}
+            onSelectAllChanges={git.setAllSelected}
+            onOpenDiff={git.openDiff}
+            onRefreshGit={git.refresh}
+          />
+        ) : (
+          <main
+            className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
+            aria-label="미리보기 영역"
+          >
+            <WorkspacePreviewMain
+              repositoryUrl={workspace.repositoryUrl}
+              previewStatus={workspace.previewStatus}
+              previewUrl={workspace.previewUrl}
+              previewRevision={workspace.previewRevision}
               runtimeError={workspace.runtimeError}
               loadError={workspace.loadError}
-              runtimeLog={workspace.runtimeLog}
-              isRestarting={workspace.isRestarting}
-              onFileClick={workspace.onFileClick}
-              onCloseTab={workspace.onCloseTab}
-              onEditorChange={workspace.onEditorChange}
-              onRestartPreview={workspace.onRestartPreview}
-              problemGroups={analysis.problemGroups}
-              isAnalyzing={analysis.isAnalyzing}
-              analysisError={analysis.error}
-              branches={git.branches}
-              currentBranch={git.currentBranch}
-              changedFiles={git.changedFiles}
-              selectedPaths={git.selectedPaths}
-              diffPath={git.diffPath}
-              diff={git.diff}
-              isDiffLoading={git.isDiffLoading}
-              isGitLoading={git.isLoading}
-              gitError={git.error}
-              onToggleChangeSelect={git.toggleSelectedPath}
-              onSelectAllChanges={git.setAllSelected}
-              onOpenDiff={git.openDiff}
-              onRefreshGit={git.refresh}
+              loadingMessage={workspace.loadingMessage}
+              iframeRef={design.iframeRef}
+              issueHighlights={previewIssueHighlights}
+              selectedIssueId={visibleSelectedIssueId}
+              filesByPath={workspace.filesByPath}
+              isDesignTab={isDesignTab}
+              showErrors={showErrors}
+              onToggleErrors={() => setShowErrors((current) => !current)}
+              onRefresh={() => {
+                void workspace.onRestartPreview();
+              }}
+              onSelectIssue={setSelectedIssueId}
             />
-
-            <WorkspaceChatSidebar />
-          </>
-        ) : (
-          <>
-            <main
-              className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
-              aria-label="미리보기 영역"
-            >
-              <WorkspacePreviewMain
-                repositoryUrl={workspace.repositoryUrl}
-                previewStatus={workspace.previewStatus}
-                previewUrl={workspace.previewUrl}
-                previewRevision={workspace.previewRevision}
-                runtimeError={workspace.runtimeError}
-                loadError={workspace.loadError}
-                loadingMessage={workspace.loadingMessage}
-                iframeRef={design.iframeRef}
-                issueHighlights={previewIssueHighlights}
-                selectedIssueId={visibleSelectedIssueId}
-                filesByPath={workspace.filesByPath}
-                isDesignTab={isDesignTab}
-                showErrors={showErrors}
-                onToggleErrors={() => setShowErrors((current) => !current)}
-                onRefresh={() => {
-                  void workspace.onRestartPreview();
-                }}
-                onSelectIssue={setSelectedIssueId}
-              />
-            </main>
-
-            {isDesignTab ? (
-              <DesignInspectorSidebar
-                selectedElement={design.selectedElement}
-                values={design.designValues}
-                onChange={design.handleDesignChange}
-              />
-            ) : (
-              <WorkspaceRightSidebar
-                selectedIssue={selectedIssue}
-                onEditInCode={() => {
-                  setActiveTab("code");
-                  if (selectedIssue?.targetFilePath) {
-                    void workspace.onFileClick(selectedIssue.targetFilePath);
-                  }
-                }}
-              />
-            )}
-          </>
+          </main>
         )}
+
+        {rightSidebar}
       </div>
 
       {isCommitDialogOpen && (

@@ -2,6 +2,7 @@ import type { AccessibilityCategoryGroup, AccessibilityScoreSummary } from "../t
 import { WorkspaceReauditButton } from "./buttons";
 import AccessibilityDetailSection from "./leftSidebar/AccessibilityDetailSection";
 import AccessibilityScoreCard from "./leftSidebar/AccessibilityScoreCard";
+import WorkspaceSidebar from "./WorkspaceSidebar";
 
 interface WorkspaceLeftSidebarProps {
   score: AccessibilityScoreSummary;
@@ -39,10 +40,7 @@ export default function WorkspaceLeftSidebar({
           : null;
 
   return (
-    <aside
-      className="flex min-h-0 min-w-0 flex-col border-r border-[#e7e7ec] bg-[#f7f4ff]"
-      aria-label="접근성 검사 사이드바"
-    >
+    <WorkspaceSidebar side="left" label="접근성 검사 사이드바">
       <AccessibilityScoreCard score={score} />
 
       {statusMessage && (
@@ -69,6 +67,6 @@ export default function WorkspaceLeftSidebar({
           {isAnalyzing ? "검사 중..." : undefined}
         </WorkspaceReauditButton>
       </div>
-    </aside>
+    </WorkspaceSidebar>
   );
 }
