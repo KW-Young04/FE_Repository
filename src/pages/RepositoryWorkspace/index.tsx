@@ -183,7 +183,7 @@ export default function RepositoryWorkspacePage() {
           />
         ) : (
           <main
-            className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
+            className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
             aria-label="미리보기 영역"
           >
             <WorkspacePreviewMain

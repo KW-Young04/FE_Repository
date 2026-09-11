@@ -13,7 +13,7 @@ export default function TopIssuesSection({
   onSelectIssue,
 }: TopIssuesSectionProps) {
   return (
-    <section className="h-[239px] shrink-0 border-t border-slate-200 bg-white px-[17px] pt-[20px] pb-3">
+    <section className="h-[239px] shrink-0 overflow-hidden border-t border-slate-200 bg-white px-[17px] pt-[20px] pb-3">
       <div className="mb-[13px] flex items-center justify-between">
         <h2 className="m-0 text-[15px] font-bold text-slate-900">주요 이슈 Top3</h2>
         <span className="text-[9px] text-slate-400">총 {totalCount}개 항목 검사</span>
