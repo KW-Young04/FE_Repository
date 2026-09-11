@@ -113,6 +113,119 @@ export function instrumentHtmlForDesign(source: string): string {
   return result;
 }
 
+function offsetToLine(source: string, offset: number): number {
+  let line = 1;
+  const limit = Math.min(offset, source.length);
+  for (let index = 0; index < limit; index++) {
+    if (source[index] === "\n") line += 1;
+  }
+  return line;
+}
+
+function extractOpenTagSnippet(codeBlock: string): { name: string; text: string } | null {
+  const withoutPreamble = codeBlock
+    .trim()
+    .replace(/^(?:\s*(?:<!doctype[^>]*>|<!--[\s\S]*?-->))*\s*/i, "");
+  const match = withoutPreamble.match(/<([a-zA-Z][\w:-]*)\b[^>]*>/);
+  if (!match) return null;
+  return { name: match[1].toLowerCase(), text: match[0] };
+}
+
+function readSnippetAttribute(tag: string, name: string): string | null {
+  const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i");
+  const match = tag.match(pattern);
+  return match?.[1] ?? match?.[2] ?? null;
+}
+
+function tagMatchesSnippet(openTag: string, snippet: string): boolean {
+  const identifyingAttributes = ["id", "src", "alt", "href", "name", "aria-label", "data-testid"];
+  let compared = false;
+
+  for (const attribute of identifyingAttributes) {
+    const expected = readSnippetAttribute(snippet, attribute);
+    if (!expected || expected.startsWith("{")) continue;
+    compared = true;
+    if (readSnippetAttribute(openTag, attribute) !== expected) return false;
+  }
+
+  const className =
+    readSnippetAttribute(snippet, "class") ?? readSnippetAttribute(snippet, "className");
+  const firstClass = className?.split(/\s+/).find((part) => part && !part.startsWith("{"));
+  if (firstClass) {
+    compared = true;
+    const tagClass =
+      readSnippetAttribute(openTag, "class") ?? readSnippetAttribute(openTag, "className") ?? "";
+    if (!tagClass.split(/\s+/).includes(firstClass)) return false;
+  }
+
+  if (compared) return true;
+
+  const normalizedTag = openTag.replace(/\s+/g, " ").trim().toLowerCase();
+  const normalizedSnippet = snippet.replace(/\s+/g, " ").trim().toLowerCase();
+  return normalizedTag.includes(normalizedSnippet.slice(0, Math.min(40, normalizedSnippet.length)));
+}
+
+export interface MarkupAnchor {
+  sourceId: number;
+  occurrenceIndex: number;
+  tagName: string;
+}
+
+/** 소스 줄/코드 조각으로 문서 순서 태그 인덱스(data-codee-id)를 찾는다. */
+export function resolveMarkupAnchor(
+  source: string,
+  options: { startLine?: number | null; codeBlock?: string | null },
+): MarkupAnchor | null {
+  if (!source) return null;
+
+  const tags = scanOpenTags(source);
+  if (tags.length === 0) return null;
+
+  const snippet = extractOpenTagSnippet(options.codeBlock ?? "");
+  const startLine =
+    options.startLine && options.startLine > 0 ? options.startLine : null;
+
+  if (!snippet && startLine == null) return null;
+
+  let candidates = snippet
+    ? tags.filter((tag) => tag.name.toLowerCase() === snippet.name)
+    : tags;
+
+  if (snippet) {
+    const matchedBySnippet = candidates.filter((tag) =>
+      tagMatchesSnippet(source.slice(tag.tagStart, tag.tagEnd), snippet.text),
+    );
+    if (matchedBySnippet.length > 0) {
+      candidates = matchedBySnippet;
+    }
+  }
+
+  if (startLine != null) {
+    const onLine = candidates.filter((tag) => offsetToLine(source, tag.tagStart) === startLine);
+    if (onLine.length > 0) {
+      candidates = onLine;
+    } else if (!snippet) {
+      const anyOnLine = tags.filter((tag) => offsetToLine(source, tag.tagStart) === startLine);
+      if (anyOnLine.length > 0) candidates = anyOnLine;
+    }
+  }
+
+  const matched = candidates[0];
+  if (!matched) return null;
+
+  const sameName = tags.filter((tag) => tag.name.toLowerCase() === matched.name.toLowerCase());
+  const occurrenceIndex = Math.max(
+    0,
+    sameName.findIndex((tag) => tag.index === matched.index),
+  );
+
+  return {
+    sourceId: matched.index,
+    occurrenceIndex,
+    tagName: matched.name.toLowerCase(),
+  };
+}
+
 function parseStyleDeclarations(styleValue: string): Map<string, string> {
   const declarations = new Map<string, string>();
   for (const part of styleValue.split(";")) {

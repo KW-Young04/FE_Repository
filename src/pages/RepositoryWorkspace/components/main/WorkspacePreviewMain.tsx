@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 
-import type { AccessibilityIssue, PreviewStatus } from "../../types";
+import type { AccessibilityIssue, LoadedFile, PreviewStatus } from "../../types";
 import { getTopIssues } from "../../utils/issueVisual";
 import { buildPreviewSrc } from "../../utils/previewSrc";
 import BrowserToolbar from "../preview/BrowserToolbar";
@@ -18,6 +18,7 @@ interface WorkspacePreviewMainProps {
   iframeRef?: RefObject<HTMLIFrameElement | null>;
   issueHighlights?: AccessibilityIssue[];
   selectedIssueId?: string | null;
+  filesByPath?: Record<string, LoadedFile>;
   isDesignTab?: boolean;
   showErrors?: boolean;
   onToggleErrors?: () => void;
@@ -65,6 +66,7 @@ export default function WorkspacePreviewMain({
   iframeRef,
   issueHighlights = [],
   selectedIssueId,
+  filesByPath = {},
   isDesignTab = false,
   showErrors = true,
   onToggleErrors,
@@ -111,6 +113,7 @@ export default function WorkspacePreviewMain({
           iframeRef={iframeRef}
           issueHighlights={showErrors ? issueHighlights : []}
           selectedIssueId={selectedIssueId}
+          filesByPath={filesByPath}
         />
       </div>
 

@@ -69,6 +69,8 @@ function toAccessibilityIssue(issue: RealtimeIssueDetail, index: number): Access
     summary: issue.description?.trim() || issue.suggestion?.trim() || "상세 설명이 없습니다.",
     targetFilePath: issue.targetFilePath || undefined,
     targetSelector: issue.targetSelector || undefined,
+    startLine: issue.startLine && issue.startLine > 0 ? issue.startLine : undefined,
+    endLine: issue.endLine && issue.endLine > 0 ? issue.endLine : undefined,
     originalCodeBlock: issue.originalCodeBlock || undefined,
     suggestion: issue.suggestion || undefined,
     measuredValue: issue.measuredValue || undefined,
@@ -118,7 +120,7 @@ export function toAccessibilityScore(issues: RealtimeIssueDetail[]): Accessibili
 /** 코드 블록이 원본 어디에 있는지 찾아 문제 목록의 줄/열 번호를 채운다. */
 function locateCodeBlock(code: string, codeBlock: string | undefined) {
   const needle = codeBlock?.split("\n")[0]?.trim();
-  if (!needle) return { line: 1, column: 1 };
+  if (!needle) return null;
 
   const lines = code.split("\n");
   for (let index = 0; index < lines.length; index++) {
@@ -128,7 +130,7 @@ function locateCodeBlock(code: string, codeBlock: string | undefined) {
     }
   }
 
-  return { line: 1, column: 1 };
+  return null;
 }
 
 export function toProblemGroups(
@@ -141,7 +143,11 @@ export function toProblemGroups(
   issues.forEach((issue, index) => {
     const path = issue.targetFilePath?.trim() || analyzedPath || "알 수 없는 파일";
     const level = normalizeWcagLevel(issue.levelType);
-    const { line, column } = locateCodeBlock(code, issue.originalCodeBlock);
+    const located =
+      issue.startLine && issue.startLine > 0
+        ? { line: issue.startLine, column: 1 }
+        : (locateCodeBlock(code, issue.originalCodeBlock) ?? { line: 1, column: 1 });
+    const { line, column } = located;
     const selectorHint = issue.targetSelector ? ` — ${issue.targetSelector}` : "";
 
     const problem: ProblemItem = {

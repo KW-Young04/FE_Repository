@@ -189,6 +189,7 @@ export default function RepositoryWorkspacePage() {
                 iframeRef={design.iframeRef}
                 issueHighlights={previewIssueHighlights}
                 selectedIssueId={visibleSelectedIssueId}
+                filesByPath={workspace.filesByPath}
                 isDesignTab={isDesignTab}
                 showErrors={showErrors}
                 onToggleErrors={() => setShowErrors((current) => !current)}

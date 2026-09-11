@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 
-import type { AccessibilityIssue } from "../../types";
-
-interface PreviewIssueHighlight {
-  id: string;
-  code: string;
-  selector: string;
-}
+import type { AccessibilityIssue, LoadedFile } from "../../types";
+import { buildPreviewIssueHighlights } from "../../utils/issueHighlight";
+import PreviewIssueOverlays from "./PreviewIssueOverlays";
+import type { PreviewIssueOverlayBox } from "./PreviewIssueOverlays";
 
 interface PreviewFrameProps {
   previewSrc: string;
@@ -17,39 +14,7 @@ interface PreviewFrameProps {
   iframeRef?: RefObject<HTMLIFrameElement | null>;
   issueHighlights?: AccessibilityIssue[];
   selectedIssueId?: string | null;
-}
-
-function quoteCssAttributeValue(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-function readHtmlAttribute(tag: string, name: string): string | null {
-  const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i");
-  const match = tag.match(pattern);
-  return match?.[1] ?? match?.[2] ?? null;
-}
-
-function selectorFromCodeBlock(codeBlock: string | undefined): string | null {
-  if (!codeBlock) return null;
-
-  const tagMatch = codeBlock.trim().match(/^<([a-z][\w-]*)\b[^>]*>/i);
-  if (!tagMatch) return null;
-
-  const tag = tagMatch[1].toLowerCase();
-  const fullTag = tagMatch[0];
-  const id = readHtmlAttribute(fullTag, "id");
-  if (id) return `[id="${quoteCssAttributeValue(id)}"]`;
-
-  for (const attribute of ["aria-label", "alt", "href", "src", "name", "type"]) {
-    const value = readHtmlAttribute(fullTag, attribute);
-    if (value) return `${tag}[${attribute}="${quoteCssAttributeValue(value)}"]`;
-  }
-
-  const className = readHtmlAttribute(fullTag, "class");
-  const firstClass = className?.split(/\s+/).find(Boolean);
-  if (firstClass) return `${tag}[class~="${quoteCssAttributeValue(firstClass)}"]`;
-
-  return null;
+  filesByPath?: Record<string, LoadedFile>;
 }
 
 export default function PreviewFrame({
@@ -59,31 +24,16 @@ export default function PreviewFrame({
   iframeRef,
   issueHighlights = [],
   selectedIssueId,
+  filesByPath = {},
 }: PreviewFrameProps) {
   const internalIframeRef = useRef<HTMLIFrameElement | null>(null);
-  const highlights = useMemo<PreviewIssueHighlight[]>(() => {
-    const selectableIssues = selectedIssueId
+  const [overlayBoxes, setOverlayBoxes] = useState<PreviewIssueOverlayBox[]>([]);
+  const highlights = useMemo(() => {
+    const scoped = selectedIssueId
       ? issueHighlights.filter((issue) => issue.id === selectedIssueId)
       : issueHighlights;
-
-    return selectableIssues
-      .filter((issue) => Boolean(issue.targetSelector))
-      .map((issue) => ({
-        id: issue.id,
-        code: issue.code,
-        selector: issue.targetSelector as string,
-      }))
-      .concat(
-        selectableIssues
-          .filter((issue) => !issue.targetSelector)
-          .map((issue) => ({
-            id: issue.id,
-            code: issue.code,
-            selector: selectorFromCodeBlock(issue.originalCodeBlock),
-          }))
-          .filter((issue): issue is PreviewIssueHighlight => Boolean(issue.selector)),
-      );
-  }, [issueHighlights, selectedIssueId]);
+    return buildPreviewIssueHighlights(scoped, filesByPath, selectedIssueId);
+  }, [filesByPath, issueHighlights, selectedIssueId]);
 
   const setIframeRef = useCallback(
     (node: HTMLIFrameElement | null) => {
@@ -107,24 +57,32 @@ export default function PreviewFrame({
   }, [highlights]);
 
   useEffect(() => {
+    if (highlights.length === 0) {
+      setOverlayBoxes([]);
+    }
     postIssueHighlights();
-  }, [postIssueHighlights, previewSrc, previewRevision]);
+  }, [highlights, postIssueHighlights, previewSrc, previewRevision]);
 
   useEffect(() => {
-    const handleRuntimeReady = (event: MessageEvent) => {
-      if (event.source !== internalIframeRef.current?.contentWindow) return;
-      if (
-        !event.data ||
-        event.data.source !== "codee-design-runtime" ||
-        event.data.type !== "ready"
-      ) {
+    const isFromPreview = (event: MessageEvent) =>
+      event.source === internalIframeRef.current?.contentWindow;
+
+    const handleRuntimeMessage = (event: MessageEvent) => {
+      if (!isFromPreview(event) || !event.data || event.data.source !== "codee-design-runtime") {
         return;
       }
-      postIssueHighlights();
+      if (event.data.type === "ready") {
+        postIssueHighlights();
+        return;
+      }
+      if (event.data.type === "issue-overlays") {
+        const overlays = event.data.payload?.overlays;
+        setOverlayBoxes(Array.isArray(overlays) ? overlays : []);
+      }
     };
 
-    window.addEventListener("message", handleRuntimeReady);
-    return () => window.removeEventListener("message", handleRuntimeReady);
+    window.addEventListener("message", handleRuntimeMessage);
+    return () => window.removeEventListener("message", handleRuntimeMessage);
   }, [postIssueHighlights]);
 
   if (!previewSrc) {
@@ -138,18 +96,21 @@ export default function PreviewFrame({
   }
 
   return (
-    <iframe
-      ref={setIframeRef}
-      key={previewRevision}
-      title="repository-preview"
-      src={previewSrc}
-      className="h-full w-full border-0 bg-white"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-      onLoad={() => {
-        postIssueHighlights();
-        window.setTimeout(postIssueHighlights, 300);
-        window.setTimeout(postIssueHighlights, 1000);
-      }}
-    />
+    <div className="relative h-full w-full">
+      <iframe
+        ref={setIframeRef}
+        key={previewRevision}
+        title="repository-preview"
+        src={previewSrc}
+        className="h-full w-full border-0 bg-white"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+        onLoad={() => {
+          postIssueHighlights();
+          window.setTimeout(postIssueHighlights, 300);
+          window.setTimeout(postIssueHighlights, 1000);
+        }}
+      />
+      <PreviewIssueOverlays overlays={overlayBoxes} />
+    </div>
   );
 }
