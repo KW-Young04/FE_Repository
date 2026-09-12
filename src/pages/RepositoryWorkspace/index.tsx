@@ -2,22 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import type { GitFileChangeResponse } from "@/api/git";
-import { useRepositoryWorkspace } from "@/pages/RepositoryWorkspaceTest/useRepositoryWorkspace";
-import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
+import { useRepositoryWorkspace } from "@/workspace/useRepositoryWorkspace";
+import { normalizeRepositoryUrl } from "@/workspace/workspaceUtils";
 
-import CodeTabView from "./components/code/CodeTabView";
-import CommitDialog from "./components/git/CommitDialog";
-import WorkspacePreviewMain from "./components/main/WorkspacePreviewMain";
-import WorkspaceLeftSidebar from "./components/WorkspaceLeftSidebar";
-import WorkspaceRightSidebar from "./components/WorkspaceRightSidebar";
-import { getWorkspaceLayoutGridClass } from "./components/WorkspaceSidebar";
-import WorkspaceTopBar from "./components/WorkspaceTopBar";
-import { useDesignInspector } from "./hooks/useDesignInspector";
-import { useGitWorkspace } from "./hooks/useGitWorkspace";
-import { useRealtimeAnalysis } from "./hooks/useRealtimeAnalysis";
+import { findIssueInGroups } from "./analysis/analysisMapping";
+import { useRealtimeAnalysis } from "./analysis/useRealtimeAnalysis";
+import CodeTabView from "./code/CodeTabView";
+import { useGitWorkspace } from "./code/useGitWorkspace";
+import { useDesignInspector } from "./design/useDesignInspector";
+import CommitDialog from "./layout/git/CommitDialog";
+import WorkspaceLeftSidebar from "./layout/WorkspaceLeftSidebar";
+import WorkspaceRightSidebar from "./layout/WorkspaceRightSidebar";
+import { getWorkspaceLayoutGridClass } from "./layout/WorkspaceSidebar";
+import WorkspaceTopBar from "./layout/WorkspaceTopBar";
+import { buildPreviewSrc } from "./preview/previewSrc";
+import WorkspacePreviewMain from "./preview/WorkspacePreviewMain";
 import type { WorkspaceTab } from "./types";
-import { findIssueInGroups } from "./utils/analysisMapping";
-import { buildPreviewSrc } from "./utils/previewSrc";
 
 export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
@@ -58,6 +58,7 @@ export default function RepositoryWorkspacePage() {
     activePath: workspace.activePath,
     code: workspace.activeFile?.content ?? null,
     encoding: workspace.activeFile?.encoding,
+    contentEditGeneration: workspace.contentEditGeneration,
   });
 
   const previewIssueHighlights = useMemo(
@@ -105,6 +106,8 @@ export default function RepositoryWorkspacePage() {
       isAnalyzing={analysis.isAnalyzing}
       isSupported={analysis.isSupported}
       analyzedPath={analysis.analyzedPath}
+      hasPendingEdits={analysis.hasPendingEdits}
+      canReaudit={analysis.canReaudit}
       error={analysis.error}
       onSelectIssue={setSelectedIssueId}
       onReaudit={analysis.reanalyze}
