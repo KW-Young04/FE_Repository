@@ -1,5 +1,5 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { inferLanguage } from "@/workspace/workspaceUtils";
 
@@ -56,9 +56,28 @@ export default function EditorPanel({
   const editorRef = useRef<MonacoEditorInstance | null>(null);
   const monacoRef = useRef<MonacoApi | null>(null);
   const decorationsRef = useRef<DecorationsCollection | null>(null);
+  /** 에디터가 마지막으로 onChange로 내보낸 값. 부모 state가  lagged 일 때 덮어쓰기를 막는다. */
+  const lastEmittedContentRef = useRef<string | null>(null);
+  const activePathRef = useRef<string | null>(activePath);
 
   const aiDiff = findAiDiff(activePath);
   const hasAiSuggestion = Boolean(aiDiff);
+  const editorLanguage = activeFile ? inferLanguage(activeFile.path) : "plaintext";
+  const editorOptions = useMemo(
+    () => ({
+      minimap: { enabled: false },
+      fontSize: 12,
+      lineNumbers: "on" as const,
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 6,
+      automaticLayout: true,
+      tabSize: 2,
+      scrollBeyondLastLine: false,
+      renderLineHighlight: "none" as const,
+      padding: { top: 8 },
+    }),
+    [],
+  );
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -75,12 +94,52 @@ export default function EditorPanel({
     decorationsRef.current = editor.createDecorationsCollection(decorations);
   }, [aiDiff, activePath]);
 
+  // 디자인 writeback 등 외부에서 같은 파일 내용이 바뀐 경우에만 모델을 갱신한다.
+  const activeContent = activeFile?.content;
+  const activeFilePath = activeFile?.path ?? null;
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || activeContent === undefined || !activeFilePath) return;
+
+    if (activePathRef.current !== activeFilePath) {
+      activePathRef.current = activeFilePath;
+      lastEmittedContentRef.current = activeContent;
+      return;
+    }
+
+    const editorValue = editor.getValue();
+    if (editorValue === activeContent) return;
+    // 에디터가 이미 내보낸 최신 값을 갖고 있으면 부모 state가  lagged 한 것이므로 무시한다.
+    if (editorValue === lastEmittedContentRef.current) return;
+
+    const position = editor.getPosition();
+    const selections = editor.getSelections();
+    editor.setValue(activeContent);
+    lastEmittedContentRef.current = activeContent;
+
+    if (selections && selections.length > 0) {
+      editor.setSelections(selections);
+    } else if (position) {
+      editor.setPosition(position);
+    }
+  }, [activeContent, activeFilePath]);
+
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    activePathRef.current = activePath;
+    lastEmittedContentRef.current = editor.getValue();
     decorationsRef.current = editor.createDecorationsCollection(
       buildDiffDecorations(monaco, aiDiff),
     );
+  };
+
+  const handleEditorChange = (nextValue: string | undefined) => {
+    if (nextValue !== undefined) {
+      lastEmittedContentRef.current = nextValue;
+    }
+    onEditorChange(nextValue);
   };
 
   return (
@@ -177,22 +236,11 @@ export default function EditorPanel({
         {activeFile ? (
           <Editor
             key={activeFile.path}
-            language={inferLanguage(activeFile.path)}
-            value={activeFile.content}
-            onChange={onEditorChange}
+            language={editorLanguage}
+            defaultValue={activeFile.content}
+            onChange={handleEditorChange}
             onMount={handleMount}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 12,
-              lineNumbers: "on",
-              lineNumbersMinChars: 3,
-              lineDecorationsWidth: 6,
-              automaticLayout: true,
-              tabSize: 2,
-              scrollBeyondLastLine: false,
-              renderLineHighlight: "none",
-              padding: { top: 8 },
-            }}
+            options={editorOptions}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-[12px] font-medium text-slate-400">
