@@ -82,6 +82,8 @@ export function useRepositoryWorkspace(
     previewUrl: preview.previewUrl,
     previewRevision: preview.previewRevision,
     previewProjectLabel: preview.previewProjectLabel,
+    previewRuntimeKind: preview.previewRuntimeKind,
+    previewEntryPath: preview.previewEntryPath,
     runtimeLog: preview.runtimeLog,
     runtimeError: preview.runtimeError,
     snapshotCaptureStatus: preview.snapshotCaptureStatus,
