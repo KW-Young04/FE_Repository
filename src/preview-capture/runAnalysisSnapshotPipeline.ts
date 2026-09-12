@@ -6,22 +6,22 @@ import {
   explainUnsupportedPreviewRepo,
   type PreviewProjectProfile,
   withPreviewDependencyFixes,
-} from "@/pages/RepositoryWorkspace/previewProject";
+} from "@/workspace/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
   MAX_STATIC_SNAPSHOT_PAGES,
   NPM_INSTALL_TIMEOUT_MS,
   PREVIEW_PORT,
   SERVER_READY_TIMEOUT_MS,
-} from "@/pages/RepositoryWorkspace/constants";
-import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
+} from "@/workspace/constants";
+import type { LoadedFile } from "@/workspace/types";
 import {
   buildFileSystemTree,
   createStaticServerScript,
   ensurePreviewFilesLoaded,
   findPreviewEntryPath,
   withTimeout,
-} from "@/pages/RepositoryWorkspace/workspaceUtils";
+} from "@/workspace/workspaceUtils";
 import { acquireCleanWebContainer } from "@/utils/webContainerRuntime";
 import {
   mountOrSyncWorkspace,

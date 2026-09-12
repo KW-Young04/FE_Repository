@@ -1,6 +1,6 @@
 import type { WebContainer } from "@webcontainer/api";
-import type { PreviewProjectProfile } from "@/pages/RepositoryWorkspace/previewProject";
-import type { LoadedFile } from "@/pages/RepositoryWorkspace/types";
+import type { PreviewProjectProfile } from "@/workspace/previewProject";
+import type { LoadedFile } from "@/workspace/types";
 import { writeWorkspaceBinaryFile, writeWorkspaceFile } from "@/utils/webContainerFilesystem";
 import { buildCaptureHostBootScript } from "./buildCaptureHostBootScript";
 import { CAPTURE_HOST_HTML } from "./captureHostTemplate";

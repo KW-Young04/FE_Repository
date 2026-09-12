@@ -10,7 +10,7 @@ import {
   prewarmWebContainer,
 } from "@/utils/webContainerRuntime";
 import { getOrStartWorkspaceWarmup } from "@/utils/workspaceWarmup";
-import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspace/workspaceUtils";
+import { normalizeRepositoryUrl } from "@/workspace/workspaceUtils";
 
 type StepStatus = "pending" | "running" | "done" | "error";
 

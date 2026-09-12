@@ -2,22 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import type { GitFileChangeResponse } from "@/api/git";
-import { useRepositoryWorkspace } from "./hooks/useRepositoryWorkspace";
-import { normalizeRepositoryUrl } from "./workspaceUtils";
+import { useRepositoryWorkspace } from "@/workspace/useRepositoryWorkspace";
+import { normalizeRepositoryUrl } from "@/workspace/workspaceUtils";
 
-import CodeTabView from "./components/code/CodeTabView";
-import CommitDialog from "./components/git/CommitDialog";
-import WorkspacePreviewMain from "./components/main/WorkspacePreviewMain";
-import WorkspaceLeftSidebar from "./components/WorkspaceLeftSidebar";
-import WorkspaceRightSidebar from "./components/WorkspaceRightSidebar";
-import { getWorkspaceLayoutGridClass } from "./components/WorkspaceSidebar";
-import WorkspaceTopBar from "./components/WorkspaceTopBar";
-import { useDesignInspector } from "./hooks/useDesignInspector";
-import { useGitWorkspace } from "./hooks/useGitWorkspace";
-import { useRealtimeAnalysis } from "./hooks/useRealtimeAnalysis";
+import { findIssueInGroups } from "./analysis/analysisMapping";
+import { useRealtimeAnalysis } from "./analysis/useRealtimeAnalysis";
+import CodeTabView from "./code/CodeTabView";
+import { useGitWorkspace } from "./code/useGitWorkspace";
+import { useDesignInspector } from "./design/useDesignInspector";
+import CommitDialog from "./layout/git/CommitDialog";
+import WorkspaceLeftSidebar from "./layout/WorkspaceLeftSidebar";
+import WorkspaceRightSidebar from "./layout/WorkspaceRightSidebar";
+import { getWorkspaceLayoutGridClass } from "./layout/WorkspaceSidebar";
+import WorkspaceTopBar from "./layout/WorkspaceTopBar";
+import { buildPreviewSrc } from "./preview/previewSrc";
+import WorkspacePreviewMain from "./preview/WorkspacePreviewMain";
 import type { WorkspaceTab } from "./types";
-import { findIssueInGroups } from "./utils/analysisMapping";
-import { buildPreviewSrc } from "./utils/previewSrc";
 
 export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
