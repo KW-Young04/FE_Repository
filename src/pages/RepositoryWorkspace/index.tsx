@@ -55,10 +55,15 @@ export default function RepositoryWorkspacePage() {
 
   const analysis = useRealtimeAnalysis({
     repositoryUrl: workspace.repositoryUrl,
-    activePath: workspace.activePath,
-    code: workspace.activeFile?.content ?? null,
-    encoding: workspace.activeFile?.encoding,
+    branchName: workspace.branchName,
+    previewUrl: workspace.previewUrl,
+    previewStatus: workspace.previewStatus,
+    filesByPath: workspace.filesByPath,
+    previewRuntimeKind: workspace.previewRuntimeKind,
+    previewEntryPath: workspace.previewEntryPath,
     contentEditGeneration: workspace.contentEditGeneration,
+    onFlushPendingWrites: workspace.onFlushPendingWrites,
+    setShowErrors,
   });
 
   const previewIssueHighlights = useMemo(

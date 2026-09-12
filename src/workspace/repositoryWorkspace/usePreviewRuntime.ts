@@ -44,6 +44,8 @@ export function usePreviewRuntime(options: { repositoryUrl: string; branchName: 
   const [analysisResultId, setAnalysisResultId] = useState<number | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
   const [designWriteEnabled, setDesignWriteEnabled] = useState(false);
+  const [previewRuntimeKind, setPreviewRuntimeKind] = useState<PreviewRuntimeKind>("static");
+  const [previewEntryPath, setPreviewEntryPath] = useState<string | null>(null);
 
   const webContainerRef = useRef<WebContainer | null>(null);
   const runtimeProcessRef = useRef<WebContainerProcess | null>(null);
@@ -177,6 +179,8 @@ export function usePreviewRuntime(options: { repositoryUrl: string; branchName: 
     async (container: WebContainer, profile: PreviewProjectProfile) => {
       previewRuntimeKindRef.current = "bundler";
       previewEntryPathRef.current = null;
+      setPreviewRuntimeKind("bundler");
+      setPreviewEntryPath(null);
       setDesignWriteEnabled(false);
       logEvent(`${profile.label} 개발 서버 준비 중`);
 
@@ -287,6 +291,7 @@ export function usePreviewRuntime(options: { repositoryUrl: string; branchName: 
   const startStaticRuntime = useCallback(
     async (container: WebContainer, files: Record<string, LoadedFile>) => {
       previewRuntimeKindRef.current = "static";
+      setPreviewRuntimeKind("static");
       setDesignWriteEnabled(true);
 
       let entryPath = findPreviewEntryPath(files);
@@ -310,6 +315,7 @@ export function usePreviewRuntime(options: { repositoryUrl: string; branchName: 
         logEvent(`프리뷰 진입점: ${entryPath}`);
       }
       previewEntryPathRef.current = entryPath;
+      setPreviewEntryPath(entryPath);
 
       await stopRuntimeProcess();
 
@@ -503,6 +509,8 @@ export function usePreviewRuntime(options: { repositoryUrl: string; branchName: 
     previewUrl,
     previewRevision,
     previewProjectLabel,
+    previewRuntimeKind,
+    previewEntryPath,
     runtimeLog,
     runtimeError,
     snapshotCaptureStatus,

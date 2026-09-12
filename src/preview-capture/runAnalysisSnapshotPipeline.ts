@@ -9,7 +9,6 @@ import {
 } from "@/workspace/previewProject";
 import {
   BUNDLER_SERVER_READY_TIMEOUT_MS,
-  MAX_STATIC_SNAPSHOT_PAGES,
   NPM_INSTALL_TIMEOUT_MS,
   PREVIEW_PORT,
   SERVER_READY_TIMEOUT_MS,
@@ -33,6 +32,7 @@ import { capturePreviewSnapshot } from "./capturePreviewSnapshot";
 import { ensureStaticPreviewAssets } from "./ensureStaticPreviewAssets";
 import { injectCaptureAssets } from "./injectCaptureAssets";
 import { snapshotError, snapshotLog, snapshotWarn } from "./snapshotLogger";
+import { buildStaticSnapshotUrl, getStaticSnapshotPagePaths } from "./snapshotPagePaths";
 
 export interface AnalysisSnapshotPipelineResult {
   resultId: number;
@@ -74,37 +74,6 @@ function toLoadedFiles(
       },
     ]),
   );
-}
-
-function getStaticSnapshotPagePaths(
-  files: Record<string, LoadedFile>,
-  previewEntryPath: string | null,
-): string[] {
-  const htmlPaths = Object.keys(files)
-    .filter((path) => path.endsWith(".html") || path.endsWith(".htm"))
-    .sort((a, b) => {
-      const aDepth = a.split("/").length;
-      const bDepth = b.split("/").length;
-      return aDepth - bDepth || a.localeCompare(b);
-    });
-
-  const ordered = [
-    previewEntryPath,
-    "index.html",
-    "index.htm",
-    "public/index.html",
-    "public/index.htm",
-    ...htmlPaths,
-  ].filter((path): path is string => typeof path === "string" && Boolean(files[path]));
-
-  return Array.from(new Set(ordered)).slice(0, MAX_STATIC_SNAPSHOT_PAGES);
-}
-
-function buildStaticSnapshotUrl(previewUrl: string, pagePath: string, index: number): string {
-  if (index === 0 && (pagePath === "index.html" || pagePath === "index.htm")) {
-    return previewUrl;
-  }
-  return new URL(encodeURI(pagePath), previewUrl).toString();
 }
 
 function waitForServerReady(container: WebContainer, timeoutMs: number): Promise<string> {

@@ -1,5 +1,6 @@
 import type { RepositoryTreeResponse } from "@/api/repository";
 import type { SnapshotCaptureStatus } from "@/preview-capture/types";
+import type { PreviewRuntimeKind } from "./previewProject";
 
 export type PreviewStatus = "idle" | "loading" | "ready" | "error";
 
@@ -45,6 +46,8 @@ export interface RepositoryWorkspaceViewProps {
   previewUrl: string;
   previewRevision: number;
   previewProjectLabel: string;
+  previewRuntimeKind: PreviewRuntimeKind;
+  previewEntryPath: string | null;
   runtimeLog: string[];
   runtimeError: string | null;
   snapshotCaptureStatus: SnapshotCaptureStatus;

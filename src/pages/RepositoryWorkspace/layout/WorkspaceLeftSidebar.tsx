@@ -34,19 +34,19 @@ export default function WorkspaceLeftSidebar({
   const statusMessage = error
     ? error
     : !isSupported
-      ? "HTML/JSX 계열 파일을 열면 재검사할 수 있습니다."
+      ? "프리뷰가 준비되면 전체 저장소를 재검사할 수 있습니다."
       : isAnalyzing
-        ? "웹 접근성 검사 중..."
+        ? "전체 저장소 웹 접근성 재검사 중..."
         : analyzedPath
           ? groups.length === 0
-            ? `${analyzedPath} 에서 발견된 위반 항목이 없습니다.`
+            ? `${analyzedPath}에서 발견된 위반 항목이 없습니다.`
             : `검사 대상: ${analyzedPath}`
-          : "재검사 버튼으로 웹 접근성을 검사할 수 있습니다.";
+          : "재검사 버튼으로 전체 저장소 웹 접근성을 검사할 수 있습니다.";
 
   const reauditDisabledReason = isAnalyzing
     ? undefined
     : !isSupported
-      ? "분석 가능한 파일을 열어 주세요."
+      ? "프리뷰가 준비될 때까지 기다려 주세요."
       : !hasPendingEdits
         ? "마지막 검사 이후 코드가 수정되면 재검사가 활성화됩니다."
         : undefined;
