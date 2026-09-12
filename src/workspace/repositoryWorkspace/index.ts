@@ -1,4 +1,4 @@
 export {
   useRepositoryWorkspace,
   type UseRepositoryWorkspaceOptions,
-} from "./repositoryWorkspace";
+} from "./useRepositoryWorkspace";
