@@ -3,7 +3,7 @@ import {
   MAX_PREVIEW_EXPANSION_BYTES,
   MAX_PREVIEW_EXPANSION_FILES,
   PRELOAD_BATCH_SIZE,
-} from "@/pages/RepositoryWorkspaceTest/constants";
+} from "@/pages/RepositoryWorkspace/constants";
 
 const TEXT_ASSET_EXTENSIONS = new Set([
   ".css",

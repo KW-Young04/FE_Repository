@@ -6,7 +6,7 @@ import {
   getStoredWcagAnalysis,
   type RealtimeIssueDetail,
 } from "@/api/analysis";
-import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
+import { normalizeRepositoryUrl } from "../workspaceUtils";
 
 import type {
   AccessibilityCategoryGroup,

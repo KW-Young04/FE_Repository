@@ -1,7 +1,7 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useEffect, useRef } from "react";
 
-import { inferLanguage } from "@/pages/RepositoryWorkspaceTest/utils";
+import { inferLanguage } from "../../workspaceUtils";
 
 import { findAiDiff } from "../../data/codeWorkspace";
 import type { AiDiffLines, LoadedFile } from "../../types";

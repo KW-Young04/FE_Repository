@@ -4,7 +4,7 @@ import {
   FILE_FETCH_TIMEOUT_MS,
   MAX_CORE_FILE_COUNT,
   MAX_PREVIEW_FILE_BYTES,
-} from "@/pages/RepositoryWorkspaceTest/constants";
+} from "@/pages/RepositoryWorkspace/constants";
 
 interface WarmupFile {
   path: string;

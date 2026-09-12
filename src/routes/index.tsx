@@ -5,7 +5,6 @@ import RepositoryConnectPage from "@/pages/RepositoryConnect";
 import AnalysisProgressPage from "@/pages/AnalysisProgress";
 import OAuthCallbackPage from "@/pages/OAuthCallback";
 import RepositoryWorkspacePage from "@/pages/RepositoryWorkspace";
-import RepositoryWorkspaceTestPage from "@/pages/RepositoryWorkspaceTest";
 
 function AnalysisWorkspaceRedirect() {
   const [searchParams] = useSearchParams();
@@ -23,5 +22,8 @@ export const router = createBrowserRouter([
   { path: "/repository-analysis", element: <AnalysisProgressPage /> },
   { path: "/analysis-workspace", element: <AnalysisWorkspaceRedirect /> },
   { path: "/repository-workspace", element: <RepositoryWorkspacePage /> },
-  { path: "/repository-workspace-test", element: <RepositoryWorkspaceTestPage /> },
+  {
+    path: "/repository-workspace-test",
+    element: <AnalysisWorkspaceRedirect />,
+  },
 ]);

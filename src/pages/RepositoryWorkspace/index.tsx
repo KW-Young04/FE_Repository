@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import type { GitFileChangeResponse } from "@/api/git";
-import { useRepositoryWorkspace } from "@/pages/RepositoryWorkspaceTest/useRepositoryWorkspace";
-import { normalizeRepositoryUrl } from "@/pages/RepositoryWorkspaceTest/utils";
+import { useRepositoryWorkspace } from "./hooks/useRepositoryWorkspace";
+import { normalizeRepositoryUrl } from "./workspaceUtils";
 
 import CodeTabView from "./components/code/CodeTabView";
 import CommitDialog from "./components/git/CommitDialog";

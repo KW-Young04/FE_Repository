@@ -16,27 +16,27 @@ import {
   SERVER_READY_TIMEOUT_MS,
   BUNDLER_SERVER_READY_TIMEOUT_MS,
   NPM_INSTALL_TIMEOUT_MS,
-} from "./constants";
+} from "../constants";
 import type {
   LoadDiagnostics,
   LoadedFile,
   PreviewStatus,
   RepositoryWorkspaceViewProps,
-} from "./types";
+} from "../types";
 import {
   resolvePreviewProject,
   type PreviewProjectProfile,
   type PreviewRuntimeKind,
   withPreviewDependencyFixes,
-} from "./previewProject";
+} from "../previewProject";
 import {
   createDesignRuntimeScript,
   injectDesignRuntimeIntoHtml,
-} from "../RepositoryWorkspace/designRuntime";
+} from "../designRuntime";
 import {
   applyInlineStyleToSource,
   instrumentHtmlForDesign,
-} from "../RepositoryWorkspace/designWriteback";
+} from "../designWriteback";
 import {
   buildFileSystemTree,
   buildTree,
@@ -61,7 +61,7 @@ import {
   getBundlerBackgroundPaths,
   getBackgroundPreloadPaths,
   toWorkspaceFileContent,
-} from "./utils";
+} from "../workspaceUtils";
 
 /**
  * iframe에서 서빙할 HTML을 준비한다.
