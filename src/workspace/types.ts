@@ -52,6 +52,8 @@ export interface RepositoryWorkspaceViewProps {
   isRestarting: boolean;
   /** 정적 HTML 프리뷰에서 디자인 변경을 소스 코드로 반영할 수 있는지 여부 */
   designWriteEnabled: boolean;
+  /** 사용자 코드 수정(에디터/디자인 writeback)이 발생할 때마다 증가한다. */
+  contentEditGeneration: number;
   onFileClick: (path: string) => void | Promise<void>;
   onCloseTab: (path: string) => void;
   onEditorChange: (nextValue: string | undefined) => void;

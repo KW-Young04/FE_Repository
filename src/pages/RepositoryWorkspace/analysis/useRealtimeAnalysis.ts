@@ -19,7 +19,6 @@ import {
   toProblemGroups,
 } from "./analysisMapping";
 
-const ANALYSIS_DEBOUNCE_MS = 1_200;
 const MAX_ANALYZED_BYTES = 200 * 1024;
 
 /** 백엔드 정적 분석 룰은 마크업 기반이라 마크업을 담는 파일만 보낸다. */
@@ -53,6 +52,8 @@ interface UseRealtimeAnalysisParams {
   code: string | null;
   /** base64 등 텍스트가 아닌 파일은 분석 대상에서 제외한다. */
   encoding?: string;
+  /** 사용자 코드 수정이 발생할 때마다 증가하는 세대. 자동 분석 없이 재검사 활성화를 판단한다. */
+  contentEditGeneration?: number;
 }
 
 export interface RealtimeAnalysisState {
@@ -64,6 +65,8 @@ export interface RealtimeAnalysisState {
   analyzedAt: string | null;
   isAnalyzing: boolean;
   isSupported: boolean;
+  hasPendingEdits: boolean;
+  canReaudit: boolean;
   error: string | null;
   reanalyze: () => void;
 }
@@ -73,12 +76,14 @@ export function useRealtimeAnalysis({
   activePath,
   code,
   encoding,
+  contentEditGeneration = 0,
 }: UseRealtimeAnalysisParams): RealtimeAnalysisState {
   const [issues, setIssues] = useState<RealtimeIssueDetail[]>([]);
   const [storedIssues, setStoredIssues] = useState<RealtimeIssueDetail[] | null>(null);
   const [analyzedPath, setAnalyzedPath] = useState<string | null>(null);
   const [analyzedCode, setAnalyzedCode] = useState("");
   const [analyzedAt, setAnalyzedAt] = useState<string | null>(null);
+  const [analyzedEditGeneration, setAnalyzedEditGeneration] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoadingStoredAnalysis, setIsLoadingStoredAnalysis] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,14 +91,22 @@ export function useRealtimeAnalysis({
 
   const abortRef = useRef<AbortController | null>(null);
   const lastManualTriggerRef = useRef(manualTrigger);
+  const contentEditGenerationRef = useRef(contentEditGeneration);
+  contentEditGenerationRef.current = contentEditGeneration;
 
   const isTextFile = encoding !== "base64";
   const isSupported = isAnalyzablePath(activePath) && isTextFile;
   const isTooLarge = (code?.length ?? 0) > MAX_ANALYZED_BYTES;
+  const hasPendingEdits =
+    analyzedEditGeneration === null
+      ? !isLoadingStoredAnalysis && storedIssues === null
+      : contentEditGeneration > analyzedEditGeneration;
+  const canReaudit = isSupported && !isTooLarge && !isAnalyzing && !isLoadingStoredAnalysis && hasPendingEdits;
 
   useEffect(() => {
     if (!repositoryUrl) {
       setStoredIssues(null);
+      setAnalyzedEditGeneration(null);
       return;
     }
 
@@ -105,6 +118,7 @@ export function useRealtimeAnalysis({
     }
 
     const controller = new AbortController();
+    const generationAtStart = contentEditGenerationRef.current;
     setIsLoadingStoredAnalysis(true);
 
     void getStoredWcagAnalysis(resultId, controller.signal)
@@ -112,6 +126,7 @@ export function useRealtimeAnalysis({
         if (controller.signal.aborted) return;
         setStoredIssues(response.issues ?? []);
         setAnalyzedAt(response.timestamp ?? new Date().toISOString());
+        setAnalyzedEditGeneration(generationAtStart);
         setError(null);
       })
       .catch((requestError) => {
@@ -138,6 +153,12 @@ export function useRealtimeAnalysis({
       return;
     }
 
+    const isManualRun = lastManualTriggerRef.current !== manualTrigger;
+    lastManualTriggerRef.current = manualTrigger;
+    if (!isManualRun) {
+      return;
+    }
+
     if (!isSupported || !activePath || !code?.trim()) {
       abortRef.current?.abort();
       setIssues([]);
@@ -158,45 +179,39 @@ export function useRealtimeAnalysis({
       return;
     }
 
-    // 재검사 버튼은 사용자의 명시적 요청이므로 타자 디바운스를 기다리지 않는다.
-    const isManualRun = lastManualTriggerRef.current !== manualTrigger;
-    lastManualTriggerRef.current = manualTrigger;
+    const generationAtStart = contentEditGenerationRef.current;
 
-    const timerId = window.setTimeout(
-      async () => {
-        abortRef.current?.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
+    void (async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-        setIsAnalyzing(true);
-        setError(null);
+      setIsAnalyzing(true);
+      setError(null);
 
-        try {
-          const response = await analyzeRealtimeCode(code, activePath, controller.signal);
-          if (controller.signal.aborted) return;
+      try {
+        const response = await analyzeRealtimeCode(code, activePath, controller.signal);
+        if (controller.signal.aborted) return;
 
-          setIssues(response.issues ?? []);
-          setAnalyzedPath(activePath);
-          setAnalyzedCode(code);
-          setAnalyzedAt(response.timestamp ?? new Date().toISOString());
-        } catch (requestError) {
-          if (axios.isCancel(requestError) || controller.signal.aborted) return;
-          setIssues([]);
-          setError(
-            requestError instanceof Error
-              ? `웹 접근성 검사에 실패했습니다: ${requestError.message}`
-              : "웹 접근성 검사에 실패했습니다.",
-          );
-        } finally {
-          if (!controller.signal.aborted) {
-            setIsAnalyzing(false);
-          }
+        setIssues(response.issues ?? []);
+        setAnalyzedPath(activePath);
+        setAnalyzedCode(code);
+        setAnalyzedAt(response.timestamp ?? new Date().toISOString());
+        setAnalyzedEditGeneration(generationAtStart);
+      } catch (requestError) {
+        if (axios.isCancel(requestError) || controller.signal.aborted) return;
+        setIssues([]);
+        setError(
+          requestError instanceof Error
+            ? `웹 접근성 검사에 실패했습니다: ${requestError.message}`
+            : "웹 접근성 검사에 실패했습니다.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsAnalyzing(false);
         }
-      },
-      isManualRun ? 0 : ANALYSIS_DEBOUNCE_MS,
-    );
-
-    return () => window.clearTimeout(timerId);
+      }
+    })();
   }, [activePath, code, isSupported, isTooLarge, manualTrigger, storedIssues]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -233,6 +248,8 @@ export function useRealtimeAnalysis({
     analyzedAt,
     isAnalyzing: isAnalyzing || isLoadingStoredAnalysis,
     isSupported,
+    hasPendingEdits,
+    canReaudit,
     error,
     reanalyze,
   };

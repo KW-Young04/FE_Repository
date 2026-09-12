@@ -58,6 +58,7 @@ export default function RepositoryWorkspacePage() {
     activePath: workspace.activePath,
     code: workspace.activeFile?.content ?? null,
     encoding: workspace.activeFile?.encoding,
+    contentEditGeneration: workspace.contentEditGeneration,
   });
 
   const previewIssueHighlights = useMemo(
@@ -105,6 +106,8 @@ export default function RepositoryWorkspacePage() {
       isAnalyzing={analysis.isAnalyzing}
       isSupported={analysis.isSupported}
       analyzedPath={analysis.analyzedPath}
+      hasPendingEdits={analysis.hasPendingEdits}
+      canReaudit={analysis.canReaudit}
       error={analysis.error}
       onSelectIssue={setSelectedIssueId}
       onReaudit={analysis.reanalyze}

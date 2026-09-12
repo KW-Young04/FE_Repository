@@ -11,6 +11,8 @@ interface WorkspaceLeftSidebarProps {
   isAnalyzing: boolean;
   isSupported: boolean;
   analyzedPath: string | null;
+  hasPendingEdits: boolean;
+  canReaudit: boolean;
   error: string | null;
   onSelectIssue: (issueId: string) => void;
   onReaudit: () => void;
@@ -23,6 +25,8 @@ export default function WorkspaceLeftSidebar({
   isAnalyzing,
   isSupported,
   analyzedPath,
+  hasPendingEdits,
+  canReaudit,
   error,
   onSelectIssue,
   onReaudit,
@@ -30,14 +34,22 @@ export default function WorkspaceLeftSidebar({
   const statusMessage = error
     ? error
     : !isSupported
-      ? "HTML/JSX 계열 파일을 열면 실시간 검사가 시작됩니다."
+      ? "HTML/JSX 계열 파일을 열면 재검사할 수 있습니다."
       : isAnalyzing
         ? "웹 접근성 검사 중..."
         : analyzedPath
           ? groups.length === 0
             ? `${analyzedPath} 에서 발견된 위반 항목이 없습니다.`
             : `검사 대상: ${analyzedPath}`
-          : null;
+          : "재검사 버튼으로 웹 접근성을 검사할 수 있습니다.";
+
+  const reauditDisabledReason = isAnalyzing
+    ? undefined
+    : !isSupported
+      ? "분석 가능한 파일을 열어 주세요."
+      : !hasPendingEdits
+        ? "마지막 검사 이후 코드가 수정되면 재검사가 활성화됩니다."
+        : undefined;
 
   return (
     <WorkspaceSidebar side="left" label="접근성 검사 사이드바">
@@ -63,7 +75,11 @@ export default function WorkspaceLeftSidebar({
       </div>
 
       <div className="mx-2.5 mb-2.5 mt-5 shrink-0">
-        <WorkspaceReauditButton onClick={onReaudit} disabled={isAnalyzing || !isSupported}>
+        <WorkspaceReauditButton
+          onClick={onReaudit}
+          disabled={!canReaudit}
+          title={reauditDisabledReason}
+        >
           {isAnalyzing ? "검사 중..." : undefined}
         </WorkspaceReauditButton>
       </div>

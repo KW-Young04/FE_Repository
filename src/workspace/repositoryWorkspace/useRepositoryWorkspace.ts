@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RepositoryWorkspaceViewProps } from "../types";
 import { normalizeRepositoryUrl } from "../workspaceUtils";
@@ -19,6 +19,10 @@ export function useRepositoryWorkspace(
   const [searchParams] = useSearchParams();
   const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
   const branchName = searchParams.get("branch") ?? "";
+  const [contentEditGeneration, setContentEditGeneration] = useState(0);
+  const notifyUserContentEdit = useCallback(() => {
+    setContentEditGeneration((count) => count + 1);
+  }, []);
 
   const preview = usePreviewRuntime({ repositoryUrl, branchName });
   const loader = useWorkspaceLoader({
@@ -40,6 +44,7 @@ export function useRepositoryWorkspace(
     previewEntryPathRef: preview.previewEntryPathRef,
     setPreviewRevision: preview.setPreviewRevision,
     setRuntimeError: preview.setRuntimeError,
+    onUserContentEdit: notifyUserContentEdit,
   });
   const design = useDesignWriteback({
     filesByPathRef: loader.filesByPathRef,
@@ -51,6 +56,7 @@ export function useRepositoryWorkspace(
     previewEntryPathRef: preview.previewEntryPathRef,
     syncFileToGitWorkspace: editor.syncFileToGitWorkspace,
     setRuntimeError: preview.setRuntimeError,
+    onUserContentEdit: notifyUserContentEdit,
   });
 
   const handleRestartPreview = useCallback(
@@ -82,6 +88,7 @@ export function useRepositoryWorkspace(
     analysisResultId: preview.analysisResultId,
     isRestarting: preview.isRestarting,
     designWriteEnabled: preview.designWriteEnabled,
+    contentEditGeneration,
     onFileClick: loader.handleFileClick,
     onCloseTab: loader.closeTab,
     onEditorChange: editor.handleEditorChange,

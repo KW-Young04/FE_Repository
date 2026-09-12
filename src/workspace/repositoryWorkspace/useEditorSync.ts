@@ -21,6 +21,7 @@ export function useEditorSync(options: {
   previewEntryPathRef: MutableRefObject<string | null>;
   setPreviewRevision: Dispatch<SetStateAction<number>>;
   setRuntimeError: Dispatch<SetStateAction<string | null>>;
+  onUserContentEdit?: () => void;
 }) {
   const {
     repositoryUrl,
@@ -34,6 +35,7 @@ export function useEditorSync(options: {
     previewEntryPathRef,
     setPreviewRevision,
     setRuntimeError,
+    onUserContentEdit,
   } = options;
 
   const pendingWriteTimersRef = useRef<Map<string, number>>(new Map());
@@ -144,6 +146,11 @@ export function useEditorSync(options: {
     (nextValue: string | undefined) => {
       if (!activePath || nextValue === undefined) return;
 
+      const currentFile = filesByPathRef.current[activePath];
+      if (currentFile && currentFile.content !== nextValue) {
+        onUserContentEdit?.();
+      }
+
       setFilesByPath((prev) => {
         const currentFile = prev[activePath];
         if (!currentFile) return prev;
@@ -178,7 +185,7 @@ export function useEditorSync(options: {
 
       pendingWriteTimersRef.current.set(activePath, timerId);
     },
-    [activePath, setFilesByPath, setRuntimeError, syncEditedFile],
+    [activePath, filesByPathRef, onUserContentEdit, setFilesByPath, setRuntimeError, syncEditedFile],
   );
 
   useEffect(() => {

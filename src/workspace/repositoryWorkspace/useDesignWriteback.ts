@@ -19,6 +19,7 @@ export function useDesignWriteback(options: {
   previewEntryPathRef: MutableRefObject<string | null>;
   syncFileToGitWorkspace: (path: string, content: string) => Promise<void>;
   setRuntimeError: Dispatch<SetStateAction<string | null>>;
+  onUserContentEdit?: () => void;
 }) {
   const {
     filesByPathRef,
@@ -30,6 +31,7 @@ export function useDesignWriteback(options: {
     previewEntryPathRef,
     syncFileToGitWorkspace,
     setRuntimeError,
+    onUserContentEdit,
   } = options;
 
   const applyDesignToCode = useCallback(
@@ -45,6 +47,8 @@ export function useDesignWriteback(options: {
 
       const patched = applyInlineStyleToSource(entryFile.content, sourceId, css);
       if (patched == null || patched === entryFile.content) return;
+
+      onUserContentEdit?.();
 
       setFilesByPath((prev) => {
         const current = prev[entryPath];
@@ -89,6 +93,7 @@ export function useDesignWriteback(options: {
       setActivePath,
       setFilesByPath,
       setOpenPaths,
+      onUserContentEdit,
       setRuntimeError,
       syncFileToGitWorkspace,
       webContainerRef,
