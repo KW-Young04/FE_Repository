@@ -210,10 +210,9 @@ export async function injectCaptureAssets(
       continue;
     }
 
+    // 패치 결과는 WebContainer 디스크(서빙 사본)에만 반영한다.
+    // files 는 편집기가 보는 원본 소스 레코드이므로 절대 덮어쓰지 않는다.
     await writeWorkspaceFile(container, htmlPath, patched);
-    if (files[htmlPath]) {
-      files[htmlPath] = { ...files[htmlPath], content: patched, dirty: true };
-    }
     patchedHtmlPaths.push(htmlPath);
   }
 
