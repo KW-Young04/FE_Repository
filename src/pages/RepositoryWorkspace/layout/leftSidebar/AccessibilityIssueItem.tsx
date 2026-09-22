@@ -27,6 +27,8 @@ export default function AccessibilityIssueItem({
   selectedIssueId,
   onSelect,
 }: AccessibilityIssueItemProps) {
+  const fileGroups = groupOccurrencesByFile(occurrences);
+
   return (
     <article
       className={["border-t border-[#dedde3] bg-white", isSelected ? "bg-[#fbfaff]" : ""].join(" ")}
@@ -60,46 +62,92 @@ export default function AccessibilityIssueItem({
         </span>
       </button>
 
-      <div className="space-y-1 px-2 pb-2 pl-[42px] max-[1360px]:pl-8">
-        {occurrences.map((occurrence, index) => (
-          <button
-            key={occurrence.id}
-            type="button"
-            onClick={() => onSelect(occurrence.id)}
-            className={[
-              "grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)] items-start gap-2 rounded-md border px-2 py-1.5 text-left transition-colors",
-              occurrence.id === selectedIssueId
-                ? "border-[#dcd4ff] bg-[#f7f4ff]"
-                : "border-slate-100 bg-slate-50 hover:border-[#dcd4ff] hover:bg-[#fbfaff]",
-            ].join(" ")}
-            aria-current={occurrence.id === selectedIssueId ? "true" : undefined}
-          >
-            <span className="text-[10px] font-bold text-[#6d3df5]">#{index + 1}</span>
-            <span className="min-w-0">
-              <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-slate-600">
-                {formatIssueLocation(occurrence)}
+      <div className="space-y-1.5 px-2 pb-2 pl-[42px] max-[1360px]:pl-8">
+        {fileGroups.map((fileGroup) => (
+          <div key={fileGroup.key} className="rounded-md border border-slate-100 bg-slate-50">
+            <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+              <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-bold text-slate-700">
+                {fileGroup.label}
               </span>
-              {occurrence.targetSelector && (
-                <code className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap font-[inherit] text-[10px] text-slate-400">
-                  {occurrence.targetSelector}
-                </code>
-              )}
-            </span>
-          </button>
+              <span className="shrink-0 text-[10px] font-semibold text-[#8b8b8f]">
+                {fileGroup.occurrences.length}곳
+              </span>
+            </div>
+
+            <div className="space-y-1 border-t border-slate-100 px-1.5 py-1.5">
+              {fileGroup.occurrences.map((occurrence, index) => (
+                <button
+                  key={occurrence.id}
+                  type="button"
+                  onClick={() => onSelect(occurrence.id)}
+                  className={[
+                    "grid w-full cursor-pointer grid-cols-[30px_minmax(0,1fr)] items-start gap-1.5 rounded border px-1.5 py-1.5 text-left transition-colors",
+                    occurrence.id === selectedIssueId
+                      ? "border-[#dcd4ff] bg-[#f7f4ff]"
+                      : "border-transparent bg-white hover:border-[#dcd4ff] hover:bg-[#fbfaff]",
+                  ].join(" ")}
+                  aria-current={occurrence.id === selectedIssueId ? "true" : undefined}
+                >
+                  <span className="text-[10px] font-bold text-[#6d3df5]">#{index + 1}</span>
+                  <span className="min-w-0">
+                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-slate-600">
+                      {formatIssueLocationDetail(occurrence)}
+                    </span>
+                    <code className="mt-0.5 block overflow-hidden text-ellipsis whitespace-nowrap font-[inherit] text-[10px] text-slate-400">
+                      {formatIssueTargetHint(occurrence)}
+                    </code>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </article>
   );
 }
 
-function formatIssueLocation(issue: AccessibilityIssue) {
-  const path = getDisplayPath(issue.targetFilePath);
+function groupOccurrencesByFile(occurrences: AccessibilityIssue[]) {
+  const groupMap = new Map<
+    string,
+    { key: string; label: string; occurrences: AccessibilityIssue[] }
+  >();
+
+  occurrences.forEach((occurrence) => {
+    const key = occurrence.targetFilePath || "unknown";
+    const existing = groupMap.get(key);
+
+    if (existing) {
+      existing.occurrences.push(occurrence);
+      return;
+    }
+
+    groupMap.set(key, {
+      key,
+      label: getDisplayPath(occurrence.targetFilePath) || "파일 정보 없음",
+      occurrences: [occurrence],
+    });
+  });
+
+  return Array.from(groupMap.values());
+}
+
+function formatIssueLocationDetail(issue: AccessibilityIssue) {
   const lineRange = formatLineRange(issue);
 
-  if (path && lineRange) return `${path}:${lineRange}`;
-  if (path) return path;
   if (lineRange) return `${lineRange}행`;
-  return "위치 정보 없음";
+  if (issue.targetSelector) return issue.targetSelector;
+  if (issue.originalCodeBlock) return summarizeCodeBlock(issue.originalCodeBlock);
+  return "구체 위치 정보 없음";
+}
+
+function formatIssueTargetHint(issue: AccessibilityIssue) {
+  const lineRange = formatLineRange(issue);
+
+  if (issue.targetSelector) return issue.targetSelector;
+  if (issue.originalCodeBlock) return summarizeCodeBlock(issue.originalCodeBlock);
+  if (lineRange) return `${lineRange}행`;
+  return "대상 요소 정보 없음";
 }
 
 function getDisplayPath(path: string | undefined) {
@@ -114,4 +162,25 @@ function formatLineRange(issue: AccessibilityIssue) {
   }
 
   return String(issue.startLine || issue.endLine || "");
+}
+
+function summarizeCodeBlock(codeBlock: string) {
+  const firstLine = codeBlock
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  if (!firstLine) return "코드 조각 없음";
+
+  const srcMatch = firstLine.match(/\bsrc=["']([^"']+)["']/i);
+  const altMatch = firstLine.match(/\balt=["']([^"']*)["']/i);
+  const tagMatch = firstLine.match(/^<([a-z0-9-]+)/i);
+  const targetParts = [
+    tagMatch ? `<${tagMatch[1]}>` : null,
+    srcMatch ? `src="${getDisplayPath(srcMatch[1]) || srcMatch[1]}"` : null,
+    altMatch ? `alt="${altMatch[1] || "비어 있음"}"` : null,
+  ].filter(Boolean);
+
+  if (targetParts.length > 0) return targetParts.join(" ");
+  return firstLine.replace(/\s+/g, " ").slice(0, 80);
 }
