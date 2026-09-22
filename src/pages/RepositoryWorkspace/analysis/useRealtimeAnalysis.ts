@@ -1,10 +1,7 @@
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  getStoredWcagAnalysis,
-  type RealtimeIssueDetail,
-} from "@/api/analysis";
+import { getStoredWcagAnalysis, type RealtimeIssueDetail } from "@/api/analysis";
 import { captureAndUploadWorkspaceSnapshots } from "@/preview-capture/captureAndUploadWorkspaceSnapshots";
 import type { PreviewRuntimeKind } from "@/workspace/previewProject";
 import type { LoadedFile, PreviewStatus } from "@/workspace/types";
@@ -37,11 +34,7 @@ function readStoredAnalysisResultId(repositoryUrl: string): number | null {
   }
 }
 
-function persistAnalysisResultId(
-  repositoryUrl: string,
-  resultId: number,
-  snapshotId: string,
-) {
+function persistAnalysisResultId(repositoryUrl: string, resultId: number, snapshotId: string) {
   sessionStorage.setItem(
     `wcag-analysis:${normalizeRepositoryUrl(repositoryUrl)}`,
     JSON.stringify({ resultId, snapshotId }),
@@ -110,8 +103,7 @@ export function useRealtimeAnalysis({
     analyzedEditGeneration === null
       ? !isLoadingStoredAnalysis && storedIssues === null
       : contentEditGeneration > analyzedEditGeneration;
-  const canReaudit =
-    previewReady && !isAnalyzing && !isLoadingStoredAnalysis && hasPendingEdits;
+  const canReaudit = previewReady && !isAnalyzing && !isLoadingStoredAnalysis && hasPendingEdits;
 
   useEffect(() => {
     if (!repositoryUrl) {
@@ -157,7 +149,10 @@ export function useRealtimeAnalysis({
 
   const visibleIssues = useMemo(() => storedIssues ?? [], [storedIssues]);
 
-  const issueGroups = useMemo(() => toAccessibilityIssueGroups(visibleIssues), [visibleIssues]);
+  const issueGroups = useMemo(
+    () => toAccessibilityIssueGroups(visibleIssues, filesByPath),
+    [filesByPath, visibleIssues],
+  );
   const score = useMemo(() => toAccessibilityScore(visibleIssues), [visibleIssues]);
   const problemGroups = useMemo(
     () => toProblemGroups(visibleIssues, "전체 저장소 분석 결과", ""),

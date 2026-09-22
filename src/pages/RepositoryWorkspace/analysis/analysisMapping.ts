@@ -4,6 +4,7 @@ import type {
   AccessibilityCategoryGroup,
   AccessibilityIssue,
   AccessibilityScoreSummary,
+  LoadedFile,
   ProblemFileGroup,
   ProblemItem,
   ProblemSeverity,
@@ -54,9 +55,51 @@ function resolveCategory(sc: string | undefined): CategoryId {
   return CATEGORY_BY_PRINCIPLE[principle] ?? "ux";
 }
 
-function toAccessibilityIssue(issue: RealtimeIssueDetail, index: number): AccessibilityIssue {
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function findFileContent(
+  filesByPath: Record<string, LoadedFile> | undefined,
+  targetFilePath: string | undefined,
+): string | null {
+  if (!filesByPath || !targetFilePath) return null;
+
+  const wanted = normalizePath(targetFilePath);
+  const direct = filesByPath[wanted] ?? filesByPath[targetFilePath];
+  if (direct?.content && direct.encoding !== "base64") return direct.content;
+
+  const match = Object.keys(filesByPath).find((path) => {
+    const normalized = normalizePath(path);
+    return (
+      normalized === wanted ||
+      normalized.endsWith(`/${wanted}`) ||
+      wanted.endsWith(`/${normalized}`)
+    );
+  });
+  const file = match ? filesByPath[match] : undefined;
+  if (!file?.content || file.encoding === "base64") return null;
+  return file.content;
+}
+
+function resolveIssueLine(
+  issue: RealtimeIssueDetail,
+  filesByPath: Record<string, LoadedFile> | undefined,
+) {
+  if (issue.startLine && issue.startLine > 0) return issue.startLine;
+
+  const source = findFileContent(filesByPath, issue.targetFilePath);
+  return locateCodeBlock(source ?? "", issue.originalCodeBlock)?.line;
+}
+
+function toAccessibilityIssue(
+  issue: RealtimeIssueDetail,
+  index: number,
+  filesByPath?: Record<string, LoadedFile>,
+): AccessibilityIssue {
   const category = resolveCategory(issue.sc);
   const code = issue.sc?.trim() || `WCAG-${issue.wcagItemId}`;
+  const startLine = resolveIssueLine(issue, filesByPath);
 
   return {
     id: `${code}-${issue.wcagItemId ?? index}-${index}`,
@@ -69,7 +112,7 @@ function toAccessibilityIssue(issue: RealtimeIssueDetail, index: number): Access
     summary: issue.description?.trim() || issue.suggestion?.trim() || "상세 설명이 없습니다.",
     targetFilePath: issue.targetFilePath || undefined,
     targetSelector: issue.targetSelector || undefined,
-    startLine: issue.startLine && issue.startLine > 0 ? issue.startLine : undefined,
+    startLine,
     endLine: issue.endLine && issue.endLine > 0 ? issue.endLine : undefined,
     originalCodeBlock: issue.originalCodeBlock || undefined,
     suggestion: issue.suggestion || undefined,
@@ -80,8 +123,9 @@ function toAccessibilityIssue(issue: RealtimeIssueDetail, index: number): Access
 
 export function toAccessibilityIssueGroups(
   issues: RealtimeIssueDetail[],
+  filesByPath?: Record<string, LoadedFile>,
 ): AccessibilityCategoryGroup[] {
-  const mapped = issues.map(toAccessibilityIssue);
+  const mapped = issues.map((issue, index) => toAccessibilityIssue(issue, index, filesByPath));
 
   return CATEGORY_ORDER.map((categoryId) => ({
     id: categoryId,
