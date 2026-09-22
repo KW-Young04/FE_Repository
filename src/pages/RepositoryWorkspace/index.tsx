@@ -212,7 +212,6 @@ export default function RepositoryWorkspacePage() {
               onRefresh={() => {
                 void workspace.onRestartPreview();
               }}
-              onSelectIssue={setSelectedIssueId}
             />
           </main>
         )}

@@ -1,11 +1,9 @@
 import type { ReactNode, RefObject } from "react";
 
 import type { AccessibilityIssue, LoadedFile, PreviewStatus } from "../types";
-import { getTopIssues } from "../overview/issueVisual";
 import BrowserToolbar from "./BrowserToolbar";
 import PreviewFrame from "./PreviewFrame";
 import { buildPreviewSrc } from "./previewSrc";
-import TopIssuesSection from "../overview/TopIssuesSection";
 
 interface WorkspacePreviewMainProps {
   repositoryUrl: string;
@@ -23,7 +21,6 @@ interface WorkspacePreviewMainProps {
   showErrors?: boolean;
   onToggleErrors?: () => void;
   onRefresh?: () => void;
-  onSelectIssue?: (issueId: string) => void;
   trailingBadge?: ReactNode;
 }
 
@@ -71,7 +68,6 @@ export default function WorkspacePreviewMain({
   showErrors = true,
   onToggleErrors,
   onRefresh,
-  onSelectIssue,
 }: WorkspacePreviewMainProps) {
   const previewSrc = buildPreviewSrc(previewUrl, previewStatus, previewRevision);
   const displayUrl = getDisplayUrl(repositoryUrl, previewUrl, previewStatus);
@@ -82,7 +78,6 @@ export default function WorkspacePreviewMain({
     loadError,
     loadingMessage,
   });
-  const topIssues = getTopIssues(issueHighlights);
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
@@ -108,12 +103,6 @@ export default function WorkspacePreviewMain({
           filesByPath={filesByPath}
         />
       </div>
-
-      <TopIssuesSection
-        issues={topIssues}
-        totalCount={issueHighlights.length}
-        onSelectIssue={onSelectIssue}
-      />
     </section>
   );
 }
