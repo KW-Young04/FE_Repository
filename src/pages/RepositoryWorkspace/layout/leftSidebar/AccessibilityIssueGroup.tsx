@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import type { AccessibilityCategoryGroup } from "../../types";
+import type { AccessibilityCategoryGroup, AccessibilityIssue } from "../../types";
 import AccessibilityIssueItem from "./AccessibilityIssueItem";
 
 interface AccessibilityIssueGroupProps {
@@ -15,6 +15,7 @@ export default function AccessibilityIssueGroup({
   onSelectIssue,
 }: AccessibilityIssueGroupProps) {
   const [opened, setOpened] = useState(true);
+  const groupedIssues = useMemo(() => groupIssuesByRule(group.issues), [group.issues]);
 
   return (
     <section className="border-b border-[#dedde3] first:border-t">
@@ -38,11 +39,13 @@ export default function AccessibilityIssueGroup({
 
       {opened && (
         <div className="bg-white">
-          {group.issues.map((issue) => (
+          {groupedIssues.map(({ key, issue, occurrences }) => (
             <AccessibilityIssueItem
-              key={issue.id}
+              key={key}
               issue={issue}
-              isSelected={selectedIssueId === issue.id}
+              occurrences={occurrences}
+              isSelected={occurrences.some((occurrence) => occurrence.id === selectedIssueId)}
+              selectedIssueId={selectedIssueId}
               onSelect={onSelectIssue}
             />
           ))}
@@ -50,4 +53,29 @@ export default function AccessibilityIssueGroup({
       )}
     </section>
   );
+}
+
+function getIssueGroupKey(issue: AccessibilityIssue) {
+  return [issue.code, issue.title, issue.level, issue.status].join("::");
+}
+
+function groupIssuesByRule(issues: AccessibilityIssue[]) {
+  const issueMap = new Map<
+    string,
+    { key: string; issue: AccessibilityIssue; occurrences: AccessibilityIssue[] }
+  >();
+
+  issues.forEach((issue) => {
+    const key = getIssueGroupKey(issue);
+    const existing = issueMap.get(key);
+
+    if (existing) {
+      existing.occurrences.push(issue);
+      return;
+    }
+
+    issueMap.set(key, { key, issue, occurrences: [issue] });
+  });
+
+  return Array.from(issueMap.values());
 }
