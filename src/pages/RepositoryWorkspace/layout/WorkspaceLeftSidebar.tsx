@@ -52,7 +52,7 @@ export default function WorkspaceLeftSidebar({
         : undefined;
 
   return (
-    <WorkspaceSidebar side="left" label="접근성 검사 사이드바">
+    <WorkspaceSidebar side="right" label="접근성 검사 사이드바">
       <AccessibilityScoreCard score={score} />
 
       {statusMessage && (

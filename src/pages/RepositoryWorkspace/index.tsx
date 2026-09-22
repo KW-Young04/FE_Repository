@@ -153,8 +153,6 @@ export default function RepositoryWorkspacePage() {
       />
 
       <div className={`grid min-h-0 flex-1 ${getWorkspaceLayoutGridClass(activeTab)}`}>
-        {leftSidebar}
-
         {activeTab === "code" ? (
           <CodeTabView
             treeItems={workspace.treeItems}
@@ -215,6 +213,8 @@ export default function RepositoryWorkspacePage() {
             />
           </main>
         )}
+
+        {leftSidebar}
 
         {rightSidebar}
       </div>

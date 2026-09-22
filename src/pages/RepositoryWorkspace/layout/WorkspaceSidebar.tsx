@@ -11,8 +11,8 @@ interface WorkspaceSidebarProps {
 export const WORKSPACE_SIDEBAR_WIDTH_CLASS = "w-[300px] shrink-0 max-[1360px]:w-[280px]";
 
 const WORKSPACE_LAYOUT_GRID_CLASS = {
-  preview: "grid-cols-[auto_minmax(620px,1fr)_auto]",
-  code: "grid-cols-[auto_minmax(560px,1fr)_auto]",
+  preview: "grid-cols-[minmax(620px,1fr)_auto_auto]",
+  code: "grid-cols-[minmax(560px,1fr)_auto_auto]",
 } as const;
 
 export function getWorkspaceLayoutGridClass(tab: WorkspaceTab) {

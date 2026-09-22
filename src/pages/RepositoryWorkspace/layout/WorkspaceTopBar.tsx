@@ -2,10 +2,6 @@ import type { ReactNode } from "react";
 import type { WorkspaceTab } from "../types";
 import { WorkspaceCommitButton, WorkspaceNavButton } from "./buttons";
 import CodeeLogo from "./CodeeLogo";
-import {
-  getWorkspaceLayoutGridClass,
-  WORKSPACE_SIDEBAR_WIDTH_CLASS,
-} from "./WorkspaceSidebar";
 
 interface NavItem {
   id: WorkspaceTab;
@@ -69,37 +65,41 @@ export default function WorkspaceTopBar({
   onCommitClick,
 }: WorkspaceTopBarProps) {
   return (
-    <header
-      className={`relative z-20 grid h-[47px] shrink-0 items-stretch border-b border-slate-200 bg-white ${getWorkspaceLayoutGridClass(activeTab)}`}
-    >
-      <div className={`flex items-center gap-[7px] pl-2.5 ${WORKSPACE_SIDEBAR_WIDTH_CLASS}`}>
+    <header className="relative z-20 flex h-[47px] shrink-0 items-stretch border-b border-slate-200 bg-white">
+      <div className="flex w-[300px] shrink-0 items-center gap-[7px] pl-2.5 max-[1360px]:w-[280px]">
         <CodeeLogo />
       </div>
 
-      <nav className="flex items-stretch" aria-label="분석 결과 보기">
-        {NAV_ITEMS.map((item) => {
-          const isActive = activeTab === item.id;
+      <div className="ml-auto flex h-full items-stretch">
+        <nav className="flex items-stretch" aria-label="분석 결과 보기">
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeTab === item.id;
 
-          return (
-            <WorkspaceNavButton
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              isActive={isActive}
-              onClick={() => onTabChange(item.id)}
-            />
-          );
-        })}
-      </nav>
+            return (
+              <WorkspaceNavButton
+                key={item.id}
+                icon={item.icon}
+                label={item.label}
+                isActive={isActive}
+                onClick={() => onTabChange(item.id)}
+              />
+            );
+          })}
+        </nav>
 
-      <div className={`flex items-center justify-end ${WORKSPACE_SIDEBAR_WIDTH_CLASS}`}>
-        <WorkspaceCommitButton
-          onClick={onCommitClick}
-          disabled={isCommitting}
-          className="mr-[9px] min-w-[108px]"
-        >
-          {isCommitting ? "처리 중..." : changedFileCount > 0 ? `Commit ${changedFileCount}` : "Commit"}
-        </WorkspaceCommitButton>
+        <div className="flex items-center pl-3 pr-[9px]">
+          <WorkspaceCommitButton
+            onClick={onCommitClick}
+            disabled={isCommitting}
+            className="min-w-[108px]"
+          >
+            {isCommitting
+              ? "처리 중..."
+              : changedFileCount > 0
+                ? `Commit ${changedFileCount}`
+                : "Commit"}
+          </WorkspaceCommitButton>
+        </div>
       </div>
     </header>
   );
