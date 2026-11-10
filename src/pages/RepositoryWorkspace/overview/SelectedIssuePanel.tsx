@@ -14,6 +14,7 @@ import {
 interface SelectedIssuePanelProps {
   issue: AccessibilityIssue;
   onEditInCode?: () => void;
+  onClose: () => void;
 }
 
 const cardClasses = `mb-[11px] p-[13px] ${issueCardClasses}`;
@@ -28,7 +29,11 @@ function parseRatio(value: string | undefined): number | null {
   return left / right;
 }
 
-export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssuePanelProps) {
+export default function SelectedIssuePanel({
+  issue,
+  onEditInCode,
+  onClose,
+}: SelectedIssuePanelProps) {
   const [guideOpen, setGuideOpen] = useState(false);
   const measuredRatio = parseRatio(issue.measuredValue);
   const thresholdRatio = parseRatio(issue.thresholdValue);
@@ -39,7 +44,18 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
 
   return (
     <div className="selected-issue-panel min-h-0 flex-1 overflow-y-auto px-3 py-3.5">
-      <h2 className="mt-px mb-[13px] text-[15px] font-bold">선택한 이슈</h2>
+      <header className="mt-px mb-[13px] flex items-center justify-between">
+        <h2 className="m-0 text-[15px] font-bold">선택한 이슈</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="선택 해제"
+          title="선택 해제"
+          className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-[16px] leading-none text-slate-400 transition-colors hover:bg-[#ece8fb] hover:text-[#17181c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]"
+        >
+          ×
+        </button>
+      </header>
 
       <section className={cardClasses}>
         <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-start gap-[9px]">

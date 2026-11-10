@@ -14,6 +14,7 @@ type IssuePanel = {
   panel: "issue";
   selectedIssue: AccessibilityIssue;
   onEditInCode?: () => void;
+  onClose: () => void;
 };
 
 type DesignPanel = {
@@ -52,6 +53,12 @@ function renderPanel(props: WorkspaceRightSidebarProps): ReactNode {
         />
       );
     case "issue":
-      return <SelectedIssuePanel issue={props.selectedIssue} onEditInCode={props.onEditInCode} />;
+      return (
+        <SelectedIssuePanel
+          issue={props.selectedIssue}
+          onEditInCode={props.onEditInCode}
+          onClose={props.onClose}
+        />
+      );
   }
 }

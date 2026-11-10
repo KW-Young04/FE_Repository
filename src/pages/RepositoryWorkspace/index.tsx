@@ -17,7 +17,7 @@ import { getWorkspaceLayoutGridClass } from "./layout/WorkspaceSidebar";
 import WorkspaceTopBar from "./layout/WorkspaceTopBar";
 import { buildPreviewSrc } from "./preview/previewSrc";
 import WorkspacePreviewMain from "./preview/WorkspacePreviewMain";
-import type { WorkspaceTab } from "./types";
+import type { AccessibilityIssue, WorkspaceTab } from "./types";
 
 export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
@@ -79,6 +79,22 @@ export default function RepositoryWorkspacePage() {
     () => findIssueInGroups(analysis.issueGroups, visibleSelectedIssueId),
     [analysis.issueGroups, visibleSelectedIssueId],
   );
+  const [closingIssue, setClosingIssue] = useState<AccessibilityIssue | null>(null);
+  const issuePanelIssue = selectedIssue ?? closingIssue;
+
+  const clearSelectedIssue = () => {
+    setClosingIssue(selectedIssue);
+    setSelectedIssueId(null);
+  };
+
+  const handleSelectIssue = (issueId: string) => {
+    if (issueId === visibleSelectedIssueId) {
+      clearSelectedIssue();
+      return;
+    }
+    setClosingIssue(null);
+    setSelectedIssueId(issueId);
+  };
 
   const previewSrc = buildPreviewSrc(
     workspace.previewUrl,
@@ -114,7 +130,7 @@ export default function RepositoryWorkspacePage() {
       hasPendingEdits={analysis.hasPendingEdits}
       canReaudit={analysis.canReaudit}
       error={analysis.error}
-      onSelectIssue={setSelectedIssueId}
+      onSelectIssue={handleSelectIssue}
       onReaudit={analysis.reanalyze}
     />
   );
@@ -129,17 +145,30 @@ export default function RepositoryWorkspacePage() {
         values={design.designValues}
         onChange={design.handleDesignChange}
       />
-    ) : selectedIssue ? (
-      <WorkspaceRightSidebar
-        panel="issue"
-        selectedIssue={selectedIssue}
-        onEditInCode={() => {
-          setActiveTab("code");
-          if (selectedIssue.targetFilePath) {
-            void workspace.onFileClick(selectedIssue.targetFilePath);
-          }
+    ) : issuePanelIssue ? (
+      <div
+        className={[
+          "flex min-h-0 overflow-hidden",
+          selectedIssue
+            ? "animate-sidebar-slide-in"
+            : "pointer-events-none animate-sidebar-slide-out",
+        ].join(" ")}
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget && !selectedIssue) setClosingIssue(null);
         }}
-      />
+      >
+        <WorkspaceRightSidebar
+          panel="issue"
+          selectedIssue={issuePanelIssue}
+          onClose={clearSelectedIssue}
+          onEditInCode={() => {
+            setActiveTab("code");
+            if (issuePanelIssue.targetFilePath) {
+              void workspace.onFileClick(issuePanelIssue.targetFilePath);
+            }
+          }}
+        />
+      </div>
     ) : null;
 
   return (
