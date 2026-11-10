@@ -3,14 +3,20 @@ import { useState } from "react";
 import Button from "@/components/Button";
 
 import type { AccessibilityIssue } from "../types";
+import {
+  formatIssueLineRange,
+  IssueLevelBadge,
+  IssueLocationTable,
+  IssueResultBadge,
+  issueCardClasses,
+} from "./IssueParts";
 
 interface SelectedIssuePanelProps {
   issue: AccessibilityIssue | null;
   onEditInCode?: () => void;
 }
 
-const cardClasses =
-  "mb-[11px] rounded-[15px] border border-[#e7e5ed] bg-white p-[13px] shadow-[0_1px_2px_rgb(10_10_20/3%)]";
+const cardClasses = `mb-[11px] p-[13px] ${issueCardClasses}`;
 
 function parseRatio(value: string | undefined): number | null {
   if (!value) return null;
@@ -41,9 +47,7 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
         <>
           <section className={cardClasses}>
             <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-start gap-[9px]">
-              <span className="grid size-[31px] place-items-center rounded-full bg-[#ff4f5b] text-[12px] font-bold text-white">
-                {issue.level}
-              </span>
+              <IssueLevelBadge level={issue.level} />
 
               <div>
                 <strong className="mt-0.5 block text-[13px]">{issue.title}</strong>
@@ -52,9 +56,7 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
                 </p>
               </div>
 
-              <span className="rounded-[9px] bg-[#ffe3e5] px-1.5 py-[3px] text-[10px] font-extrabold text-[#ff5d66]">
-                {issue.status === "complete" ? "PASS" : "FAIL"}
-              </span>
+              <IssueResultBadge status={issue.status} />
             </div>
           </section>
 
@@ -84,20 +86,9 @@ export default function SelectedIssuePanel({ issue, onEditInCode }: SelectedIssu
           <section className={cardClasses}>
             <h3 className="mt-0 mb-3 text-[11px] font-semibold text-slate-400">위치 정보</h3>
 
-            <div className="grid grid-cols-[1fr_1.15fr] border border-slate-200">
-              <code className="overflow-hidden px-2 py-[7px] font-[inherit] text-[10px] text-ellipsis whitespace-nowrap text-slate-500">
-                {issue.targetFilePath || "파일 정보 없음"}
-              </code>
-              <code className="overflow-hidden border-l border-slate-200 px-2 py-[7px] font-[inherit] text-[10px] text-ellipsis whitespace-nowrap text-slate-500">
-                {issue.targetSelector || "셀렉터 없음"}
-              </code>
-            </div>
-            {(issue.startLine || issue.endLine) && (
-              <p className="mt-2 mb-0 text-[10px] text-slate-400">
-                {issue.startLine && issue.endLine && issue.startLine !== issue.endLine
-                  ? `${issue.startLine}–${issue.endLine}행`
-                  : `${issue.startLine || issue.endLine}행`}
-              </p>
+            <IssueLocationTable issue={issue} />
+            {formatIssueLineRange(issue) && (
+              <p className="mt-2 mb-0 text-[10px] text-slate-400">{formatIssueLineRange(issue)}</p>
             )}
 
             {issue.originalCodeBlock && (
