@@ -11,6 +11,7 @@ import CodeTabView from "./code/CodeTabView";
 import { useGitWorkspace } from "./code/useGitWorkspace";
 import { useDesignInspector } from "./design/useDesignInspector";
 import CommitDialog from "./layout/git/CommitDialog";
+import LeaveWorkspaceDialog from "./layout/LeaveWorkspaceDialog";
 import WorkspaceLeftSidebar from "./layout/WorkspaceLeftSidebar";
 import WorkspaceRightSidebar from "./layout/WorkspaceRightSidebar";
 import { getWorkspaceLayoutGridClass } from "./layout/WorkspaceSidebar";
@@ -23,6 +24,9 @@ export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(true);
   const [searchParams] = useSearchParams();
   const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
@@ -112,6 +116,21 @@ export default function RepositoryWorkspacePage() {
     return git.commitAndPush(message, remote);
   };
 
+  const leaveWorkspace = async () => {
+    setIsLeaving(true);
+    setLeaveError(null);
+    try {
+      await workspace.onFlushPendingWrites();
+    } catch {
+      setLeaveError("편집 중인 내용을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setIsLeaving(false);
+      return;
+    }
+    setIsLeaving(false);
+    setIsLeaveDialogOpen(false);
+    workspace.onNavigateToConnect();
+  };
+
   const design = useDesignInspector({
     previewSrc,
     onDesignPatch: workspace.onDesignPatch,
@@ -179,6 +198,19 @@ export default function RepositoryWorkspacePage() {
         isCommitting={git.isCommitting}
         onTabChange={setActiveTab}
         onCommitClick={() => setIsCommitDialogOpen(true)}
+        onLogoClick={() => setIsLeaveDialogOpen(true)}
+      />
+
+      <LeaveWorkspaceDialog
+        isOpen={isLeaveDialogOpen}
+        changedFileCount={git.changedFiles.length}
+        isLeaving={isLeaving}
+        error={leaveError}
+        onCancel={() => {
+          setIsLeaveDialogOpen(false);
+          setLeaveError(null);
+        }}
+        onConfirm={() => void leaveWorkspace()}
       />
 
       <div className={`grid min-h-0 flex-1 ${getWorkspaceLayoutGridClass(activeTab)}`}>
