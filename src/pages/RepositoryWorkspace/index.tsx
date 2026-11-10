@@ -268,9 +268,6 @@ export default function RepositoryWorkspacePage() {
               isDesignTab={isDesignTab}
               showErrors={showErrors}
               onToggleErrors={() => setShowErrors((current) => !current)}
-              onRefresh={() => {
-                void workspace.onRestartPreview();
-              }}
             />
           </main>
         )}

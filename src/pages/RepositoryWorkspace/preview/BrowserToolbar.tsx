@@ -1,11 +1,42 @@
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
+
+import { BackIcon, ForwardIcon, RefreshIcon } from "./toolbarIcons";
+
+function ToolbarIconButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-current transition-colors hover:bg-white hover:text-[#6d3df5] disabled:cursor-not-allowed disabled:text-[#c5c6cc] disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
+  );
+}
 
 interface BrowserToolbarProps {
   displayUrl: string;
   showErrors: boolean;
   onToggleErrors: () => void;
-  onRefresh?: () => void;
+  onBack?: () => void;
+  onForward?: () => void;
+  onReload?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
   canNavigate?: boolean;
   onNavigate?: (input: string) => boolean;
 }
@@ -14,7 +45,11 @@ export default function BrowserToolbar({
   displayUrl,
   showErrors,
   onToggleErrors,
-  onRefresh,
+  onBack,
+  onForward,
+  onReload,
+  canGoBack = false,
+  canGoForward = false,
   canNavigate = false,
   onNavigate,
 }: BrowserToolbarProps) {
@@ -65,21 +100,28 @@ export default function BrowserToolbar({
 
   return (
     <div className="relative z-10 grid h-[39px] flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#dbdbe1] bg-[#f4f4f6] px-2">
-      <div className="flex items-center gap-[9px] text-2xl leading-none text-slate-950">
-        <span className="inline-block -translate-y-px" aria-hidden="true">
-          ←
-        </span>
-        <span className="inline-block -translate-y-px text-slate-300" aria-hidden="true">
-          →
-        </span>
-        <button
-          type="button"
-          className="inline-block -translate-y-px leading-none hover:text-[#6d3df5]"
-          aria-label="미리보기 새로고침"
-          onClick={onRefresh}
+      <div className="flex items-center gap-0.5 text-[#2e3034]">
+        <ToolbarIconButton
+          label="이전 페이지"
+          disabled={!canNavigate || !canGoBack}
+          onClick={onBack}
         >
-          ↻
-        </button>
+          <BackIcon />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="다음 페이지"
+          disabled={!canNavigate || !canGoForward}
+          onClick={onForward}
+        >
+          <ForwardIcon />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="미리보기 새로고침"
+          disabled={!canNavigate}
+          onClick={onReload}
+        >
+          <RefreshIcon />
+        </ToolbarIconButton>
       </div>
 
       <form

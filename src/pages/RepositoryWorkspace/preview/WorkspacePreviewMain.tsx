@@ -27,7 +27,6 @@ interface WorkspacePreviewMainProps {
   isDesignTab?: boolean;
   showErrors?: boolean;
   onToggleErrors?: () => void;
-  onRefresh?: () => void;
   trailingBadge?: ReactNode;
 }
 
@@ -81,7 +80,6 @@ export default function WorkspacePreviewMain({
   isDesignTab = false,
   showErrors = true,
   onToggleErrors,
-  onRefresh,
 }: WorkspacePreviewMainProps) {
   // targetPath: iframe src 를 결정하는 이동 목표 / currentPath: iframe 내부 라우팅까지 반영한 실제 경로.
   // 내부 라우팅 결과를 src 에 되먹이면 iframe 이 불필요하게 다시 로드되므로 둘을 분리한다.
@@ -89,24 +87,43 @@ export default function WorkspacePreviewMain({
   const [currentPath, setCurrentPath] = useState("/");
   const [navigationKey, setNavigationKey] = useState(0);
   const [pathOwnerUrl, setPathOwnerUrl] = useState(previewUrl);
+  const [history, setHistory] = useState({ stack: ["/"], index: 0 });
   const navigationTokenRef = useRef(0);
   const awaitingAddressNavRef = useRef(false);
 
   // 프리뷰 서버가 재시작되어 주소(origin)가 바뀌면 루트로 되돌린다.
   if (previewUrl !== pathOwnerUrl) {
     setPathOwnerUrl(previewUrl);
+    awaitingAddressNavRef.current = false;
     setTargetPath("/");
     setCurrentPath("/");
-    awaitingAddressNavRef.current = false;
+    setHistory({ stack: ["/"], index: 0 });
   }
 
   const isPreviewReady = previewStatus === "ready" && Boolean(previewUrl);
+
+  const pushHistory = useCallback((path: string) => {
+    setHistory((prev) => {
+      if (prev.stack[prev.index] === path) return prev;
+      const stack = [...prev.stack.slice(0, prev.index + 1), path];
+      return { stack, index: stack.length - 1 };
+    });
+  }, []);
+
+  const goToPath = useCallback((path: string, reload = true) => {
+    setTargetPath(path);
+    setCurrentPath(path);
+    if (reload) {
+      setNavigationKey((key) => key + 1);
+    }
+  }, []);
 
   const goHome = useCallback((reload = true) => {
     navigationTokenRef.current += 1;
     awaitingAddressNavRef.current = false;
     setTargetPath("/");
     setCurrentPath("/");
+    setHistory({ stack: ["/"], index: 0 });
     if (reload) {
       setNavigationKey((key) => key + 1);
     }
@@ -124,7 +141,28 @@ export default function WorkspacePreviewMain({
 
   const handleLocationChange = useCallback((path: string) => {
     setCurrentPath(path);
-  }, []);
+    pushHistory(path);
+  }, [pushHistory]);
+
+  const handleBack = () => {
+    if (history.index <= 0) return;
+    const index = history.index - 1;
+    const path = history.stack[index];
+    setHistory((prev) => ({ ...prev, index }));
+    goToPath(path);
+  };
+
+  const handleForward = () => {
+    if (history.index >= history.stack.length - 1) return;
+    const index = history.index + 1;
+    const path = history.stack[index];
+    setHistory((prev) => ({ ...prev, index }));
+    goToPath(path);
+  };
+
+  const handleReload = () => {
+    goToPath(currentPath);
+  };
 
   const handleNavigate = (input: string): boolean => {
     const path = resolvePreviewPath(previewUrl, input);
@@ -136,9 +174,8 @@ export default function WorkspacePreviewMain({
 
     const token = ++navigationTokenRef.current;
     awaitingAddressNavRef.current = true;
-    setTargetPath(path);
-    setCurrentPath(path);
-    setNavigationKey((key) => key + 1);
+    pushHistory(path);
+    goToPath(path);
 
     window.setTimeout(() => {
       if (token === navigationTokenRef.current) awaitingAddressNavRef.current = false;
@@ -168,7 +205,11 @@ export default function WorkspacePreviewMain({
         displayUrl={displayUrl}
         showErrors={showErrors}
         onToggleErrors={() => onToggleErrors?.()}
-        onRefresh={onRefresh}
+        onBack={handleBack}
+        onForward={handleForward}
+        onReload={handleReload}
+        canGoBack={history.index > 0}
+        canGoForward={history.index < history.stack.length - 1}
         canNavigate={isPreviewReady}
         onNavigate={handleNavigate}
       />
