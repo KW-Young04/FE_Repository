@@ -12,7 +12,7 @@ type ChatPanel = {
 
 type IssuePanel = {
   panel: "issue";
-  selectedIssue: AccessibilityIssue | null;
+  selectedIssue: AccessibilityIssue;
   onEditInCode?: () => void;
 };
 

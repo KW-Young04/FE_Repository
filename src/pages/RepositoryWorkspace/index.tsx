@@ -74,7 +74,7 @@ export default function RepositoryWorkspacePage() {
     (issue) => issue.id === selectedIssueId,
   )
     ? selectedIssueId
-    : (previewIssueHighlights[0]?.id ?? null);
+    : null;
   const selectedIssue = useMemo(
     () => findIssueInGroups(analysis.issueGroups, visibleSelectedIssueId),
     [analysis.issueGroups, visibleSelectedIssueId],
@@ -129,18 +129,18 @@ export default function RepositoryWorkspacePage() {
         values={design.designValues}
         onChange={design.handleDesignChange}
       />
-    ) : (
+    ) : selectedIssue ? (
       <WorkspaceRightSidebar
         panel="issue"
         selectedIssue={selectedIssue}
         onEditInCode={() => {
           setActiveTab("code");
-          if (selectedIssue?.targetFilePath) {
+          if (selectedIssue.targetFilePath) {
             void workspace.onFileClick(selectedIssue.targetFilePath);
           }
         }}
       />
-    );
+    ) : null;
 
   return (
     <div className="flex h-screen min-w-[1180px] flex-col overflow-hidden bg-white text-[#202124]">
