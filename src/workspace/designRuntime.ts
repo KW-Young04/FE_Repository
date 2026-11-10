@@ -307,12 +307,82 @@ export function createDesignRuntimeScript(): string {
     updateOverlay();
     highlightIssues(lastHighlightIssues, null);
   });
+  // 주소창 동기화: 현재 경로(pathname + search + hash)를 부모에 알린다. (_rev 는 내부 캐시 버스터라 제외)
+  let lastReportedPath = null;
+  function reportLocation() {
+    let path;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("_rev");
+      path = url.pathname + url.search + url.hash;
+    } catch (error) {
+      return;
+    }
+    if (path === lastReportedPath) return;
+    lastReportedPath = path;
+    window.parent.postMessage({
+      source: SOURCE,
+      type: "location-changed",
+      payload: { path: path },
+    }, "*");
+  }
+
+  ["pushState", "replaceState"].forEach(function (method) {
+    const original = window.history[method];
+    if (typeof original !== "function") return;
+    window.history[method] = function () {
+      const result = original.apply(this, arguments);
+      reportLocation();
+      return result;
+    };
+  });
+  window.addEventListener("popstate", reportLocation);
+  window.addEventListener("hashchange", reportLocation);
+  reportLocation();
+
+  function isMissingPage() {
+    try {
+      const pathname = window.location.pathname || "/";
+      if (pathname === "/" || pathname === "") return false;
+    } catch (error) {}
+    const title = (document.title || "").toLowerCase();
+    if (title.indexOf("404") !== -1 || title.indexOf("not found") !== -1) return true;
+    const nextDataNode = document.getElementById("__NEXT_DATA__");
+    if (nextDataNode && nextDataNode.textContent) {
+      try {
+        const data = JSON.parse(nextDataNode.textContent);
+        if (data.notFound === true) return true;
+        if (data.err && (data.err.statusCode === 404 || data.err.status === 404)) return true;
+        const pageProps = data.props && data.props.pageProps;
+        if (pageProps && (pageProps.statusCode === 404 || pageProps.notFound === true)) return true;
+      } catch (error) {}
+    }
+    const heading = document.querySelector("h1");
+    const headingText = heading && heading.textContent ? heading.textContent.toLowerCase() : "";
+    if (headingText.indexOf("404") !== -1 || headingText.indexOf("not found") !== -1) return true;
+    return false;
+  }
+
+  function reportIfMissing() {
+    if (!isMissingPage()) return;
+    window.parent.postMessage({ source: SOURCE, type: "not-found" }, "*");
+  }
+
+  function scheduleMissingCheck() {
+    window.setTimeout(reportIfMissing, 400);
+  }
+  if (document.readyState === "complete") {
+    scheduleMissingCheck();
+  } else {
+    window.addEventListener("load", scheduleMissingCheck);
+  }
+
   window.parent.postMessage({ source: SOURCE, type: "ready" }, "*");
 })();`;
 }
 
 export function injectDesignRuntimeIntoHtml(html: string): string {
-  const script = '<script src="/codee-design-runtime.js?v=issue-highlight-5"></script>';
+  const script = '<script src="/codee-design-runtime.js?v=issue-highlight-7"></script>';
   const existingRuntimePattern =
     /<script\b[^>]*\bsrc=["']\/codee-design-runtime\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/i;
   if (existingRuntimePattern.test(html)) {
