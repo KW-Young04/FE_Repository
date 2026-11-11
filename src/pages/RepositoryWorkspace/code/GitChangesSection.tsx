@@ -83,7 +83,7 @@ export default function GitChangesSection({
                     checked={selectedPaths.includes(file.path)}
                     onChange={() => onToggleSelect(file.path)}
                     aria-label={`${file.path} 커밋 대상 선택`}
-                    className="h-3 w-3 shrink-0 accent-violet-600"
+                    className="h-3 w-3 shrink-0 accent-point"
                   />
 
                   <button
@@ -92,7 +92,7 @@ export default function GitChangesSection({
                     title={file.path}
                     className={[
                       "flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left",
-                      isActive ? "bg-violet-50" : "hover:bg-slate-200/60",
+                      isActive ? "bg-point-50" : "hover:bg-slate-200/60",
                     ].join(" ")}
                   >
                     <span

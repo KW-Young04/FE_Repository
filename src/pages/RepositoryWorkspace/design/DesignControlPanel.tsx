@@ -38,7 +38,7 @@ function NumberInput({
   return (
     <label className="block min-w-0">
       {label ? <FieldLabel>{label}</FieldLabel> : null}
-      <div className="flex h-[29px] items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-[#7d61ff] focus-within:bg-white">
+      <div className="flex h-[29px] items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-point focus-within:bg-white">
         <input
           type="number"
           min={min}
@@ -65,7 +65,7 @@ function PercentInput({
   return (
     <label className={label ? "block min-w-0" : "block w-[55px] shrink-0"}>
       {label ? <FieldLabel>{label}</FieldLabel> : null}
-      <div className="flex h-[29px] items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-[#7d61ff] focus-within:bg-white">
+      <div className="flex h-[29px] items-center rounded-sm border border-transparent bg-slate-100 px-[7px] focus-within:border-point focus-within:bg-white">
         <input
           type="number"
           min={0}
@@ -97,7 +97,7 @@ function ColorRow({
     <div>
       <FieldLabel>{label}</FieldLabel>
       <div className="flex items-center gap-2">
-        <label className="flex h-[29px] min-w-0 flex-1 items-center gap-1.5 rounded-sm bg-slate-100 px-1.5 focus-within:ring-2 focus-within:ring-[#7d61ff]/40">
+        <label className="flex h-[29px] min-w-0 flex-1 items-center gap-1.5 rounded-sm bg-slate-100 px-1.5 focus-within:ring-2 focus-within:ring-point/40">
           <input
             type="color"
             value={/^#[0-9a-fA-F]{6}$/.test(value || "") ? value : "#ffffff"}
@@ -132,7 +132,7 @@ function AlignmentButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-[27px] w-full rounded-sm text-[11px] font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff] ${active ? "bg-[#f7f4ff] text-[#6d3df5]" : "bg-transparent text-slate-700"}`}
+      className={`h-[27px] w-full rounded-sm text-[11px] font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-point ${active ? "bg-point-50 text-point" : "bg-transparent text-slate-700"}`}
       aria-pressed={active}
     >
       {label}
@@ -153,7 +153,7 @@ function ToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-[27px] rounded-sm px-2 text-[11px] font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7d61ff] ${active ? "bg-[#f7f4ff] text-[#6d3df5]" : "bg-transparent text-slate-700"}`}
+      className={`h-[27px] rounded-sm px-2 text-[11px] font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-point ${active ? "bg-point-50 text-point" : "bg-transparent text-slate-700"}`}
     >
       {label}
     </button>

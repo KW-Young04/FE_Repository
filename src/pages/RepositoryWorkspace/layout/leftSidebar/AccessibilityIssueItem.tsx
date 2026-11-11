@@ -35,7 +35,7 @@ export default function AccessibilityIssueItem({
 }: AccessibilityIssueItemProps) {
   return (
     <article
-      className={["border-t border-[#efeef3]", isSelected ? "bg-[#fbfaff]" : "bg-white"].join(" ")}
+      className={["border-t border-[#efeef3]", isSelected ? "bg-point-50" : "bg-white"].join(" ")}
     >
       <button
         type="button"
@@ -70,8 +70,8 @@ export default function AccessibilityIssueItem({
               type="button"
               onClick={() => onSelect(occurrence.id)}
               className={[
-                "block w-full cursor-pointer rounded-[10px] border bg-white p-2 text-left shadow-[0_1px_2px_rgb(10_10_20/3%)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]",
-                selected ? "border-[#6d3df5]" : "border-[#e7e5ed] hover:border-[#dcd4ff]",
+                "block w-full cursor-pointer rounded-[10px] border bg-white p-2 text-left shadow-[0_1px_2px_rgb(10_10_20/3%)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point",
+                selected ? "border-point" : "border-[#e7e5ed] hover:border-point-200",
               ].join(" ")}
               aria-current={selected ? "true" : undefined}
             >
@@ -79,7 +79,7 @@ export default function AccessibilityIssueItem({
               <span className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
                 <span>{lineRange || "행 정보 없음"}</span>
                 {occurrences.length > 1 && (
-                  <span className="font-bold text-[#6d3df5]">#{index + 1}</span>
+                  <span className="font-bold text-point">#{index + 1}</span>
                 )}
               </span>
             </button>

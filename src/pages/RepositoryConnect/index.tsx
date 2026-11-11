@@ -277,7 +277,7 @@ export default function RepositoryConnectPage() {
                             </span>
                           </span>
                         </button>
-                        <div className="flex h-9 items-center rounded-full border border-violet-200 bg-violet-50 px-3 text-violet-600">
+                        <div className="flex h-9 items-center rounded-full border border-point-200 bg-point-50 px-3 text-point">
                           <span className="mr-1 text-sm">⌁</span>
                           <select
                             value={branch}
@@ -287,7 +287,7 @@ export default function RepositoryConnectPage() {
                                 [repository.id]: event.target.value,
                               }));
                             }}
-                            className="h-full cursor-pointer bg-transparent text-sm font-bold text-violet-600 outline-none"
+                            className="h-full cursor-pointer bg-transparent text-sm font-bold text-point outline-none"
                             aria-label={`${fullName} 브랜치 선택`}
                           >
                             <option value={branch}>{branch}</option>

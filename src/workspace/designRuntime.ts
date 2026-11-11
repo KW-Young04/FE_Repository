@@ -1,3 +1,5 @@
+import { POINT_COLOR } from "../theme";
+
 export function createDesignRuntimeScript(): string {
   return String.raw`
 (() => {
@@ -9,7 +11,7 @@ export function createDesignRuntimeScript(): string {
   let lastHighlightIssues = [];
 
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;display:none;pointer-events:none;z-index:2147483647;border:2px solid #7c3aed;box-shadow:0 0 0 1px rgba(255,255,255,.9);box-sizing:border-box;";
+  overlay.style.cssText = "position:fixed;display:none;pointer-events:none;z-index:2147483647;border:2px solid ${POINT_COLOR};box-shadow:0 0 0 1px rgba(255,255,255,.9);box-sizing:border-box;";
   document.documentElement.appendChild(overlay);
 
   function removeIssueOverlays() {

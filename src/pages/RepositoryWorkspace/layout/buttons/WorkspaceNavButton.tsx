@@ -18,10 +18,10 @@ export default function WorkspaceNavButton({
     <button
       type={type}
       className={[
-        "relative inline-flex h-full items-center gap-1.5 px-[17px] text-[15px] font-bold transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-[#6d3df5] after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6d3df5]",
+        "relative inline-flex h-full items-center gap-1.5 px-[17px] text-[15px] font-bold transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-point after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-point",
         isActive
-          ? "bg-[#f7f4ff] text-[#6d3df5] after:scale-x-100"
-          : "bg-transparent text-[#9699a5] after:scale-x-0 hover:text-[#6d3df5]",
+          ? "bg-point-50 text-point after:scale-x-100"
+          : "bg-transparent text-[#9699a5] after:scale-x-0 hover:text-point",
         className,
       ]
         .filter(Boolean)

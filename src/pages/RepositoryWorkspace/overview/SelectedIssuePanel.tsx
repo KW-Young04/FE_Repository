@@ -51,7 +51,7 @@ export default function SelectedIssuePanel({
           onClick={onClose}
           aria-label="선택 해제"
           title="선택 해제"
-          className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-[16px] leading-none text-slate-400 transition-colors hover:bg-[#ece8fb] hover:text-[#17181c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]"
+          className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-[16px] leading-none text-slate-400 transition-colors hover:bg-point-100 hover:text-[#17181c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point"
         >
           ×
         </button>
@@ -111,7 +111,7 @@ export default function SelectedIssuePanel({
       </section>
 
       <section className={cardClasses}>
-        <h3 className="mt-0 mb-3 text-[12px] font-semibold text-[#6d3df5]">✦ AI 추천 개선안</h3>
+        <h3 className="mt-0 mb-3 text-[12px] font-semibold text-point">✦ AI 추천 개선안</h3>
 
         {issue.suggestion ? (
           <p className="mt-0 mb-3 text-[10px] leading-[1.6] text-slate-400">{issue.suggestion}</p>
@@ -128,7 +128,7 @@ export default function SelectedIssuePanel({
         <button
           type="button"
           onClick={onEditInCode}
-          className="mt-[5px] h-[33px] w-full cursor-pointer rounded border-0 bg-transparent text-[12px] font-medium text-[#a4a5ad] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]"
+          className="mt-[5px] h-[33px] w-full cursor-pointer rounded border-0 bg-transparent text-[12px] font-medium text-[#a4a5ad] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point"
         >
           코드 직접 수정
         </button>
@@ -138,7 +138,7 @@ export default function SelectedIssuePanel({
         <button
           type="button"
           onClick={() => setGuideOpen((open) => !open)}
-          className="flex h-[38px] w-full items-center justify-between bg-transparent px-[15px] text-[11px] font-semibold text-[#53555d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6d3df5]"
+          className="flex h-[38px] w-full items-center justify-between bg-transparent px-[15px] text-[11px] font-semibold text-[#53555d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-point"
         >
           관련 가이드
           <span

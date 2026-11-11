@@ -19,7 +19,7 @@ export function getWorkspaceLayoutGridClass(tab: WorkspaceTab) {
   return tab === "code" ? WORKSPACE_LAYOUT_GRID_CLASS.code : WORKSPACE_LAYOUT_GRID_CLASS.preview;
 }
 
-const FRAME_CLASS = `flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#f7f4ff] ${WORKSPACE_SIDEBAR_WIDTH_CLASS}`;
+const FRAME_CLASS = `flex min-h-0 min-w-0 flex-col overflow-hidden bg-point-50 ${WORKSPACE_SIDEBAR_WIDTH_CLASS}`;
 
 const SIDE_CLASS = {
   left: "border-r border-[#e7e7ec]",

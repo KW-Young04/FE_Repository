@@ -6,7 +6,7 @@ interface GitDiffPanelProps {
 
 function lineClassName(line: string): string {
   if (line.startsWith("+++") || line.startsWith("---")) return "text-slate-400";
-  if (line.startsWith("@@")) return "text-violet-500";
+  if (line.startsWith("@@")) return "text-point-500";
   if (line.startsWith("+")) return "bg-emerald-50 text-emerald-700";
   if (line.startsWith("-")) return "bg-rose-50 text-rose-700";
   return "text-slate-600";

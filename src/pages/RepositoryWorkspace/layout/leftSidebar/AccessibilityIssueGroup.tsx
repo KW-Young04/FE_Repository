@@ -21,7 +21,7 @@ export default function AccessibilityIssueGroup({
     <section className="mb-[11px] overflow-hidden rounded-[15px] border border-[#e7e5ed] bg-white shadow-[0_1px_2px_rgb(10_10_20/3%)]">
       <button
         type="button"
-        className="flex h-[44px] w-full cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-[13px] text-left text-[13px] font-bold text-[#17181c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6d3df5]"
+        className="flex h-[44px] w-full cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-[13px] text-left text-[13px] font-bold text-[#17181c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-point"
         onClick={() => setOpened((current) => !current)}
         aria-expanded={opened}
       >

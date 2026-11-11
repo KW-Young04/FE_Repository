@@ -106,7 +106,7 @@ export default function BottomPanel({
                 className={[
                   "flex items-center gap-1.5 border-b-2 py-2 text-[10px] font-bold tracking-[0.04em]",
                   isActive
-                    ? "border-[#6c47ff] text-[#6c47ff]"
+                    ? "border-point text-point"
                     : "border-transparent text-[#7b8494] hover:text-slate-700",
                 ].join(" ")}
               >
@@ -141,7 +141,7 @@ export default function BottomPanel({
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Filter (e.g. text, **/*.ts, !**/node_modules/**)"
-              className="h-6 w-64 rounded border border-slate-200 bg-white pr-2 pl-6 text-[10px] font-medium text-slate-600 placeholder:text-slate-300 focus:border-violet-400 focus:outline-none"
+              className="h-6 w-64 rounded border border-slate-200 bg-white pr-2 pl-6 text-[10px] font-medium text-slate-600 placeholder:text-slate-300 focus:border-point-400 focus:outline-none"
             />
           </label>
 
@@ -185,7 +185,7 @@ export default function BottomPanel({
                 </p>
               )}
               {isAnalyzing && (
-                <p className="px-3 py-1.5 text-[11px] font-medium text-violet-500">
+                <p className="px-3 py-1.5 text-[11px] font-medium text-point-500">
                   웹 접근성 검사 중...
                 </p>
               )}

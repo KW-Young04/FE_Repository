@@ -68,7 +68,7 @@ export default function WorkspaceChatSidebar() {
             <button
               type="button"
               onClick={() => send(suggestion)}
-              className="flex max-w-full items-center gap-2 rounded-full bg-[#f0f0f0] px-4 py-2.5 text-left text-[11px] font-medium hover:bg-[#e8e4ff]"
+              className="flex max-w-full items-center gap-2 rounded-full bg-[#f0f0f0] px-4 py-2.5 text-left text-[11px] font-medium hover:bg-point-100"
             >
               <span className="shrink-0 text-slate-500">
                 <SearchIcon />
@@ -112,7 +112,7 @@ export default function WorkspaceChatSidebar() {
             type="submit"
             aria-label="메시지 보내기"
             disabled={!message.trim()}
-            className="grid size-7 place-items-center rounded-full hover:bg-[#f0edff] disabled:text-slate-300"
+            className="grid size-7 place-items-center rounded-full hover:bg-point-100 disabled:text-slate-300"
           >
             <SendIcon />
           </button>

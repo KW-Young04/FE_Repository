@@ -183,7 +183,7 @@ export default function EditorPanel({
                 {path.split("/").pop()}
               </button>
 
-              {dirty && <span className="text-[11px] text-violet-600">●</span>}
+              {dirty && <span className="text-[11px] text-point">●</span>}
 
               <button
                 type="button"

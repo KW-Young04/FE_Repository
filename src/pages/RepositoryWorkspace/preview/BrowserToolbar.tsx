@@ -21,7 +21,7 @@ function ToolbarIconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-current transition-colors hover:bg-white hover:text-[#6d3df5] disabled:cursor-not-allowed disabled:text-[#c5c6cc] disabled:hover:bg-transparent"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-current transition-colors hover:bg-white hover:text-point disabled:cursor-not-allowed disabled:text-[#c5c6cc] disabled:hover:bg-transparent"
     >
       {children}
     </button>
@@ -137,7 +137,7 @@ export default function BrowserToolbar({
           "flex h-[27px] cursor-text items-center overflow-hidden rounded-[14px] border bg-white px-[13px] text-xs text-[#2e3034] focus-within:ring-2",
           hasError
             ? "border-red-400 focus-within:ring-red-300"
-            : "border-[#d9d9de] focus-within:ring-[#6d3df5]",
+            : "border-[#d9d9de] focus-within:ring-point",
         ].join(" ")}
       >
         <input
@@ -197,8 +197,8 @@ export default function BrowserToolbar({
         aria-pressed={showErrors}
         onClick={onToggleErrors}
         className={[
-          "relative inline-flex h-7 w-[78px] items-center rounded-[14px] p-0 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]",
-          showErrors ? "bg-[#6d3df5]" : "bg-[#b8b0d6]",
+          "relative inline-flex h-7 w-[78px] items-center rounded-[14px] p-0 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point",
+          showErrors ? "bg-point" : "bg-[#b8b0d6]",
         ].join(" ")}
       >
         <span

@@ -74,7 +74,7 @@ export default function WorkspaceTopBar({
           onClick={onLogoClick}
           aria-label="저장소 선택 화면으로 돌아가기"
           title="저장소 선택 화면으로 돌아가기"
-          className="cursor-pointer rounded-md border-0 bg-transparent p-0.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d3df5]"
+          className="cursor-pointer rounded-md border-0 bg-transparent p-0.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point"
         >
           <CodeeLogo />
         </button>
