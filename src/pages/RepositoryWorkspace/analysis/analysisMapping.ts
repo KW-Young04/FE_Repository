@@ -106,8 +106,8 @@ function toAccessibilityIssue(
     code,
     title: issue.title?.trim() || "제목 없는 검사 항목",
     level: normalizeWcagLevel(issue.levelType),
-    // 백엔드 실시간 분석은 위반 항목만 반환하므로 모두 미해결 상태다.
-    status: "pending",
+    // 저장된 분석에서 AI 수정이 적용된 위치(MODIFY)는 진행 중으로 표시한다.
+    status: issue.locationStatus === "MODIFY" ? "in_progress" : "pending",
     category,
     summary: issue.description?.trim() || issue.suggestion?.trim() || "상세 설명이 없습니다.",
     targetFilePath: issue.targetFilePath || undefined,
@@ -118,6 +118,9 @@ function toAccessibilityIssue(
     suggestion: issue.suggestion || undefined,
     measuredValue: issue.measuredValue || undefined,
     thresholdValue: issue.thresholdValue || undefined,
+    locationId: issue.analysisIssueLocationId ?? undefined,
+    suggestionType: issue.suggestionType || undefined,
+    suggestionDetail: issue.suggestionDetail || undefined,
   };
 }
 

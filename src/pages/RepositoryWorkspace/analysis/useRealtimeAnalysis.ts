@@ -18,7 +18,7 @@ import {
   toProblemGroups,
 } from "./analysisMapping";
 
-function readStoredAnalysisResultId(repositoryUrl: string): number | null {
+export function readStoredAnalysisResultId(repositoryUrl: string): number | null {
   const fromQuery = new URLSearchParams(window.location.search).get("resultId");
   const queryResultId = fromQuery ? Number(fromQuery) : NaN;
   if (Number.isSafeInteger(queryResultId) && queryResultId > 0) {
