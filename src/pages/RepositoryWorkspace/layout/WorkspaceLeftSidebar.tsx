@@ -8,6 +8,7 @@ import { WorkspaceReauditButton } from "./buttons";
 import AccessibilityDetailSection from "./leftSidebar/AccessibilityDetailSection";
 import AccessibilityScoreCard from "./leftSidebar/AccessibilityScoreCard";
 import WorkspaceSidebar from "./WorkspaceSidebar";
+import type { AiCodeFixController } from "../analysis/useAiCodeFix";
 
 interface WorkspaceLeftSidebarProps {
   score: AccessibilityScoreSummary;
@@ -22,6 +23,7 @@ interface WorkspaceLeftSidebarProps {
   onSelectIssue: (issueId: string) => void;
   onReaudit: () => void;
   detailIssue?: AccessibilityIssue | null;
+  aiFix?: AiCodeFixController;
   onBackFromIssue?: () => void;
   onEditInCode?: () => void;
 }
@@ -41,6 +43,7 @@ export default function WorkspaceLeftSidebar({
   detailIssue,
   onBackFromIssue,
   onEditInCode,
+  aiFix,
 }: WorkspaceLeftSidebarProps) {
   const statusMessage = error
     ? error
@@ -105,6 +108,7 @@ export default function WorkspaceLeftSidebar({
             <SelectedIssuePanel
               key={detailIssue.id}
               issue={detailIssue}
+              aiFix={aiFix}
               onClose={onBackFromIssue}
               onBack={onBackFromIssue}
               onEditInCode={onEditInCode}
