@@ -61,6 +61,7 @@ export interface RepositoryWorkspaceViewProps {
   onCloseTab: (path: string) => void;
   onEditorChange: (nextValue: string | undefined) => void;
   onFlushPendingWrites: () => Promise<void>;
+  onApplyExternalContent: (path: string, content: string) => Promise<void>;
   onRestartPreview: () => void | Promise<void>;
   onDesignPatch: (sourceId: number | null, css: Record<string, string>) => void;
   onNavigateToConnect: () => void;
