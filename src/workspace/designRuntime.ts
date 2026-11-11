@@ -7,6 +7,7 @@ export function createDesignRuntimeScript(): string {
   const PANEL_SOURCE = "codee-design-panel";
   let selected = null;
   let selectedId = 0;
+  let interactive = true;
   const issueOverlays = [];
   let lastHighlightIssues = [];
 
@@ -278,6 +279,7 @@ export function createDesignRuntimeScript(): string {
   }
 
   document.addEventListener("click", (event) => {
+    if (interactive) return;
     const target = event.target;
     if (!(target instanceof HTMLElement) || target === document.documentElement || target === document.body) return;
     event.preventDefault();
@@ -290,6 +292,14 @@ export function createDesignRuntimeScript(): string {
     if (!data || data.source !== PANEL_SOURCE) return;
     if (data.type === "highlight-issues") {
       highlightIssues(data.payload && data.payload.issues);
+      return;
+    }
+    if (data.type === "set-interactive") {
+      interactive = Boolean(data.payload && data.payload.interactive);
+      if (interactive) {
+        selected = null;
+        updateOverlay();
+      }
       return;
     }
     if (data.type !== "apply-css" || !selected) return;
@@ -384,7 +394,7 @@ export function createDesignRuntimeScript(): string {
 }
 
 export function injectDesignRuntimeIntoHtml(html: string): string {
-  const script = '<script src="/codee-design-runtime.js?v=issue-highlight-7"></script>';
+  const script = '<script src="/codee-design-runtime.js?v=interactive-2"></script>';
   const existingRuntimePattern =
     /<script\b[^>]*\bsrc=["']\/codee-design-runtime\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/i;
   if (existingRuntimePattern.test(html)) {
