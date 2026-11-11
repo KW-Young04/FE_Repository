@@ -96,6 +96,7 @@ export function useRepositoryWorkspace(
     onCloseTab: loader.closeTab,
     onEditorChange: editor.handleEditorChange,
     onFlushPendingWrites: editor.flushPendingWrites,
+    onApplyExternalContent: editor.applyExternalContent,
     onRestartPreview: handleRestartPreview,
     onDesignPatch: design.applyDesignToCode,
     onNavigateToConnect: () => navigate("/repository-connect"),

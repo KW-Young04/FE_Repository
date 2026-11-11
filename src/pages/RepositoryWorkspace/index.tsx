@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import type { GitFileChangeResponse } from "@/api/git";
 import { useRepositoryWorkspace } from "@/workspace/useRepositoryWorkspace";
 import { normalizeRepositoryUrl } from "@/workspace/workspaceUtils";
-
+import { useAiCodeFix } from "./analysis/useAiCodeFix";
 import { findIssueInGroups } from "./analysis/analysisMapping";
 import { useRealtimeAnalysis } from "./analysis/useRealtimeAnalysis";
 import CodeTabView from "./code/CodeTabView";
@@ -68,6 +68,13 @@ export default function RepositoryWorkspacePage() {
     contentEditGeneration: workspace.contentEditGeneration,
     onFlushPendingWrites: workspace.onFlushPendingWrites,
     setShowErrors,
+  });
+
+  const aiFix = useAiCodeFix({
+    repositoryUrl: workspace.repositoryUrl,
+    branchName: workspace.branchName,
+    onFlushPendingWrites: workspace.onFlushPendingWrites,
+    onApplyExternalContent: workspace.onApplyExternalContent,
   });
 
   const previewIssueHighlights = useMemo(
@@ -163,6 +170,7 @@ export default function RepositoryWorkspacePage() {
           void workspace.onFileClick(selectedIssue.targetFilePath);
         }
       }}
+      aiFix={aiFix}
     />
   );
 
@@ -191,6 +199,7 @@ export default function RepositoryWorkspacePage() {
         <WorkspaceRightSidebar
           panel="issue"
           selectedIssue={issuePanelIssue}
+          aiFix={aiFix}
           onClose={clearSelectedIssue}
           onEditInCode={() => {
             setActiveTab("code");

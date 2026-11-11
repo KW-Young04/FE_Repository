@@ -9,6 +9,14 @@ import type { PreviewRuntimeKind } from "../previewProject";
 import { isPreviewAffectingPath, toDisplayError } from "../workspaceUtils";
 import { prepareServedHtml } from "./servedHtml";
 
+function resolveLoadedPath(files: Record<string, LoadedFile>, path: string): string | null {
+  if (files[path]) return path;
+  const wanted = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  return (
+    Object.keys(files).find((key) => key.replace(/\\/g, "/").replace(/^\/+/, "") === wanted) ?? null
+  );
+}
+
 export function useEditorSync(options: {
   repositoryUrl: string;
   branchName: string;
@@ -208,6 +216,39 @@ export function useEditorSync(options: {
     ],
   );
 
+  /**
+   * 서버에서 이미 바뀐 파일 내용(예: AI 수정 적용)을 에디터·미리보기에만 반영한다.
+   * 서버에는 이미 저장되어 있으므로 Git 작업공간으로 다시 쓰지 않는다.
+   */
+  const applyExternalContent = useCallback(
+    async (path: string, content: string) => {
+      const key = resolveLoadedPath(filesByPathRef.current, path);
+      if (key) {
+        const timerId = pendingWriteTimersRef.current.get(key);
+        if (timerId) {
+          window.clearTimeout(timerId);
+          pendingWriteTimersRef.current.delete(key);
+        }
+
+        onUserContentEdit?.();
+        setFilesByPath((prev) => {
+          const current = prev[key];
+          if (!current) return prev;
+          return { ...prev, [key]: { ...current, content, dirty: false } };
+        });
+        await syncFileToPreviewRuntime(key, content);
+      }
+      await onServerFileSynced?.();
+    },
+    [
+      filesByPathRef,
+      onServerFileSynced,
+      onUserContentEdit,
+      setFilesByPath,
+      syncFileToPreviewRuntime,
+    ],
+  );
+
   useEffect(() => {
     const pendingTimers = pendingWriteTimersRef.current;
     return () => {
@@ -220,5 +261,6 @@ export function useEditorSync(options: {
     syncFileToGitWorkspace,
     handleEditorChange,
     flushPendingWrites,
+    applyExternalContent,
   };
 }

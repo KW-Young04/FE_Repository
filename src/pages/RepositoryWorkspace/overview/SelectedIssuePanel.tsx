@@ -1,8 +1,10 @@
 import { formatIssueLineRange } from "./issueFormatting";
 import { useState } from "react";
 
+import type { CodeFixItem } from "@/api/analysis";
 import Button from "@/components/Button";
 
+import type { AiCodeFixController } from "../analysis/useAiCodeFix";
 import type { AccessibilityIssue } from "../types";
 import {
   IssueLevelBadge,
@@ -13,12 +15,23 @@ import {
 
 interface SelectedIssuePanelProps {
   issue: AccessibilityIssue;
+  aiFix?: AiCodeFixController;
   onEditInCode?: () => void;
   onClose: () => void;
   onBack?: () => void;
 }
 
+type AiFixState =
+  | { phase: "idle" }
+  | { phase: "generating" }
+  | { phase: "preview"; fix: CodeFixItem }
+  | { phase: "applying"; fix: CodeFixItem }
+  | { phase: "applied" }
+  | { phase: "error"; message: string };
+
 const cardClasses = `mb-[11px] p-[13px] ${issueCardClasses}`;
+const codeBlockClasses =
+  "m-0 overflow-x-auto border border-slate-200 px-2 py-1.5 font-mono text-[10px] leading-4 whitespace-pre-wrap";
 
 function parseRatio(value: string | undefined): number | null {
   if (!value) return null;
@@ -32,11 +45,48 @@ function parseRatio(value: string | undefined): number | null {
 
 export default function SelectedIssuePanel({
   issue,
+  aiFix,
   onEditInCode,
   onClose,
   onBack,
 }: SelectedIssuePanelProps) {
   const [guideOpen, setGuideOpen] = useState(false);
+  const [aiFixState, setAiFixState] = useState<AiFixState>({ phase: "idle" });
+  const canRunAiFix = Boolean(aiFix?.canFix(issue));
+  const alreadyApplied = aiFix?.isApplied(issue) ?? false;
+
+  const handleGenerateFix = async () => {
+    if (!aiFix) return;
+    setAiFixState({ phase: "generating" });
+    try {
+      const fix = await aiFix.generate(issue);
+      setAiFixState(
+        fix.status === "READY"
+          ? { phase: "preview", fix }
+          : { phase: "error", message: fix.failReason ?? "이 위치는 AI로 수정할 수 없습니다." },
+      );
+    } catch (error) {
+      setAiFixState({
+        phase: "error",
+        message: error instanceof Error ? error.message : "AI 수정안을 생성하지 못했습니다.",
+      });
+    }
+  };
+
+  const handleApplyFix = async (fix: CodeFixItem) => {
+    if (!aiFix) return;
+    setAiFixState({ phase: "applying", fix });
+    try {
+      await aiFix.apply(issue);
+      setAiFixState({ phase: "applied" });
+    } catch (error) {
+      setAiFixState({
+        phase: "error",
+        message: error instanceof Error ? error.message : "수정안을 적용하지 못했습니다.",
+      });
+    }
+  };
+
   const measuredRatio = parseRatio(issue.measuredValue);
   const thresholdRatio = parseRatio(issue.thresholdValue);
   const barPercent =
@@ -153,14 +203,63 @@ export default function SelectedIssuePanel({
           </p>
         )}
 
-        <Button
-          variant="point"
-          disabled
-          title="AI 자동 수정은 아직 제공되지 않습니다. 코드 직접 수정을 이용해 주세요."
-          className="h-[33px] w-full rounded text-[12px]"
-        >
-          ✦ AI 수정 실행
-        </Button>
+        {(aiFixState.phase === "preview" || aiFixState.phase === "applying") && (
+          <div className="mb-3">
+            <p className="mt-0 mb-1 text-[10px] font-semibold text-[#ff5b63]">수정 전</p>
+            <pre className={`${codeBlockClasses} bg-[#fff5f5] text-slate-600`}>
+              {aiFixState.fix.before}
+            </pre>
+            <p className="mt-2 mb-1 text-[10px] font-semibold text-emerald-600">수정 후</p>
+            <pre className={`${codeBlockClasses} bg-emerald-50 text-slate-700`}>
+              {aiFixState.fix.after}
+            </pre>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <Button
+                variant="point"
+                disabled={aiFixState.phase === "applying"}
+                onClick={() => void handleApplyFix(aiFixState.fix)}
+                className="h-[30px] rounded text-[12px]"
+              >
+                {aiFixState.phase === "applying" ? "적용 중…" : "적용"}
+              </Button>
+              <button
+                type="button"
+                disabled={aiFixState.phase === "applying"}
+                onClick={() => setAiFixState({ phase: "idle" })}
+                className="h-[30px] cursor-pointer rounded border border-slate-200 bg-white text-[12px] text-slate-500 disabled:cursor-not-allowed"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        )}
+
+        {aiFixState.phase === "error" && (
+          <p className="mt-0 mb-2 text-[10px] leading-[1.6] text-[#ff5b63]">{aiFixState.message}</p>
+        )}
+
+        {aiFixState.phase === "applied" || alreadyApplied ? (
+          <p className="mt-0 mb-1 text-[10px] leading-[1.6] text-emerald-600">
+            AI 수정안이 적용되었습니다. 재검사로 결과를 확인해 주세요.
+          </p>
+        ) : (
+          aiFixState.phase !== "preview" &&
+          aiFixState.phase !== "applying" && (
+            <Button
+              variant="point"
+              disabled={!canRunAiFix || aiFixState.phase === "generating"}
+              title={
+                canRunAiFix
+                  ? undefined
+                  : "저장된 분석 결과의 이슈만 AI 수정을 지원합니다. 분석을 먼저 실행해 주세요."
+              }
+              onClick={() => void handleGenerateFix()}
+              className="h-[33px] w-full rounded text-[12px]"
+            >
+              {aiFixState.phase === "generating" ? "AI 수정안 생성 중…" : "✦ AI 수정 실행"}
+            </Button>
+          )
+        )}
 
         <button
           type="button"

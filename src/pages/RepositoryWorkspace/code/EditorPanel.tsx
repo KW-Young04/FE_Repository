@@ -60,7 +60,8 @@ export default function EditorPanel({
   /** 에디터가 마지막으로 onChange로 내보낸 값. 부모 state가  lagged 일 때 덮어쓰기를 막는다. */
   const lastEmittedContentRef = useRef<string | null>(null);
   const activePathRef = useRef<string | null>(activePath);
-
+  // 부모 state가 에디터가 내보낸 값을 다 따라왔는지 여부. false인 동안의 변경은 지연(lag)으로 보고 무시한다.
+  const parentSyncedRef = useRef(true);
   const hasAiSuggestion = Boolean(aiDiff);
   const editorLanguage = activeFile ? inferLanguage(activeFile.path) : "plaintext";
   const editorOptions = useMemo(
@@ -105,14 +106,19 @@ export default function EditorPanel({
     if (activePathRef.current !== activeFilePath) {
       activePathRef.current = activeFilePath;
       lastEmittedContentRef.current = activeContent;
+      parentSyncedRef.current = true;
       return;
     }
 
     const editorValue = editor.getValue();
-    if (editorValue === activeContent) return;
-    // 에디터가 이미 내보낸 최신 값을 갖고 있으면 부모 state가  lagged 한 것이므로 무시한다.
-    if (editorValue === lastEmittedContentRef.current) return;
+    if (editorValue === activeContent) {
+      parentSyncedRef.current = true;
+      return;
+    }
+    // 부모 state가 아직 에디터 입력을 따라오는 중이면(지연) 무시한다.
+    if (!parentSyncedRef.current) return;
 
+    // 여기부터는 외부 변경(디자인 writeback, AI 수정 적용 등)이다.
     const position = editor.getPosition();
     const selections = editor.getSelections();
     editor.setValue(activeContent);
@@ -130,6 +136,7 @@ export default function EditorPanel({
     monacoRef.current = monaco;
     activePathRef.current = activePath;
     lastEmittedContentRef.current = editor.getValue();
+    parentSyncedRef.current = true;
     decorationsRef.current = editor.createDecorationsCollection(
       buildDiffDecorations(monaco, aiDiff),
     );
@@ -138,6 +145,7 @@ export default function EditorPanel({
   const handleEditorChange = (nextValue: string | undefined) => {
     if (nextValue !== undefined) {
       lastEmittedContentRef.current = nextValue;
+      parentSyncedRef.current = false;
     }
     onEditorChange(nextValue);
   };

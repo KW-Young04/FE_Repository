@@ -33,6 +33,11 @@ export interface RealtimeIssueDetail {
   suggestion: string;
   measuredValue: string;
   thresholdValue: string;
+  /** 저장된 분석 결과에만 존재한다. 실시간 분석에는 없다. */
+  analysisIssueLocationId?: number | null;
+  locationStatus?: string | null; // OPEN / MODIFY / COMPLETE
+  suggestionType?: string | null;
+  suggestionDetail?: string | null;
 }
 
 export interface RealtimeAnalysisResponse {
@@ -103,5 +108,61 @@ export async function uploadWcagAnalysis(payload: UploadWcagAnalysisPayload): Pr
     ],
   });
 
+  return response.data.data;
+}
+
+export interface CodeFixItem {
+  locationId: number;
+  sc: string | null;
+  status: "READY" | "FAILED";
+  before: string | null;
+  after: string | null;
+  failReason: string | null;
+}
+
+export interface CodeFixGenerateResponse {
+  filePath: string;
+  fixes: CodeFixItem[];
+}
+
+export interface CodeFixApplyResponse {
+  filePath: string;
+  appliedLocationIds: number[];
+  failed: CodeFixItem[];
+  remainingIssues: RealtimeAnalysisResponse;
+  /** 적용 후 파일 전체 내용 */
+  content: string;
+}
+
+interface CodeFixTarget {
+  repositoryUrl: string;
+  branchName: string;
+  filePath: string;
+}
+
+/** AI 호출을 포함하므로 기본 10초로는 부족하다. */
+const CODE_FIX_TIMEOUT_MS = 120_000;
+
+export async function generateCodeFixes(
+  repositoryId: number,
+  payload: CodeFixTarget,
+): Promise<CodeFixGenerateResponse> {
+  const response = await apiClient.post<ApiResponse<CodeFixGenerateResponse>>(
+    `/api/analysis/wcag/${repositoryId}/fixes`,
+    payload,
+    { timeout: CODE_FIX_TIMEOUT_MS },
+  );
+  return response.data.data;
+}
+
+export async function applyCodeFixes(
+  repositoryId: number,
+  payload: CodeFixTarget & { locationIds: number[] },
+): Promise<CodeFixApplyResponse> {
+  const response = await apiClient.post<ApiResponse<CodeFixApplyResponse>>(
+    `/api/analysis/wcag/${repositoryId}/fixes/apply`,
+    payload,
+    { timeout: CODE_FIX_TIMEOUT_MS },
+  );
   return response.data.data;
 }

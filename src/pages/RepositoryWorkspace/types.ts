@@ -29,6 +29,10 @@ export interface AccessibilityIssue {
   suggestion?: string;
   measuredValue?: string;
   thresholdValue?: string;
+  /** 저장된 분석 결과의 위반 위치 ID. AI 코드 수정 요청에 사용한다. */
+  locationId?: number;
+  suggestionType?: string;
+  suggestionDetail?: string;
 }
 
 export interface AccessibilityCategoryGroup {
