@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
 import type { WorkspaceTab } from "../types";
-import { WorkspaceCommitButton, WorkspaceNavButton } from "./buttons";
+import {
+  WorkspaceCommitButton,
+  WorkspaceNavButton,
+  WorkspaceTooltipTrigger,
+} from "./buttons";
 import CodeeLogo from "./CodeeLogo";
 
 interface NavItem {
   id: WorkspaceTab;
   label: string;
+  description: string;
   icon: ReactNode;
 }
 
@@ -13,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: "overview",
     label: "Overview",
+    description: "웹 접근성 검사 결과를 요약합니다.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="4" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.9" />
@@ -25,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: "design",
     label: "Design",
+    description: "디자인 요소를 수정할 수 있습니다.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
@@ -39,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: "code",
     label: "Code",
+    description: "코드를 수정하고 변경 내역을 확인할 수 있습니다.",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="m8 9-3 3 3 3" stroke="currentColor" strokeWidth="1.9" />
@@ -90,6 +98,7 @@ export default function WorkspaceTopBar({
                 key={item.id}
                 icon={item.icon}
                 label={item.label}
+                description={item.description}
                 isActive={isActive}
                 onClick={() => onTabChange(item.id)}
               />
@@ -98,17 +107,19 @@ export default function WorkspaceTopBar({
         </nav>
 
         <div className="flex items-center pl-3 pr-[9px]">
-          <WorkspaceCommitButton
-            onClick={onCommitClick}
-            disabled={isCommitting}
-            className="min-w-[108px]"
-          >
-            {isCommitting
-              ? "처리 중..."
-              : changedFileCount > 0
-                ? `Commit ${changedFileCount}`
-                : "Commit"}
-          </WorkspaceCommitButton>
+          <WorkspaceTooltipTrigger description="변경 내역을 저장하고 커밋합니다.">
+            <WorkspaceCommitButton
+              onClick={onCommitClick}
+              disabled={isCommitting}
+              className="min-w-[108px]"
+            >
+              {isCommitting
+                ? "처리 중..."
+                : changedFileCount > 0
+                  ? `Commit ${changedFileCount}`
+                  : "Commit"}
+            </WorkspaceCommitButton>
+          </WorkspaceTooltipTrigger>
         </div>
       </div>
     </header>

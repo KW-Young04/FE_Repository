@@ -198,39 +198,39 @@ export default function EditorPanel({
         })}
       </div>
 
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3">
-        <span className="text-[11px] font-medium text-slate-500">AI Version</span>
+      {hasAiSuggestion && (
+        <div className="flex h-8 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3">
+          <span className="text-[11px] font-medium text-slate-500">AI Version</span>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label="코드 복사"
-            disabled={!activeFile}
-            onClick={() => {
-              if (activeFile) void navigator.clipboard?.writeText(activeFile.content);
-            }}
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
-          >
-            <CopyIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="AI 제안 되돌리기"
-            disabled={!hasAiSuggestion}
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
-          >
-            <RevertIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="AI 제안 적용"
-            disabled={!hasAiSuggestion}
-            className="rounded p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40"
-          >
-            <CheckIcon />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="코드 복사"
+              disabled={!activeFile}
+              onClick={() => {
+                if (activeFile) void navigator.clipboard?.writeText(activeFile.content);
+              }}
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
+            >
+              <CopyIcon />
+            </button>
+            <button
+              type="button"
+              aria-label="AI 제안 되돌리기"
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <RevertIcon />
+            </button>
+            <button
+              type="button"
+              aria-label="AI 제안 적용"
+              className="rounded p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+            >
+              <CheckIcon />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="min-h-0 flex-1">
         {activeFile ? (
