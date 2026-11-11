@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Button from "@/components/Button";
 import { repositoryApi, type GithubRepositoryResponse } from "@/api/repository";
 import { useAuthStore } from "@/stores/authStore";
@@ -22,6 +22,7 @@ const TEXT = {
     "\uBD84\uC11D\uD560 \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uC785\uB825\uD558\uC138\uC694. (ex. main)",
   loading: "\uD655\uC778 \uC911...",
   start: "\uBD84\uC11D \uC2DC\uC791 \u2192",
+  logout: "\uB85C\uADF8\uC544\uC6C3",
   error:
     "\uC800\uC7A5\uC18C \uB610\uB294 \uBE0C\uB79C\uCE58\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. URL\uACFC \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
   recent: "\uCD5C\uADFC \uC800\uC7A5\uC18C",
@@ -79,6 +80,7 @@ function getUpdatedAt(repository: GithubRepositoryResponse): string {
 export default function RepositoryConnectPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((state) => state.setUser);
+  const logout = useAuthStore((state) => state.logout);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [branchName, setBranchName] = useState("");
@@ -96,12 +98,21 @@ export default function RepositoryConnectPage() {
 
   useEffect(() => {
     const tokenFromUrl = consumeAccessTokenFromUrl();
-    if (tokenFromUrl) {
-      const user = parseUserFromToken(tokenFromUrl);
-      if (user) setUser(user);
+    const effectiveToken = tokenFromUrl ?? getAccessToken();
+    if (effectiveToken) {
+      const parsedUser = parseUserFromToken(effectiveToken);
+      if (parsedUser) setUser(parsedUser);
     }
-    setAccessToken(tokenFromUrl ?? getAccessToken());
+    setAccessToken(effectiveToken);
   }, [setUser]);
+
+  const handleLogout = () => {
+    logout();
+    setAccessToken(null);
+    navigate("/");
+  };
+
+  const isLoggedIn = Boolean(accessToken);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -181,8 +192,30 @@ export default function RepositoryConnectPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f8f9fb] px-6 py-10 md:px-10">
-      <section className="mx-auto w-full max-w-6xl py-16">
+    <main className="min-h-screen bg-[#f8f9fb]">
+      <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl items-center px-6 py-3 md:px-10">
+          <Link to="/" className="inline-flex items-center gap-0" aria-label="Codee 홈">
+            <img src="/codee.png" alt="" className="h-[39px] w-[43px] object-contain" />
+            <img src="/codee-text.png" alt="Codee" className="h-[22px] w-[89px] object-contain" />
+          </Link>
+
+          {isLoggedIn && (
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              {/* 계정 이름/프로필 이미지를 제공하는 API가 없어 표시를 비활성화함 */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="h-9 cursor-pointer rounded-full border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point-200"
+              >
+                {TEXT.logout}
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <section className="mx-auto w-full max-w-6xl px-6 pt-14 pb-24 md:px-10">
         <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
           {TEXT.title}
         </h1>
