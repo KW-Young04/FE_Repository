@@ -6,9 +6,11 @@ import DesignInspectorSidebar from "../design/DesignInspectorSidebar";
 import SelectedIssuePanel from "../overview/SelectedIssuePanel";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import type { AiCodeFixController } from "../analysis/useAiCodeFix";
+import type { WorkspaceChatController } from "../code/useWorkspaceChat";
 
 type ChatPanel = {
   panel: "chat";
+  chat?: WorkspaceChatController;
 };
 
 type IssuePanel = {
@@ -45,7 +47,7 @@ export default function WorkspaceRightSidebar(props: WorkspaceRightSidebarProps)
 function renderPanel(props: WorkspaceRightSidebarProps): ReactNode {
   switch (props.panel) {
     case "chat":
-      return <WorkspaceChatSidebar />;
+      return <WorkspaceChatSidebar chat={props.chat} />;
     case "design":
       return (
         <DesignInspectorSidebar
