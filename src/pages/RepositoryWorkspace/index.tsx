@@ -236,6 +236,7 @@ export default function RepositoryWorkspacePage() {
             analysisError={analysis.error}
             branches={git.branches}
             currentBranch={git.currentBranch}
+            commits={git.commits}
             changedFiles={git.changedFiles}
             selectedPaths={git.selectedPaths}
             diffPath={git.diffPath}

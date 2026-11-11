@@ -1,6 +1,6 @@
 import type { GitFileChangeResponse } from "@/api/git";
 
-import type { BranchItem, LoadedFile, ProblemFileGroup, TreeItem } from "../types";
+import type { BranchItem, CommitNode, LoadedFile, ProblemFileGroup, TreeItem } from "../types";
 import BottomPanel from "./BottomPanel";
 import EditorPanel from "./EditorPanel";
 import ExplorerSidebar from "./ExplorerSidebar";
@@ -26,6 +26,7 @@ interface CodeTabViewProps {
   analysisError?: string | null;
   branches?: BranchItem[];
   currentBranch?: string;
+  commits?: CommitNode[];
   changedFiles?: GitFileChangeResponse[];
   selectedPaths?: string[];
   diffPath?: string | null;
@@ -60,6 +61,7 @@ export default function CodeTabView({
   analysisError,
   branches,
   currentBranch,
+  commits,
   changedFiles,
   selectedPaths,
   diffPath,
@@ -82,6 +84,7 @@ export default function CodeTabView({
         onFileClick={onFileClick}
         branches={branches}
         currentBranch={currentBranch}
+        commits={commits}
         changedFiles={changedFiles}
         selectedPaths={selectedPaths}
         diffPath={diffPath}

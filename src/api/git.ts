@@ -30,6 +30,20 @@ export interface GitBranchResponse {
   branches: string[];
 }
 
+export interface GitCommitLogResponse {
+  hash: string;
+  shortHash: string;
+  author: string;
+  message: string;
+  refs: string[];
+  head: boolean;
+}
+
+export interface GitGraphResponse {
+  currentBranch: string;
+  commits: GitCommitLogResponse[];
+}
+
 export interface GitWorkspaceParams {
   repositoryUrl: string;
   branchName: string;
@@ -120,6 +134,13 @@ export const gitApi = {
 
   getBranches: async (params: GitWorkspaceParams): Promise<GitBranchResponse> => {
     const response = await apiClient.get<GitBranchResponse>("/api/git/branches", { params });
+    return response.data;
+  },
+
+  getGraph: async (params: GitWorkspaceParams, limit = 100): Promise<GitGraphResponse> => {
+    const response = await apiClient.get<GitGraphResponse>("/api/git/graph", {
+      params: { ...params, limit },
+    });
     return response.data;
   },
 

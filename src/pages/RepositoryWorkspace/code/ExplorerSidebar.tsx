@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { GitFileChangeResponse } from "@/api/git";
 
-import type { BranchItem, TreeItem } from "../types";
+import type { BranchItem, CommitNode, TreeItem } from "../types";
 import { COMMIT_GRAPH, WORKSPACE_BRANCHES } from "./codeWorkspace";
 import BranchListSection from "./BranchListSection";
 import CommitGraphSection from "./CommitGraphSection";
@@ -18,6 +18,7 @@ interface ExplorerSidebarProps {
   /** Git 연동 정보. 없으면 목업 브랜치와 커밋 그래프로 대체한다. */
   branches?: BranchItem[];
   currentBranch?: string;
+  commits?: CommitNode[];
   changedFiles?: GitFileChangeResponse[];
   selectedPaths?: string[];
   diffPath?: string | null;
@@ -39,6 +40,7 @@ export default function ExplorerSidebar({
   onFileClick,
   branches,
   currentBranch,
+  commits,
   changedFiles,
   selectedPaths = [],
   diffPath = null,
@@ -57,6 +59,7 @@ export default function ExplorerSidebar({
 
   const branchItems = branches?.length ? branches : WORKSPACE_BRANCHES;
   const selectedBranchId = branches?.length ? (currentBranch ?? "") : fallbackBranchId;
+  const graphCommits = commits?.length ? commits : COMMIT_GRAPH;
 
   return (
     <aside
@@ -114,7 +117,7 @@ export default function ExplorerSidebar({
             onRefresh={onRefreshGit ?? (() => {})}
           />
         ) : (
-          <CommitGraphSection commits={COMMIT_GRAPH} />
+          <CommitGraphSection commits={graphCommits} />
         )}
       </div>
 

@@ -3,12 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   gitApi,
   toGitErrorMessage,
+  type GitCommitLogResponse,
   type GitFileChangeResponse,
   type GitStatusResponse,
   type GitWorkspaceParams,
 } from "@/api/git";
 
-import type { BranchItem } from "../types";
+import type { BranchItem, CommitNode } from "../types";
 
 const BRANCH_PALETTE = ["#3B82F6", "#F59E0B", "#EC4899", "#10B981", "#8B5CF6", "#EF4444"];
 
@@ -21,9 +22,45 @@ function toBranchItems(branches: string[], currentBranch: string): BranchItem[] 
   }));
 }
 
+/** origin/main, remotes/origin/main 등 원격 접두사를 떼어 로컬 브랜치와 색/이름을 맞춘다. */
+function normalizeBranchName(ref: string): string {
+  return ref.replace(/^remotes\//, "").replace(/^origin\//, "");
+}
+
+function toCommitNodes(commits: GitCommitLogResponse[], branchNames: string[]): CommitNode[] {
+  const colorByBranch = new Map<string, string>();
+  const assignColor = (branch: string): string => {
+    const existing = colorByBranch.get(branch);
+    if (existing) return existing;
+    const color = BRANCH_PALETTE[colorByBranch.size % BRANCH_PALETTE.length];
+    colorByBranch.set(branch, color);
+    return color;
+  };
+
+  // 로컬 브랜치 순서대로 색을 먼저 확보해 브랜치 목록과 그래프 색을 일치시킨다.
+  branchNames.forEach((name) => assignColor(name));
+
+  let lastBranch = branchNames[0] ?? "main";
+  return commits.map((commit) => {
+    const refBranch = commit.refs.map(normalizeBranchName).find((name) => name.length > 0);
+    const branch = refBranch ?? lastBranch;
+    lastBranch = branch;
+
+    return {
+      id: commit.hash || commit.shortHash,
+      message: commit.message,
+      author: commit.author,
+      branch,
+      color: assignColor(branch),
+      isHead: commit.head,
+    };
+  });
+}
+
 export interface GitWorkspaceState {
   branches: BranchItem[];
   currentBranch: string;
+  commits: CommitNode[];
   changedFiles: GitFileChangeResponse[];
   hasChanges: boolean;
   selectedPaths: string[];
@@ -59,6 +96,7 @@ export function useGitWorkspace({
 }: UseGitWorkspaceOptions): GitWorkspaceState {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [currentBranch, setCurrentBranch] = useState("");
+  const [commits, setCommits] = useState<CommitNode[]>([]);
   const [status, setStatus] = useState<GitStatusResponse | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [diffPath, setDiffPath] = useState<string | null>(null);
@@ -87,6 +125,7 @@ export function useGitWorkspace({
     if (!workspaceParams) {
       setBranches([]);
       setCurrentBranch(branchName);
+      setCommits([]);
       setStatus(null);
       setSelectedPaths(localChangedFiles.map((file) => file.path));
       return;
@@ -96,17 +135,26 @@ export function useGitWorkspace({
     setError(null);
     setCurrentBranch((current) => current || branchName);
 
-    const [branchResult, statusResult] = await Promise.allSettled([
+    const [branchResult, statusResult, graphResult] = await Promise.allSettled([
       gitApi.getBranches(workspaceParams),
       gitApi.getStatus(workspaceParams),
+      gitApi.getGraph(workspaceParams),
     ]);
 
     if (!isMountedRef.current) return;
 
+    let branchNames: string[] = [];
     if (branchResult.status === "fulfilled") {
       const { currentBranch: current, branches: names } = branchResult.value;
+      branchNames = names ?? [];
       setCurrentBranch(current ?? branchName);
-      setBranches(toBranchItems(names ?? [], current ?? ""));
+      setBranches(toBranchItems(branchNames, current ?? ""));
+    }
+
+    if (graphResult.status === "fulfilled") {
+      setCommits(toCommitNodes(graphResult.value.commits ?? [], branchNames));
+    } else {
+      setCommits([]);
     }
 
     if (statusResult.status === "fulfilled") {
@@ -287,6 +335,7 @@ export function useGitWorkspace({
   return {
     branches,
     currentBranch,
+    commits,
     changedFiles,
     hasChanges: status?.hasChanges ?? false,
     selectedPaths,
