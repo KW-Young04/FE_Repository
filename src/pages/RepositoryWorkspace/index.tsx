@@ -19,6 +19,7 @@ import WorkspaceTopBar from "./layout/WorkspaceTopBar";
 import { buildPreviewSrc } from "./preview/previewSrc";
 import WorkspacePreviewMain from "./preview/WorkspacePreviewMain";
 import type { AccessibilityIssue, WorkspaceTab } from "./types";
+import { useWorkspaceChat } from "./code/useWorkspaceChat";
 
 export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
@@ -92,6 +93,14 @@ export default function RepositoryWorkspacePage() {
   );
   const [closingIssue, setClosingIssue] = useState<AccessibilityIssue | null>(null);
   const issuePanelIssue = selectedIssue ?? closingIssue;
+  const chat = useWorkspaceChat({
+    repositoryUrl: workspace.repositoryUrl,
+    branchName: workspace.branchName,
+    activePath: workspace.activePath,
+    selectedLocationId: selectedIssue?.locationId ?? null,
+    onFlushPendingWrites: workspace.onFlushPendingWrites,
+    onApplyExternalContent: workspace.onApplyExternalContent,
+  });
 
   const clearSelectedIssue = () => {
     setClosingIssue(selectedIssue);
@@ -176,7 +185,7 @@ export default function RepositoryWorkspacePage() {
 
   const rightSidebar =
     activeTab === "code" ? (
-      <WorkspaceRightSidebar panel="chat" />
+      <WorkspaceRightSidebar panel="chat" chat={chat} />
     ) : isDesignTab ? (
       <WorkspaceRightSidebar
         panel="design"

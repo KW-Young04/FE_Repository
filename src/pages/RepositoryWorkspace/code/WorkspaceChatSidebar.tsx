@@ -1,6 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { CHAT_SUGGESTIONS } from "./codeWorkspace";
+import type {
+  ChatFixEntry,
+  WorkspaceChatController,
+  WorkspaceChatMessage,
+} from "./useWorkspaceChat";
 
 function SearchIcon() {
   return (
@@ -27,22 +32,145 @@ function PlusIcon() {
   );
 }
 
-export default function WorkspaceChatSidebar() {
-  const isChatAvailable = false;
-  const [message, setMessage] = useState("");
-  const [sentMessages, setSentMessages] = useState<string[]>([]);
+const codeBlockClasses =
+  "m-0 my-1.5 overflow-x-auto border border-slate-200 px-2 py-1.5 font-mono text-[10px] leading-4 whitespace-pre-wrap";
 
-  const send = (value: string) => {
-    if (!isChatAvailable) return;
+/** **굵게**, `코드`만 처리하는 최소 인라인 마크다운. HTML을 주입하지 않고 React 요소로 만든다. */
+function renderInline(text: string, keyPrefix: string): ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
+    const key = `${keyPrefix}-${index}`;
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return <strong key={key}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      return (
+        <code key={key} className="rounded bg-slate-100 px-1 font-mono text-[11px]">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+}
+
+/** AI 답변 렌더링: ``` 코드 블록과 인라인 서식만 지원한다. */
+function MessageContent({ content }: { content: string }) {
+  const segments = content.split(/```[a-zA-Z]*\n?/);
+  return (
+    <>
+      {segments.map((segment, index) =>
+        index % 2 === 1 ? (
+          <pre key={index} className={`${codeBlockClasses} bg-slate-50 text-slate-600`}>
+            {segment.replace(/\n$/, "")}
+          </pre>
+        ) : (
+          <span key={index} className="whitespace-pre-wrap">
+            {renderInline(segment, String(index))}
+          </span>
+        ),
+      )}
+    </>
+  );
+}
+
+function FixCard({ fix, onApply }: { fix: ChatFixEntry; onApply: () => void }) {
+  const { state } = fix.status;
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2">
+      <p className="m-0 mb-1 text-[11px] font-semibold text-slate-600">
+        {fix.description || "수정안"}
+        <span className="ml-1 font-normal text-slate-400">({fix.filePath})</span>
+      </p>
+      <p className="m-0 text-[10px] font-semibold text-[#ff5b63]">수정 전</p>
+      <pre className={`${codeBlockClasses} bg-[#fff5f5] text-slate-600`}>{fix.before}</pre>
+      <p className="m-0 text-[10px] font-semibold text-emerald-600">수정 후</p>
+      <pre className={`${codeBlockClasses} bg-emerald-50 text-slate-700`}>{fix.after}</pre>
+
+      {state === "applied" ? (
+        <p className="m-0 mt-1 text-[10px] text-emerald-600">
+          적용되었습니다. 재검사로 결과를 확인해 주세요.
+        </p>
+      ) : (
+        <>
+          {state === "failed" && (
+            <p className="m-0 mt-1 text-[10px] text-[#ff5b63]">{fix.status.reason}</p>
+          )}
+          <button
+            type="button"
+            disabled={state === "applying"}
+            onClick={onApply}
+            className="mt-1.5 h-7 w-full cursor-pointer rounded border-0 bg-point text-[11px] font-semibold text-white hover:bg-point-hover disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            {state === "applying" ? "적용 중…" : state === "failed" ? "다시 적용" : "적용"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AiMessage({
+  message,
+  onApplyFixes,
+}: {
+  message: WorkspaceChatMessage;
+  onApplyFixes: (fixKeys: string[]) => void;
+}) {
+  const pendingKeys = message.fixes
+    .filter((fix) => fix.status.state === "idle" || fix.status.state === "failed")
+    .map((fix) => fix.key);
+
+  return (
+    <div className="mt-3 mr-2 text-[12px] leading-5 text-[#171717]">
+      <MessageContent content={message.content} />
+
+      {message.fixes.map((fix) => (
+        <FixCard key={fix.key} fix={fix} onApply={() => onApplyFixes([fix.key])} />
+      ))}
+
+      {pendingKeys.length > 1 && (
+        <button
+          type="button"
+          onClick={() => onApplyFixes(pendingKeys)}
+          className="mt-2 h-7 w-full cursor-pointer rounded border border-point bg-white text-[11px] font-semibold text-point hover:bg-point-100"
+        >
+          수정안 {pendingKeys.length}건 모두 적용
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface WorkspaceChatSidebarProps {
+  chat?: WorkspaceChatController;
+}
+
+export default function WorkspaceChatSidebar({ chat }: WorkspaceChatSidebarProps) {
+  const isChatAvailable = Boolean(chat?.isAvailable);
+  const isBusy = Boolean(chat?.isSending);
+  const [message, setMessage] = useState("");
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const messages = chat?.messages ?? [];
+
+  // 새 메시지가 오면 맨 아래로 스크롤한다.
+  useEffect(() => {
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [messages.length, isBusy]);
+
+  const send = async (value: string) => {
+    if (!chat || !isChatAvailable || isBusy) return;
     const trimmed = value.trim();
     if (!trimmed) return;
-    setSentMessages((items) => [...items, trimmed]);
     setMessage("");
+    const ok = await chat.send(trimmed);
+    // 실패하면 입력 내용을 되살려 다시 보낼 수 있게 한다.
+    if (!ok) setMessage(trimmed);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    send(message);
+    void send(message);
   };
 
   return (
@@ -53,37 +181,71 @@ export default function WorkspaceChatSidebar() {
         수정하고 싶은 내용이 무엇인가요?
       </h2>
       <p className="mt-2 px-2 text-xs leading-5 text-slate-500">
-        AI 채팅은 준비 중입니다. 수정할 내용은 코드 편집기에서 직접 변경해 주세요.
+        {!isChatAvailable
+          ? (chat?.unavailableReason ?? "AI 채팅은 준비 중입니다.")
+          : chat?.activePath
+            ? `열린 파일(${chat.activePath})을 기준으로 답변하고 수정안을 제안합니다.`
+            : "코드 수정을 요청하려면 수정할 파일을 먼저 열어 주세요."}
       </p>
 
-      <div className="scrollbar-subtle mt-4 min-h-0 flex-1 overflow-y-auto">
-        {sentMessages.map((item, index) => (
-          <div
-            key={`${item}-${index}`}
-            className="mt-2 ml-2 rounded-xl bg-[#eee] px-3 py-2 text-[12px] leading-5"
-          >
-            {item}
-          </div>
-        ))}
-      </div>
+      <div ref={listRef} className="scrollbar-subtle mt-4 min-h-0 flex-1 overflow-y-auto">
+        {chat?.isLoadingHistory && (
+          <p className="px-2 text-[11px] text-slate-400">대화 기록을 불러오는 중…</p>
+        )}
 
-      <ul className="mb-4 space-y-2">
-        {CHAT_SUGGESTIONS.map((suggestion) => (
-          <li key={suggestion}>
+        {messages.map((item) =>
+          item.senderType === "USER" ? (
+            <div
+              key={item.id}
+              className="mt-2 ml-6 rounded-xl bg-[#eee] px-3 py-2 text-[12px] leading-5 whitespace-pre-wrap"
+            >
+              {item.content}
+            </div>
+          ) : (
+            <AiMessage
+              key={item.id}
+              message={item}
+              onApplyFixes={(fixKeys) => void chat?.applyFixes(item.id, fixKeys)}
+            />
+          ),
+        )}
+
+        {isBusy && <p className="mt-3 px-1 text-[11px] text-slate-400">AI가 답변을 작성하는 중…</p>}
+
+        {chat?.error && (
+          <div className="mt-3 flex items-start justify-between gap-2 rounded-lg bg-[#fff5f5] px-3 py-2">
+            <p className="m-0 text-[11px] leading-5 text-[#ff5b63]">{chat.error}</p>
             <button
               type="button"
-              disabled={!isChatAvailable}
-              onClick={() => send(suggestion)}
-              className="flex max-w-full items-center gap-2 rounded-full bg-[#f0f0f0] px-4 py-2.5 text-left text-[11px] font-medium hover:bg-point-100"
+              aria-label="오류 닫기"
+              onClick={chat.clearError}
+              className="shrink-0 cursor-pointer border-0 bg-transparent text-[14px] leading-none text-slate-400"
             >
-              <span className="shrink-0 text-slate-500">
-                <SearchIcon />
-              </span>
-              <span className="truncate">{suggestion}</span>
+              ×
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        )}
+      </div>
+
+      {messages.length === 0 && (
+        <ul className="mb-4 space-y-2">
+          {CHAT_SUGGESTIONS.map((suggestion) => (
+            <li key={suggestion}>
+              <button
+                type="button"
+                disabled={!isChatAvailable || isBusy}
+                onClick={() => void send(suggestion)}
+                className="flex max-w-full items-center gap-2 rounded-full bg-[#f0f0f0] px-4 py-2.5 text-left text-[11px] font-medium hover:bg-point-100"
+              >
+                <span className="shrink-0 text-slate-500">
+                  <SearchIcon />
+                </span>
+                <span className="truncate">{suggestion}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <form
         onSubmit={handleSubmit}
@@ -101,7 +263,7 @@ export default function WorkspaceChatSidebar() {
             if (event.key === "Enter" && !event.shiftKey) {
               if (event.nativeEvent.isComposing) return;
               event.preventDefault();
-              send(message);
+              void send(message);
             }
           }}
           placeholder="메시지를 입력해주세요"
@@ -121,7 +283,7 @@ export default function WorkspaceChatSidebar() {
           <button
             type="submit"
             aria-label="메시지 보내기"
-            disabled={!isChatAvailable || !message.trim()}
+            disabled={!isChatAvailable || isBusy || !message.trim()}
             className="grid size-7 place-items-center rounded-full hover:bg-point-100 disabled:text-slate-300"
           >
             <SendIcon />

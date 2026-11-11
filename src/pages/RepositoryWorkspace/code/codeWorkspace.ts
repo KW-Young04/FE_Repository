@@ -118,8 +118,8 @@ export const PROBLEM_GROUPS: ProblemFileGroup[] = [
 
 export const CHAT_SUGGESTIONS: string[] = [
   "어떤 웹 접근성 표준을 충족하지 못했는지 점검해줘",
-  "발생한 에러를 수정해줘",
-  "지금 페이지 수정사항을 커밋해줘",
+  "선택한 이슈가 왜 문제인지 설명해줘",
+  "열린 파일의 접근성 문제를 고쳐줘",
 ];
 
 /** 파일 이름 기준 AI 제안 diff. 실제 제안 API가 붙기 전까지 사용하는 데모 데이터. */
