@@ -183,12 +183,14 @@ export default function RepositoryConnectPage() {
   return (
     <main className="min-h-screen bg-[#f8f9fb] px-6 py-10 md:px-10">
       <section className="mx-auto w-full max-w-6xl py-16">
-        <h1 className="text-4xl font-extrabold text-slate-900">{TEXT.title}</h1>
-        <p className="mt-3 text-2xl font-semibold text-slate-600">{TEXT.subtitle}</p>
+        <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+          {TEXT.title}
+        </h1>
+        <p className="mt-3 text-[15px] leading-7 text-slate-500 sm:text-[17px]">{TEXT.subtitle}</p>
 
-        <div className="mt-12 overflow-hidden rounded-2xl border border-slate-300 bg-white">
-          <label className="flex h-20 items-center border-b border-slate-200">
-            <span className="w-24 shrink-0 px-4 text-xl font-medium text-slate-400">URL</span>
+        <div className="mt-10 overflow-hidden rounded-2xl border border-slate-300 bg-white">
+          <label className="flex h-16 items-center border-b border-slate-200">
+            <span className="w-24 shrink-0 px-5 text-[14px] font-medium text-slate-400">URL</span>
             <input
               type="text"
               value={repositoryUrl}
@@ -202,11 +204,11 @@ export default function RepositoryConnectPage() {
                 }
               }}
               placeholder={TEXT.repositoryPlaceholder}
-              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-2xl font-extrabold text-slate-800 outline-none placeholder:font-bold placeholder:text-slate-300"
+              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-[16px] font-medium text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400"
             />
           </label>
-          <label className="flex h-20 items-center">
-            <span className="w-24 shrink-0 px-4 text-xl font-medium text-slate-400">Branch</span>
+          <label className="flex h-16 items-center">
+            <span className="w-24 shrink-0 px-5 text-[14px] font-medium text-slate-400">Branch</span>
             <input
               type="text"
               value={branchName}
@@ -220,7 +222,7 @@ export default function RepositoryConnectPage() {
                 }
               }}
               placeholder={TEXT.branchPlaceholder}
-              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-2xl font-extrabold text-slate-800 outline-none placeholder:font-bold placeholder:text-slate-300"
+              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-[16px] font-medium text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400"
             />
           </label>
         </div>
@@ -231,7 +233,7 @@ export default function RepositoryConnectPage() {
           onClick={() => {
             void handleAnalyze();
           }}
-          className="mt-5 h-14 w-full rounded-none text-xl"
+          className="mt-5 h-14 w-full rounded-none text-[17px]"
         >
           {isLoading ? TEXT.loading : TEXT.start}
         </Button>
@@ -239,14 +241,14 @@ export default function RepositoryConnectPage() {
         {errorMessage && <p className="mt-3 text-sm font-medium text-red-500">{errorMessage}</p>}
 
         <div className="mt-16">
-          <h2 className="text-3xl font-extrabold text-slate-700">{TEXT.recent}</h2>
-          <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="text-[20px] font-bold text-slate-800">{TEXT.recent}</h2>
+          <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             {isRecentLoading ? (
-              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-lg font-bold text-slate-500">
+              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-[15px] font-medium text-slate-500">
                 {TEXT.recentLoading}
               </div>
             ) : recentErrorMessage ? (
-              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-lg font-bold text-red-500">
+              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-[15px] font-medium text-red-500">
                 {recentErrorMessage}
               </div>
             ) : recentRepositories.length > 0 ? (
@@ -264,12 +266,12 @@ export default function RepositoryConnectPage() {
                           }}
                           className="flex min-w-0 flex-1 items-center gap-4 text-left transition hover:opacity-80"
                         >
-                          <span className="text-4xl leading-none">▱</span>
+                          <span className="text-2xl leading-none text-slate-400">▱</span>
                           <span className="min-w-0">
-                            <strong className="block truncate text-xl font-extrabold text-slate-900">
+                            <strong className="block truncate text-[15px] font-bold text-slate-800">
                               {fullName}
                             </strong>
-                            <span className="mt-1 block truncate text-sm font-medium text-slate-500">
+                            <span className="mt-1 block truncate text-[13px] text-slate-500">
                               {getUpdatedAt(repository)} · {repository.language ?? "Unknown"}
                               {repository.privateRepo || repository.private
                                 ? " · Private"
@@ -287,7 +289,7 @@ export default function RepositoryConnectPage() {
                                 [repository.id]: event.target.value,
                               }));
                             }}
-                            className="h-full cursor-pointer bg-transparent text-sm font-bold text-point outline-none"
+                            className="h-full cursor-pointer bg-transparent text-[13px] font-semibold text-point outline-none"
                             aria-label={`${fullName} 브랜치 선택`}
                           >
                             <option value={branch}>{branch}</option>
@@ -306,8 +308,8 @@ export default function RepositoryConnectPage() {
               </ul>
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center px-6 py-14 text-center">
-                <p className="text-xl font-extrabold text-slate-800">{TEXT.emptyTitle}</p>
-                <p className="mt-2 text-base font-semibold text-slate-500">
+                <p className="text-[15px] font-bold text-slate-800">{TEXT.emptyTitle}</p>
+                <p className="mt-2 text-[14px] leading-6 text-slate-500">
                   {TEXT.emptyDescription}
                 </p>
               </div>
