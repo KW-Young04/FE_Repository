@@ -228,6 +228,7 @@ export default function WorkspacePreviewMain({
           selectedIssueId={selectedIssueId}
           filesByPath={filesByPath}
           navigationKey={navigationKey}
+          interactive={!isDesignTab}
           onLocationChange={handleLocationChange}
           onNotFound={handleNotFound}
         />

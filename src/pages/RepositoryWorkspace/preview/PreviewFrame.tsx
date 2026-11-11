@@ -17,6 +17,8 @@ interface PreviewFrameProps {
   filesByPath?: Record<string, LoadedFile>;
   /** 주소창에서 이동할 때마다 증가시켜 iframe 을 확실히 다시 로드한다. */
   navigationKey?: number;
+  /** true 면 클릭으로 요소를 선택하지 않고 실제 웹페이지처럼 상호작용한다. */
+  interactive?: boolean;
   /** iframe 내부 라우팅으로 경로가 바뀌었을 때 (pathname + search + hash) */
   onLocationChange?: (path: string) => void;
   /** 프리뷰가 없는 페이지(404)를 열었을 때 */
@@ -32,6 +34,7 @@ export default function PreviewFrame({
   selectedIssueId,
   filesByPath = {},
   navigationKey = 0,
+  interactive = false,
   onLocationChange,
   onNotFound,
 }: PreviewFrameProps) {
@@ -65,6 +68,21 @@ export default function PreviewFrame({
     );
   }, [highlights]);
 
+  const postInteractive = useCallback(() => {
+    internalIframeRef.current?.contentWindow?.postMessage(
+      {
+        source: "codee-design-panel",
+        type: "set-interactive",
+        payload: { interactive },
+      },
+      "*",
+    );
+  }, [interactive]);
+
+  useEffect(() => {
+    postInteractive();
+  }, [postInteractive, previewSrc, previewRevision]);
+
   useEffect(() => {
     if (highlights.length === 0) {
       setOverlayBoxes([]);
@@ -81,6 +99,7 @@ export default function PreviewFrame({
         return;
       }
       if (event.data.type === "ready") {
+        postInteractive();
         postIssueHighlights();
         return;
       }
@@ -101,7 +120,7 @@ export default function PreviewFrame({
 
     window.addEventListener("message", handleRuntimeMessage);
     return () => window.removeEventListener("message", handleRuntimeMessage);
-  }, [onLocationChange, onNotFound, postIssueHighlights]);
+  }, [onLocationChange, onNotFound, postInteractive, postIssueHighlights]);
 
   if (!previewSrc) {
     return (
@@ -124,6 +143,7 @@ export default function PreviewFrame({
         sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
         onError={() => onNotFound?.()}
         onLoad={() => {
+          postInteractive();
           postIssueHighlights();
           window.setTimeout(postIssueHighlights, 300);
           window.setTimeout(postIssueHighlights, 1000);
