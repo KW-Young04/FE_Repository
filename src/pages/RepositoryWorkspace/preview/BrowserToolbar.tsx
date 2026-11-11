@@ -197,24 +197,24 @@ export default function BrowserToolbar({
         aria-pressed={showErrors}
         onClick={onToggleErrors}
         className={[
-          "relative inline-flex h-7 w-[78px] items-center rounded-[14px] p-0 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point",
+          "relative inline-flex h-[27px] w-[62px] items-center rounded-[14px] p-0 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point",
           showErrors ? "bg-point" : "bg-[#a9b9d6]",
         ].join(" ")}
       >
         <span
           className={[
-            "absolute left-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/15%)] transition-transform duration-200 ease-out",
-            showErrors ? "translate-x-0" : "translate-x-[50px]",
+            "absolute left-[3px] top-[3px] h-[21px] w-[21px] rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/15%)] transition-transform duration-200 ease-out",
+            showErrors ? "translate-x-0" : "translate-x-[35px]",
           ].join(" ")}
           aria-hidden="true"
         />
         <span
           className={[
             "absolute whitespace-nowrap transition-[left,right] duration-200",
-            showErrors ? "right-[7px]" : "left-[7px]",
+            showErrors ? "right-[9px]" : "left-[9px]",
           ].join(" ")}
         >
-          오류 표시
+          오류
         </span>
       </button>
     </div>
