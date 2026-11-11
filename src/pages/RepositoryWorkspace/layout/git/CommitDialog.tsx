@@ -130,7 +130,7 @@ function DiffContent({
           return (
             <div
               key={index}
-              className="border-y border-violet-100 bg-violet-50/70 px-5 py-1.5 text-[11px] font-medium text-violet-500"
+              className="border-y border-point-100 bg-point-50/70 px-5 py-1.5 text-[11px] font-medium text-point-500"
             >
               변경 위치 · 기존 {oldLine}번째 줄 / 현재 {newLine}번째 줄
             </div>
@@ -254,7 +254,7 @@ export default function CommitDialog({
     files.map((file) => (
       <li
         key={file.path}
-        className={`flex items-center gap-2 rounded-md px-2 ${activeFile?.path === file.path ? "bg-violet-50" : "hover:bg-slate-100"}`}
+        className={`flex items-center gap-2 rounded-md px-2 ${activeFile?.path === file.path ? "bg-point-50" : "hover:bg-slate-100"}`}
       >
         <input
           type="checkbox"
@@ -262,7 +262,7 @@ export default function CommitDialog({
           disabled={busy}
           onChange={() => onToggleSelect(file.path)}
           aria-label={`${file.path} 커밋 대상 선택`}
-          className="h-3.5 w-3.5 shrink-0 accent-violet-600"
+          className="h-3.5 w-3.5 shrink-0 accent-point"
         />
         <button
           type="button"
@@ -320,7 +320,7 @@ export default function CommitDialog({
           <aside className="flex min-h-0 flex-col border-r border-[#e9e9ef] bg-[#fafafa] max-sm:max-h-40 max-sm:overflow-auto max-sm:border-b">
             <div className="flex items-center justify-between px-4 py-3 text-xs font-bold text-[#858598]">
               변경된 파일
-              <span className="rounded-full bg-violet-100 px-2 py-1 text-violet-500">
+              <span className="rounded-full bg-point-100 px-2 py-1 text-point-500">
                 {changedFiles.length}
               </span>
             </div>
@@ -330,7 +330,7 @@ export default function CommitDialog({
                 type="button"
                 disabled={busy}
                 onClick={() => onSelectAll(!allSelected)}
-                className="text-violet-600 hover:underline disabled:opacity-50"
+                className="text-point hover:underline disabled:opacity-50"
               >
                 {allSelected ? "전체 해제" : "전체 선택"}
               </button>
@@ -457,7 +457,7 @@ export default function CommitDialog({
                 disabled={busy}
                 placeholder="변경 사항을 설명하는 메시지를 입력하세요..."
                 autoFocus
-                className="mt-3 h-24 w-full resize-none rounded-lg border border-[#dedee5] bg-[#f5f5f7] px-4 py-3 text-sm placeholder:text-[#96969e] focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                className="mt-3 h-24 w-full resize-none rounded-lg border border-[#dedee5] bg-[#f5f5f7] px-4 py-3 text-sm placeholder:text-[#96969e] focus:border-point-400 focus:outline-none focus:ring-2 focus:ring-point-100"
               />
               <div className="mt-1 text-right text-[10px] text-slate-400">
                 {message.length}/{MAX_COMMIT_MESSAGE_LENGTH}
@@ -490,7 +490,7 @@ export default function CommitDialog({
                   <button
                     type="submit"
                     disabled={!canCommit}
-                    className="flex h-11 items-center justify-center gap-2 rounded-lg bg-[#7047ff] px-5 text-sm font-medium text-white hover:bg-[#6035ee] disabled:cursor-not-allowed disabled:opacity-40 lg:min-w-48"
+                    className="flex h-11 items-center justify-center gap-2 rounded-lg bg-point px-5 text-sm font-medium text-white hover:bg-point-hover disabled:cursor-not-allowed disabled:opacity-40 lg:min-w-48"
                   >
                     <Icon name="arrow" className="h-4 w-4" />
                     {busy ? "처리 중..." : "Commit & Push"}

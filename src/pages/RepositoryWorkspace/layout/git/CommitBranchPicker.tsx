@@ -86,7 +86,7 @@ export default function CommitBranchPicker({
         aria-expanded={open}
         aria-controls="commit-branch-picker"
         aria-label={`커밋 대상 브랜치: ${value || "선택"}`}
-        className="flex h-10 max-w-full items-center gap-1 rounded-full border border-[#DECDFB] bg-[#F6F1FE] px-5 text-sm font-semibold text-[#7C3AED] transition-colors hover:bg-[#EDE3FC] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#DECDFB] disabled:opacity-50"
+        className="flex h-10 max-w-full items-center gap-1 rounded-full border border-point-200 bg-point-50 px-5 text-sm font-semibold text-point transition-colors hover:bg-point-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-point-200 disabled:opacity-50"
       >
         <svg
           viewBox="0 0 24 24"
@@ -122,7 +122,7 @@ export default function CommitBranchPicker({
         <section
           id="commit-branch-picker"
           aria-label="커밋 대상 브랜치 선택"
-          className="absolute right-0 top-full z-20 mt-2 w-72 max-w-[80vw] rounded-xl border border-violet-100 bg-white p-2 text-slate-700 shadow-xl"
+          className="absolute right-0 top-full z-20 mt-2 w-72 max-w-[80vw] rounded-xl border border-point-100 bg-white p-2 text-slate-700 shadow-xl"
         >
           <h3 className="px-3 py-2 text-xs font-semibold text-slate-400">
             커밋 · 푸시 대상 브랜치
@@ -139,7 +139,7 @@ export default function CommitBranchPicker({
                   setOpen(false);
                   buttonRef.current?.focus();
                 }}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-violet-50 ${branch === value ? "bg-violet-50 font-semibold text-violet-600" : ""}`}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-point-50 ${branch === value ? "bg-point-50 font-semibold text-point" : ""}`}
               >
                 <span className="min-w-0 flex-1 truncate" title={branch}>
                   {branch}
@@ -174,13 +174,13 @@ export default function CommitBranchPicker({
                   }
                 }}
                 placeholder="feature/new-branch"
-                className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-2 text-xs focus:border-violet-400 focus:outline-none"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-2 text-xs focus:border-point-400 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => void createBranch()}
                 disabled={!onCreate || invalidName || duplicate || disabled || creating}
-                className="rounded-lg bg-violet-600 px-3 text-xs font-semibold text-white disabled:opacity-40"
+                className="rounded-lg bg-point px-3 text-xs font-semibold text-white disabled:opacity-40"
               >
                 {creating ? "생성 중" : "생성"}
               </button>

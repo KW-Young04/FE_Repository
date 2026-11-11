@@ -350,8 +350,10 @@ export default function AnalysisProgressPage() {
   return (
     <main className="flex min-h-screen items-center bg-white px-6 py-10 md:px-10">
       <section className="mx-auto w-full max-w-5xl -translate-y-6">
-        <h1 className="text-3xl font-extrabold text-slate-900">저장소 분석</h1>
-        <p className="mt-2 text-xl font-semibold text-slate-600">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+          저장소 분석
+        </h1>
+        <p className="mt-3 text-[15px] leading-7 text-slate-500 sm:text-[17px]">
           {displayName} {branchName && <span className="text-sky-600">({branchName})</span>}
         </p>
 
@@ -378,23 +380,23 @@ export default function AnalysisProgressPage() {
                 className="flex items-center justify-between border border-slate-200 bg-white px-5 py-4"
               >
                 <div className="flex items-center gap-4">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xl">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-lg">
                     {step.icon}
                   </span>
                   <span>
-                    <strong className="block text-xl font-extrabold text-slate-900">
+                    <strong className="block text-[15px] font-bold text-slate-800">
                       {step.title}
                     </strong>
-                    <span className="block text-base font-semibold text-slate-700">
+                    <span className="block text-[13px] font-medium text-slate-500">
                       {stepMessages[index]}
                     </span>
                   </span>
                 </div>
 
                 {status === "done" ? (
-                  <span className="text-xl font-extrabold text-green-600">완료</span>
+                  <span className="text-[14px] font-bold text-green-600">완료</span>
                 ) : status === "error" ? (
-                  <span className="text-xl font-extrabold text-rose-600">실패</span>
+                  <span className="text-[14px] font-bold text-rose-600">실패</span>
                 ) : isActive ? (
                   <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
                 ) : (
@@ -408,7 +410,7 @@ export default function AnalysisProgressPage() {
         {snapshotImageUrl && (
           <div className="mt-6 border border-slate-200 bg-slate-50 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <strong className="text-sm font-extrabold text-slate-800">
+              <strong className="text-[13px] font-bold text-slate-800">
                 전송된 렌더링 스냅샷
               </strong>
               {analysisResultId != null && (
@@ -432,9 +434,9 @@ export default function AnalysisProgressPage() {
           />
         </div>
 
-        <p className="mt-4 text-xl font-semibold text-slate-700">
+        <p className="mt-4 text-[15px] font-medium text-slate-600 sm:text-[17px]">
           {isComplete ? "분석 준비가 완료되었습니다." : "분석 진행 중"}{" "}
-          <span className="font-extrabold text-sky-500">{progress}%</span>
+          <span className="font-bold text-sky-500">{progress}%</span>
         </p>
 
         <div className="mt-6">
@@ -442,7 +444,7 @@ export default function AnalysisProgressPage() {
             variant={isComplete ? "default" : "disabled"}
             disabled={!isComplete}
             onClick={() => navigate(workspaceUrl)}
-            className="h-14 w-full rounded-none text-xl"
+            className="h-14 w-full rounded-none text-[17px]"
           >
             결과 확인하기
           </Button>

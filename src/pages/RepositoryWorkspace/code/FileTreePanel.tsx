@@ -42,7 +42,7 @@ export default function FileTreePanel({
       {(isBackgroundLoading || truncatedCount > 0) && (
         <div className="shrink-0 border-t border-[#e5e7eb] px-3 pt-1.5 pb-2">
           {isBackgroundLoading && (
-            <p className="text-[10px] font-medium text-violet-600">파일을 불러오는 중입니다.</p>
+            <p className="text-[10px] font-medium text-point">파일을 불러오는 중입니다.</p>
           )}
           {truncatedCount > 0 && (
             <p className="text-[10px] font-medium text-slate-400">{truncatedCount}개 파일 생략됨</p>

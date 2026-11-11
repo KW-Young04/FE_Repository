@@ -55,6 +55,7 @@ interface WorkspaceTopBarProps {
   isCommitting: boolean;
   onTabChange: (tab: WorkspaceTab) => void;
   onCommitClick: () => void;
+  onLogoClick: () => void;
 }
 
 export default function WorkspaceTopBar({
@@ -63,11 +64,20 @@ export default function WorkspaceTopBar({
   isCommitting,
   onTabChange,
   onCommitClick,
+  onLogoClick,
 }: WorkspaceTopBarProps) {
   return (
     <header className="relative z-20 flex h-[47px] shrink-0 items-stretch border-b border-slate-200 bg-white">
       <div className="flex w-[300px] shrink-0 items-center gap-[7px] pl-2.5 max-[1360px]:w-[280px]">
-        <CodeeLogo />
+        <button
+          type="button"
+          onClick={onLogoClick}
+          aria-label="저장소 선택 화면으로 돌아가기"
+          title="저장소 선택 화면으로 돌아가기"
+          className="cursor-pointer rounded-md border-0 bg-transparent p-0.5 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point"
+        >
+          <CodeeLogo />
+        </button>
       </div>
 
       <div className="ml-auto flex h-full items-stretch">

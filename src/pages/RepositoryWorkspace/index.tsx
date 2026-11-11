@@ -11,18 +11,22 @@ import CodeTabView from "./code/CodeTabView";
 import { useGitWorkspace } from "./code/useGitWorkspace";
 import { useDesignInspector } from "./design/useDesignInspector";
 import CommitDialog from "./layout/git/CommitDialog";
+import LeaveWorkspaceDialog from "./layout/LeaveWorkspaceDialog";
 import WorkspaceLeftSidebar from "./layout/WorkspaceLeftSidebar";
 import WorkspaceRightSidebar from "./layout/WorkspaceRightSidebar";
 import { getWorkspaceLayoutGridClass } from "./layout/WorkspaceSidebar";
 import WorkspaceTopBar from "./layout/WorkspaceTopBar";
 import { buildPreviewSrc } from "./preview/previewSrc";
 import WorkspacePreviewMain from "./preview/WorkspacePreviewMain";
-import type { WorkspaceTab } from "./types";
+import type { AccessibilityIssue, WorkspaceTab } from "./types";
 
 export default function RepositoryWorkspacePage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(true);
   const [searchParams] = useSearchParams();
   const repositoryUrl = normalizeRepositoryUrl(searchParams.get("repo") ?? "");
@@ -74,11 +78,27 @@ export default function RepositoryWorkspacePage() {
     (issue) => issue.id === selectedIssueId,
   )
     ? selectedIssueId
-    : (previewIssueHighlights[0]?.id ?? null);
+    : null;
   const selectedIssue = useMemo(
     () => findIssueInGroups(analysis.issueGroups, visibleSelectedIssueId),
     [analysis.issueGroups, visibleSelectedIssueId],
   );
+  const [closingIssue, setClosingIssue] = useState<AccessibilityIssue | null>(null);
+  const issuePanelIssue = selectedIssue ?? closingIssue;
+
+  const clearSelectedIssue = () => {
+    setClosingIssue(selectedIssue);
+    setSelectedIssueId(null);
+  };
+
+  const handleSelectIssue = (issueId: string) => {
+    if (issueId === visibleSelectedIssueId) {
+      clearSelectedIssue();
+      return;
+    }
+    setClosingIssue(null);
+    setSelectedIssueId(issueId);
+  };
 
   const previewSrc = buildPreviewSrc(
     workspace.previewUrl,
@@ -94,6 +114,21 @@ export default function RepositoryWorkspacePage() {
   const commitAndPushAfterFlush = async (message: string, remote?: string) => {
     await workspace.onFlushPendingWrites();
     return git.commitAndPush(message, remote);
+  };
+
+  const leaveWorkspace = async () => {
+    setIsLeaving(true);
+    setLeaveError(null);
+    try {
+      await workspace.onFlushPendingWrites();
+    } catch {
+      setLeaveError("편집 중인 내용을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setIsLeaving(false);
+      return;
+    }
+    setIsLeaving(false);
+    setIsLeaveDialogOpen(false);
+    workspace.onNavigateToConnect();
   };
 
   const design = useDesignInspector({
@@ -114,7 +149,7 @@ export default function RepositoryWorkspacePage() {
       hasPendingEdits={analysis.hasPendingEdits}
       canReaudit={analysis.canReaudit}
       error={analysis.error}
-      onSelectIssue={setSelectedIssueId}
+      onSelectIssue={handleSelectIssue}
       onReaudit={analysis.reanalyze}
     />
   );
@@ -129,18 +164,31 @@ export default function RepositoryWorkspacePage() {
         values={design.designValues}
         onChange={design.handleDesignChange}
       />
-    ) : (
-      <WorkspaceRightSidebar
-        panel="issue"
-        selectedIssue={selectedIssue}
-        onEditInCode={() => {
-          setActiveTab("code");
-          if (selectedIssue?.targetFilePath) {
-            void workspace.onFileClick(selectedIssue.targetFilePath);
-          }
+    ) : issuePanelIssue ? (
+      <div
+        className={[
+          "flex min-h-0 overflow-hidden",
+          selectedIssue
+            ? "animate-sidebar-slide-in"
+            : "pointer-events-none animate-sidebar-slide-out",
+        ].join(" ")}
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget && !selectedIssue) setClosingIssue(null);
         }}
-      />
-    );
+      >
+        <WorkspaceRightSidebar
+          panel="issue"
+          selectedIssue={issuePanelIssue}
+          onClose={clearSelectedIssue}
+          onEditInCode={() => {
+            setActiveTab("code");
+            if (issuePanelIssue.targetFilePath) {
+              void workspace.onFileClick(issuePanelIssue.targetFilePath);
+            }
+          }}
+        />
+      </div>
+    ) : null;
 
   return (
     <div className="flex h-screen min-w-[1180px] flex-col overflow-hidden bg-white text-[#202124]">
@@ -150,6 +198,19 @@ export default function RepositoryWorkspacePage() {
         isCommitting={git.isCommitting}
         onTabChange={setActiveTab}
         onCommitClick={() => setIsCommitDialogOpen(true)}
+        onLogoClick={() => setIsLeaveDialogOpen(true)}
+      />
+
+      <LeaveWorkspaceDialog
+        isOpen={isLeaveDialogOpen}
+        changedFileCount={git.changedFiles.length}
+        isLeaving={isLeaving}
+        error={leaveError}
+        onCancel={() => {
+          setIsLeaveDialogOpen(false);
+          setLeaveError(null);
+        }}
+        onConfirm={() => void leaveWorkspace()}
       />
 
       <div className={`grid min-h-0 flex-1 ${getWorkspaceLayoutGridClass(activeTab)}`}>
@@ -207,9 +268,6 @@ export default function RepositoryWorkspacePage() {
               isDesignTab={isDesignTab}
               showErrors={showErrors}
               onToggleErrors={() => setShowErrors((current) => !current)}
-              onRefresh={() => {
-                void workspace.onRestartPreview();
-              }}
             />
           </main>
         )}

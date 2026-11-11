@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Button from "@/components/Button";
 import { repositoryApi, type GithubRepositoryResponse } from "@/api/repository";
 import { useAuthStore } from "@/stores/authStore";
@@ -22,6 +22,7 @@ const TEXT = {
     "\uBD84\uC11D\uD560 \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uC785\uB825\uD558\uC138\uC694. (ex. main)",
   loading: "\uD655\uC778 \uC911...",
   start: "\uBD84\uC11D \uC2DC\uC791 \u2192",
+  logout: "\uB85C\uADF8\uC544\uC6C3",
   error:
     "\uC800\uC7A5\uC18C \uB610\uB294 \uBE0C\uB79C\uCE58\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. URL\uACFC \uBE0C\uB79C\uCE58 \uC774\uB984\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
   recent: "\uCD5C\uADFC \uC800\uC7A5\uC18C",
@@ -79,6 +80,7 @@ function getUpdatedAt(repository: GithubRepositoryResponse): string {
 export default function RepositoryConnectPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((state) => state.setUser);
+  const logout = useAuthStore((state) => state.logout);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [branchName, setBranchName] = useState("");
@@ -96,12 +98,21 @@ export default function RepositoryConnectPage() {
 
   useEffect(() => {
     const tokenFromUrl = consumeAccessTokenFromUrl();
-    if (tokenFromUrl) {
-      const user = parseUserFromToken(tokenFromUrl);
-      if (user) setUser(user);
+    const effectiveToken = tokenFromUrl ?? getAccessToken();
+    if (effectiveToken) {
+      const parsedUser = parseUserFromToken(effectiveToken);
+      if (parsedUser) setUser(parsedUser);
     }
-    setAccessToken(tokenFromUrl ?? getAccessToken());
+    setAccessToken(effectiveToken);
   }, [setUser]);
+
+  const handleLogout = () => {
+    logout();
+    setAccessToken(null);
+    navigate("/");
+  };
+
+  const isLoggedIn = Boolean(accessToken);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -181,14 +192,38 @@ export default function RepositoryConnectPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f8f9fb] px-6 py-10 md:px-10">
-      <section className="mx-auto w-full max-w-6xl py-16">
-        <h1 className="text-4xl font-extrabold text-slate-900">{TEXT.title}</h1>
-        <p className="mt-3 text-2xl font-semibold text-slate-600">{TEXT.subtitle}</p>
+    <main className="min-h-screen bg-[#f8f9fb]">
+      <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl items-center px-6 py-3 md:px-10">
+          <Link to="/" className="inline-flex items-center gap-0" aria-label="Codee 홈">
+            <img src="/codee.png" alt="" className="h-[39px] w-[43px] object-contain" />
+            <img src="/codee-text.png" alt="Codee" className="h-[22px] w-[89px] object-contain" />
+          </Link>
 
-        <div className="mt-12 overflow-hidden rounded-2xl border border-slate-300 bg-white">
-          <label className="flex h-20 items-center border-b border-slate-200">
-            <span className="w-24 shrink-0 px-4 text-xl font-medium text-slate-400">URL</span>
+          {isLoggedIn && (
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              {/* 계정 이름/프로필 이미지를 제공하는 API가 없어 표시를 비활성화함 */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="h-9 cursor-pointer rounded-full border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point-200"
+              >
+                {TEXT.logout}
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <section className="mx-auto w-full max-w-6xl px-6 pt-14 pb-24 md:px-10">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+          {TEXT.title}
+        </h1>
+        <p className="mt-3 text-[15px] leading-7 text-slate-500 sm:text-[17px]">{TEXT.subtitle}</p>
+
+        <div className="mt-10 overflow-hidden rounded-2xl border border-slate-300 bg-white">
+          <label className="flex h-16 items-center border-b border-slate-200">
+            <span className="w-24 shrink-0 px-5 text-[14px] font-medium text-slate-400">URL</span>
             <input
               type="text"
               value={repositoryUrl}
@@ -202,11 +237,11 @@ export default function RepositoryConnectPage() {
                 }
               }}
               placeholder={TEXT.repositoryPlaceholder}
-              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-2xl font-extrabold text-slate-800 outline-none placeholder:font-bold placeholder:text-slate-300"
+              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-[16px] font-medium text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400"
             />
           </label>
-          <label className="flex h-20 items-center">
-            <span className="w-24 shrink-0 px-4 text-xl font-medium text-slate-400">Branch</span>
+          <label className="flex h-16 items-center">
+            <span className="w-24 shrink-0 px-5 text-[14px] font-medium text-slate-400">Branch</span>
             <input
               type="text"
               value={branchName}
@@ -220,7 +255,7 @@ export default function RepositoryConnectPage() {
                 }
               }}
               placeholder={TEXT.branchPlaceholder}
-              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-2xl font-extrabold text-slate-800 outline-none placeholder:font-bold placeholder:text-slate-300"
+              className="h-full min-w-0 flex-1 bg-transparent pr-5 text-[16px] font-medium text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400"
             />
           </label>
         </div>
@@ -231,7 +266,7 @@ export default function RepositoryConnectPage() {
           onClick={() => {
             void handleAnalyze();
           }}
-          className="mt-5 h-14 w-full rounded-none text-xl"
+          className="mt-5 h-14 w-full rounded-none text-[17px]"
         >
           {isLoading ? TEXT.loading : TEXT.start}
         </Button>
@@ -239,14 +274,14 @@ export default function RepositoryConnectPage() {
         {errorMessage && <p className="mt-3 text-sm font-medium text-red-500">{errorMessage}</p>}
 
         <div className="mt-16">
-          <h2 className="text-3xl font-extrabold text-slate-700">{TEXT.recent}</h2>
-          <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="text-[20px] font-bold text-slate-800">{TEXT.recent}</h2>
+          <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             {isRecentLoading ? (
-              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-lg font-bold text-slate-500">
+              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-[15px] font-medium text-slate-500">
                 {TEXT.recentLoading}
               </div>
             ) : recentErrorMessage ? (
-              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-lg font-bold text-red-500">
+              <div className="flex min-h-64 items-center justify-center px-6 py-14 text-center text-[15px] font-medium text-red-500">
                 {recentErrorMessage}
               </div>
             ) : recentRepositories.length > 0 ? (
@@ -264,12 +299,21 @@ export default function RepositoryConnectPage() {
                           }}
                           className="flex min-w-0 flex-1 items-center gap-4 text-left transition hover:opacity-80"
                         >
-                          <span className="text-4xl leading-none">▱</span>
+                          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+                            <svg
+                              viewBox="0 0 16 16"
+                              fill="currentColor"
+                              className="h-5 w-5"
+                              aria-hidden="true"
+                            >
+                              <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
+                            </svg>
+                          </span>
                           <span className="min-w-0">
-                            <strong className="block truncate text-xl font-extrabold text-slate-900">
+                            <strong className="block truncate text-[15px] font-bold text-slate-800">
                               {fullName}
                             </strong>
-                            <span className="mt-1 block truncate text-sm font-medium text-slate-500">
+                            <span className="mt-1 block truncate text-[13px] text-slate-500">
                               {getUpdatedAt(repository)} · {repository.language ?? "Unknown"}
                               {repository.privateRepo || repository.private
                                 ? " · Private"
@@ -277,8 +321,15 @@ export default function RepositoryConnectPage() {
                             </span>
                           </span>
                         </button>
-                        <div className="flex h-9 items-center rounded-full border border-violet-200 bg-violet-50 px-3 text-violet-600">
-                          <span className="mr-1 text-sm">⌁</span>
+                        <div className="flex h-9 items-center rounded-full border border-point-200 bg-point-50 px-3 text-point">
+                          <svg
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                            className="mr-1.5 h-4 w-4 shrink-0"
+                            aria-hidden="true"
+                          >
+                            <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
+                          </svg>
                           <select
                             value={branch}
                             onChange={(event) => {
@@ -287,7 +338,7 @@ export default function RepositoryConnectPage() {
                                 [repository.id]: event.target.value,
                               }));
                             }}
-                            className="h-full cursor-pointer bg-transparent text-sm font-bold text-violet-600 outline-none"
+                            className="h-full cursor-pointer bg-transparent text-[13px] font-semibold text-point outline-none"
                             aria-label={`${fullName} 브랜치 선택`}
                           >
                             <option value={branch}>{branch}</option>
@@ -306,8 +357,8 @@ export default function RepositoryConnectPage() {
               </ul>
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center px-6 py-14 text-center">
-                <p className="text-xl font-extrabold text-slate-800">{TEXT.emptyTitle}</p>
-                <p className="mt-2 text-base font-semibold text-slate-500">
+                <p className="text-[15px] font-bold text-slate-800">{TEXT.emptyTitle}</p>
+                <p className="mt-2 text-[14px] leading-6 text-slate-500">
                   {TEXT.emptyDescription}
                 </p>
               </div>

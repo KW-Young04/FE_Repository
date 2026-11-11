@@ -29,7 +29,7 @@ export default function WorkspaceCommitButton({
     <button
       type={type}
       className={[
-        "inline-flex h-[30px] min-w-[108px] items-center justify-center gap-1.5 rounded-[5px] bg-[#6d3df5] px-4 text-[13px] font-bold text-white shadow-[0_3px_8px_rgb(109_61_245/19%)] transition-colors hover:bg-[#5b2de8] disabled:cursor-not-allowed disabled:bg-[#cbbffb] disabled:shadow-none",
+        "inline-flex h-[30px] min-w-[108px] items-center justify-center gap-1.5 rounded-[5px] bg-point px-4 text-[13px] font-bold text-white shadow-[0_3px_8px_color-mix(in_srgb,var(--color-point)_19%,transparent)] transition-colors hover:bg-point-hover disabled:cursor-not-allowed disabled:bg-point-300 disabled:shadow-none",
         className,
       ]
         .filter(Boolean)

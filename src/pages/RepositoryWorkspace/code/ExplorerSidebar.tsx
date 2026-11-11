@@ -92,7 +92,7 @@ export default function ExplorerSidebar({
                 onClick={() => setBottomTab(tab.id)}
                 className={[
                   "text-[10px] font-bold tracking-[0.08em]",
-                  bottomTab === tab.id ? "text-[#6c47ff]" : "text-[#7b8494] hover:text-slate-600",
+                  bottomTab === tab.id ? "text-point" : "text-[#7b8494] hover:text-slate-600",
                 ].join(" ")}
               >
                 {tab.label}
