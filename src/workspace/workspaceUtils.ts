@@ -40,6 +40,8 @@ export function normalizeRepositoryUrl(url: string): string {
   return normalized;
 }
 
+// ANSI escape sequences intentionally include the ESC control character.
+// eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /\x1b(?:[@-Z\\-_]|\[[0-9?]*[ -/]*[@-~])/g;
 
 export function stripAnsiEscapes(text: string): string {
@@ -562,7 +564,7 @@ export function createRepositoryFallbackHtml(
   if (isStreamlit) {
     const source = appEntry?.[1].content ?? readme;
     const stringArg = (name: string) => {
-      const match = source.match(new RegExp(`st\\.${name}\\(\\s*[\"']([^\"']+)[\"']`));
+      const match = source.match(new RegExp(`st\\.${name}\\(\\s*["']([^"']+)["']`));
       return match?.[1] ?? "";
     };
     const allLabels = Array.from(

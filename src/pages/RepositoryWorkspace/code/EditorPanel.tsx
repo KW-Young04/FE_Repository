@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef } from "react";
 import { inferLanguage } from "@/workspace/workspaceUtils";
 
 import type { AiDiffLines, LoadedFile } from "../types";
-import { findAiDiff } from "./codeWorkspace";
 import { CheckIcon, CloseIcon, CopyIcon, RevertIcon } from "./icons";
 
 type MonacoEditorInstance = Parameters<OnMount>[0];
@@ -42,6 +41,7 @@ interface EditorPanelProps {
   onFileClick: (path: string) => void | Promise<void>;
   onCloseTab: (path: string) => void;
   onEditorChange: (nextValue: string | undefined) => void;
+  aiDiff?: AiDiffLines | null;
 }
 
 export default function EditorPanel({
@@ -52,6 +52,7 @@ export default function EditorPanel({
   onFileClick,
   onCloseTab,
   onEditorChange,
+  aiDiff = null,
 }: EditorPanelProps) {
   const editorRef = useRef<MonacoEditorInstance | null>(null);
   const monacoRef = useRef<MonacoApi | null>(null);
@@ -60,7 +61,6 @@ export default function EditorPanel({
   const lastEmittedContentRef = useRef<string | null>(null);
   const activePathRef = useRef<string | null>(activePath);
 
-  const aiDiff = findAiDiff(activePath);
   const hasAiSuggestion = Boolean(aiDiff);
   const editorLanguage = activeFile ? inferLanguage(activeFile.path) : "plaintext";
   const editorOptions = useMemo(
@@ -217,6 +217,8 @@ export default function EditorPanel({
             <button
               type="button"
               aria-label="AI 제안 되돌리기"
+              disabled
+              title="AI 제안 되돌리기는 아직 제공되지 않습니다."
               className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             >
               <RevertIcon />
@@ -224,6 +226,8 @@ export default function EditorPanel({
             <button
               type="button"
               aria-label="AI 제안 적용"
+              disabled
+              title="AI 제안 적용은 아직 제공되지 않습니다."
               className="rounded p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
             >
               <CheckIcon />

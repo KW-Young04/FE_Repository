@@ -1,18 +1,11 @@
-import { createBrowserRouter, Navigate, useSearchParams } from "react-router-dom";
+import AnalysisWorkspaceRedirect from "@/pages/AnalysisProgress/AnalysisWorkspaceRedirect";
+import { createBrowserRouter } from "react-router-dom";
 
 import MainPage from "@/pages/Main";
 import RepositoryConnectPage from "@/pages/RepositoryConnect";
 import AnalysisProgressPage from "@/pages/AnalysisProgress";
 import OAuthCallbackPage from "@/pages/OAuthCallback";
 import RepositoryWorkspacePage from "@/pages/RepositoryWorkspace";
-
-function AnalysisWorkspaceRedirect() {
-  const [searchParams] = useSearchParams();
-  const query = searchParams.toString();
-  return (
-    <Navigate to={query ? `/repository-workspace?${query}` : "/repository-workspace"} replace />
-  );
-}
 
 export const router = createBrowserRouter([
   { path: "/", element: <MainPage /> },

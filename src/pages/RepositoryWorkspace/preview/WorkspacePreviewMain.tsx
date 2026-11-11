@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 
 import type { AccessibilityIssue, LoadedFile, PreviewStatus } from "../types";
@@ -94,11 +94,15 @@ export default function WorkspacePreviewMain({
   // 프리뷰 서버가 재시작되어 주소(origin)가 바뀌면 루트로 되돌린다.
   if (previewUrl !== pathOwnerUrl) {
     setPathOwnerUrl(previewUrl);
-    awaitingAddressNavRef.current = false;
     setTargetPath("/");
     setCurrentPath("/");
     setHistory({ stack: ["/"], index: 0 });
   }
+
+  useEffect(() => {
+    navigationTokenRef.current += 1;
+    awaitingAddressNavRef.current = false;
+  }, [previewUrl]);
 
   const isPreviewReady = previewStatus === "ready" && Boolean(previewUrl);
 
@@ -139,10 +143,13 @@ export default function WorkspacePreviewMain({
     goHome();
   }, [currentPath, goHome, targetPath]);
 
-  const handleLocationChange = useCallback((path: string) => {
-    setCurrentPath(path);
-    pushHistory(path);
-  }, [pushHistory]);
+  const handleLocationChange = useCallback(
+    (path: string) => {
+      setCurrentPath(path);
+      pushHistory(path);
+    },
+    [pushHistory],
+  );
 
   const handleBack = () => {
     if (history.index <= 0) return;

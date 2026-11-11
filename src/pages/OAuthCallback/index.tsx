@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { consumeAccessTokenFromUrl, parseUserFromToken } from "@/utils/auth";
@@ -7,25 +7,31 @@ export default function OAuthCallbackPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((state) => state.setUser);
   const [status, setStatus] = useState<"loading" | "error">("loading");
-  const processed = useRef(false);
 
   useEffect(() => {
-    if (processed.current) return;
-    processed.current = true;
+    let cancelled = false;
+    let redirectTimer: ReturnType<typeof setTimeout>;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
 
-    const token = consumeAccessTokenFromUrl();
+      const token = consumeAccessTokenFromUrl();
 
-    if (!token) {
-      setStatus("error");
-      setTimeout(() => navigate("/?login_error=true"), 2000);
-      return;
-    }
+      if (!token) {
+        setStatus("error");
+        redirectTimer = setTimeout(() => navigate("/?login_error=true", { replace: true }), 2000);
+        return;
+      }
 
-    // JWT 파싱에 실패해도 토큰만으로 API 호출은 가능하므로 그대로 진행한다.
-    const user = parseUserFromToken(token);
-    if (user) setUser(user);
+      // JWT 파싱에 실패해도 토큰만으로 API 호출은 가능하므로 그대로 진행한다.
+      const user = parseUserFromToken(token);
+      if (user) setUser(user);
 
-    navigate("/repository-connect", { replace: true });
+      navigate("/repository-connect", { replace: true });
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(redirectTimer);
+    };
   }, [navigate, setUser]);
 
   if (status === "error") {

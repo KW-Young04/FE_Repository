@@ -82,6 +82,35 @@ export function designPatchToCss(
   if (touched("alignment")) {
     css["text-align"] = next.alignment;
   }
+  if (touched("verticalAlignment")) {
+    const alignment = { top: "start", middle: "center", bottom: "end", normal: "normal" }[
+      next.verticalAlignment
+    ];
+    if (next.display === "flex" || next.display === "inline-flex") {
+      const column = next.flexDirection?.startsWith("column");
+      const reverse = column && next.flexDirection === "column-reverse";
+      const flexAlignment =
+        alignment === "start"
+          ? reverse
+            ? "flex-end"
+            : "flex-start"
+          : alignment === "end"
+            ? reverse
+              ? "flex-start"
+              : "flex-end"
+            : alignment;
+      css[column ? "justify-content" : "align-items"] = flexAlignment;
+    } else if (next.display === "grid" || next.display === "inline-grid") {
+      css["align-content"] = alignment;
+    } else {
+      // 일반 블록/인라인 요소도 내부 콘텐츠를 세로 정렬할 수 있도록 컨테이너로 만든다.
+      css.display =
+        next.display === "inline" || next.display === "inline-block" ? "inline-flex" : "flex";
+      css["flex-direction"] = "column";
+      css["justify-content"] =
+        alignment === "start" ? "flex-start" : alignment === "end" ? "flex-end" : alignment;
+    }
+  }
   // X/Y 이동은 transform: translate 로 처리한다(요소 크기·주변 레이아웃을 건드리지 않음).
   // rotation/flip 과 하나의 transform 으로 합성된다.
   if (touched("x", "y", "rotation", "flipH", "flipV")) {

@@ -40,35 +40,47 @@ export function useEditorSync(options: {
 
   const pendingWriteTimersRef = useRef<Map<string, number>>(new Map());
   const activeWriteTasksRef = useRef<Map<string, Promise<void>>>(new Map());
+  const gitWriteTasksRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const syncFileToGitWorkspace = useCallback(
     async (path: string, content: string) => {
       if (!repositoryUrl || !branchName) return;
 
-      const response = await gitApi.writeFile({
-        repositoryUrl,
-        branchName,
-        path,
-        content,
-      });
+      const previous = gitWriteTasksRef.current.get(path);
+      const write = (async () => {
+        // 같은 파일은 전송 순서를 보장해 오래된 응답이 최신 편집을 덮지 않도록 한다.
+        await previous?.catch(() => {});
+        const response = await gitApi.writeFile({
+          repositoryUrl,
+          branchName,
+          path,
+          content,
+        });
 
-      if (!response.success) {
-        throw new Error(`${path} 파일을 Git 작업공간에 저장하지 못했습니다.`);
+        if (!response.success) {
+          throw new Error(`${path} 파일을 Git 작업공간에 저장하지 못했습니다.`);
+        }
+
+        setFilesByPath((prev) => {
+          const current = prev[path];
+          if (!current || current.content !== content) return prev;
+          return {
+            ...prev,
+            [path]: {
+              ...current,
+              dirty: false,
+            },
+          };
+        });
+
+        await onServerFileSynced?.();
+      })();
+      gitWriteTasksRef.current.set(path, write);
+      try {
+        await write;
+      } finally {
+        if (gitWriteTasksRef.current.get(path) === write) gitWriteTasksRef.current.delete(path);
       }
-
-      setFilesByPath((prev) => {
-        const current = prev[path];
-        if (!current || current.content !== content) return prev;
-        return {
-          ...prev,
-          [path]: {
-            ...current,
-            dirty: false,
-          },
-        };
-      });
-
-      await onServerFileSynced?.();
     },
     [branchName, onServerFileSynced, repositoryUrl, setFilesByPath],
   );
@@ -138,6 +150,7 @@ export function useEditorSync(options: {
 
     await Promise.all([
       ...Array.from(activeWriteTasksRef.current.values()),
+      ...Array.from(gitWriteTasksRef.current.values()),
       ...dirtyFiles.map((file) => syncEditedFile(file.path, file.content)),
     ]);
   }, [filesByPathRef, syncEditedFile]);
@@ -185,7 +198,14 @@ export function useEditorSync(options: {
 
       pendingWriteTimersRef.current.set(activePath, timerId);
     },
-    [activePath, filesByPathRef, onUserContentEdit, setFilesByPath, setRuntimeError, syncEditedFile],
+    [
+      activePath,
+      filesByPathRef,
+      onUserContentEdit,
+      setFilesByPath,
+      setRuntimeError,
+      syncEditedFile,
+    ],
   );
 
   useEffect(() => {

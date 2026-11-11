@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Button from "@/components/Button";
+import RepositoryHeader from "@/components/RepositoryHeader";
 import { repositoryApi, type GithubRepositoryResponse } from "@/api/repository";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -193,27 +194,7 @@ export default function RepositoryConnectPage() {
 
   return (
     <main className="min-h-screen bg-[#f8f9fb]">
-      <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center px-6 py-3 md:px-10">
-          <Link to="/" className="inline-flex items-center gap-0" aria-label="Codee 홈">
-            <img src="/codee.png" alt="" className="h-[39px] w-[43px] object-contain" />
-            <img src="/codee-text.png" alt="Codee" className="h-[22px] w-[89px] object-contain" />
-          </Link>
-
-          {isLoggedIn && (
-            <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              {/* 계정 이름/프로필 이미지를 제공하는 API가 없어 표시를 비활성화함 */}
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="h-9 cursor-pointer rounded-full border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point-200"
-              >
-                {TEXT.logout}
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
+      <RepositoryHeader showLogout={isLoggedIn} onLogout={handleLogout} />
 
       <section className="mx-auto w-full max-w-6xl px-6 pt-14 pb-24 md:px-10">
         <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
@@ -241,7 +222,9 @@ export default function RepositoryConnectPage() {
             />
           </label>
           <label className="flex h-16 items-center">
-            <span className="w-24 shrink-0 px-5 text-[14px] font-medium text-slate-400">Branch</span>
+            <span className="w-24 shrink-0 px-5 text-[14px] font-medium text-slate-400">
+              Branch
+            </span>
             <input
               type="text"
               value={branchName}
@@ -358,9 +341,7 @@ export default function RepositoryConnectPage() {
             ) : (
               <div className="flex min-h-64 flex-col items-center justify-center px-6 py-14 text-center">
                 <p className="text-[15px] font-bold text-slate-800">{TEXT.emptyTitle}</p>
-                <p className="mt-2 text-[14px] leading-6 text-slate-500">
-                  {TEXT.emptyDescription}
-                </p>
+                <p className="mt-2 text-[14px] leading-6 text-slate-500">{TEXT.emptyDescription}</p>
               </div>
             )}
           </div>

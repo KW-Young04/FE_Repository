@@ -61,6 +61,9 @@ export interface ScoreChartSegment {
 export interface VisualDesignValues {
   position: "static" | "relative" | "absolute" | "fixed";
   alignment: "left" | "center" | "right" | "justify";
+  verticalAlignment: "top" | "middle" | "bottom" | "normal";
+  display?: string;
+  flexDirection?: string;
   x: number;
   y: number;
   width: number;
@@ -130,4 +133,3 @@ export interface AiDiffLines {
   removed: number[];
   added: number[];
 }
-

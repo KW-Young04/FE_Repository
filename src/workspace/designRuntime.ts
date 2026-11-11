@@ -182,7 +182,7 @@ export function createDesignRuntimeScript(): string {
     return parts.join(" > ") || element.tagName.toLowerCase();
   }
 
-  function readTransform(style) {
+  function readTransform(style, element) {
     const result = { rotation: 0, flipH: false, flipV: false, x: 0, y: 0 };
     const transform = style.transform;
     if (!transform || transform === "none") return result;
@@ -195,6 +195,14 @@ export function createDesignRuntimeScript(): string {
     // translate 를 항상 맨 앞에 넣으므로 matrix 의 e,f 가 곧 이동량(px)이다.
     result.x = Number.isFinite(e) ? Math.round(e) : 0;
     result.y = Number.isFinite(f) ? Math.round(f) : 0;
+    // 패널이 생성한 변환은 행렬 분해 대신 원래 값을 읽어 수직 반전과 회전을 구분한다.
+    const inline = element.style.transform || "";
+    if (inline && /^(?:translate\([^)]*\)\s*|rotate\([^)]*\)\s*|scale[XY]\(-1\)\s*)+$/.test(inline)) {
+      const rotation = inline.match(/rotate\((-?[\d.]+)deg\)/);
+      result.rotation = rotation ? Number(rotation[1]) : 0;
+      result.flipH = inline.indexOf("scaleX(-1)") !== -1;
+      result.flipV = inline.indexOf("scaleY(-1)") !== -1;
+    }
     return result;
   }
 
@@ -213,16 +221,27 @@ export function createDesignRuntimeScript(): string {
   function readValues(element) {
     const style = window.getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    const transform = readTransform(style);
+    const transform = readTransform(style, element);
     const effect = readEffect(style);
     // 배경/테두리가 아예 없는 요소는 computed 값이 투명(rgba(...,0))으로 잡혀
     // 불투명도를 0으로 읽으면 새로 칠한 색이 투명하게 적용되어 "안 먹는" 것처럼 보인다.
     // 따라서 투명한 경우에는 기본 불투명도를 100으로 둔다.
     const bgTransparent = isTransparent(style.backgroundColor);
     const borderTransparent = isTransparent(style.borderColor);
+    const isFlex = style.display === "flex" || style.display === "inline-flex";
+    const isColumn = style.flexDirection.indexOf("column") === 0;
+    const verticalValue = isFlex ? (isColumn ? style.justifyContent : style.alignItems) : style.alignContent;
+    let verticalAlignment = ({ start: "top", "flex-start": "top", center: "middle", end: "bottom", "flex-end": "bottom" })[verticalValue] || "normal";
+    if (isFlex && style.flexDirection === "column-reverse") {
+      if (verticalAlignment === "top") verticalAlignment = "bottom";
+      else if (verticalAlignment === "bottom") verticalAlignment = "top";
+    }
     return {
       position: style.position || "static",
       alignment: style.textAlign || "left",
+      verticalAlignment: verticalAlignment,
+      display: style.display,
+      flexDirection: style.flexDirection,
       x: transform.x,
       y: transform.y,
       width: Math.round(rect.width),
@@ -241,7 +260,9 @@ export function createDesignRuntimeScript(): string {
       borderWidth: parseInt(style.borderWidth, 10) || 0,
       dropShadow: effect.dropShadow,
       effectType: effect.effectType,
-      effectOpacity: 100,
+      effectOpacity: style.filter.indexOf("blur") !== -1
+        ? Math.min(100, Math.round((parseFloat(style.filter.replace(/^.*blur\(/, "")) || 0) / 8 * 100))
+        : style.boxShadow !== "none" ? Math.min(100, Math.round(colorAlpha(style.boxShadow, 28) / 0.28)) : 100,
     };
   }
 
@@ -289,6 +310,7 @@ export function createDesignRuntimeScript(): string {
 
   window.addEventListener("message", (event) => {
     const data = event.data;
+    if (event.source !== window.parent) return;
     if (!data || data.source !== PANEL_SOURCE) return;
     if (data.type === "highlight-issues") {
       highlightIssues(data.payload && data.payload.issues);

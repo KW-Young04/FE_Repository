@@ -1,9 +1,5 @@
-import {
-  formatIssueLineRange,
-  IssueLevelBadge,
-  IssueLocationTable,
-  IssueResultBadge,
-} from "../../overview/IssueParts";
+import { formatIssueLineRange } from "../../overview/issueFormatting";
+import { IssueLevelBadge, IssueLocationTable, IssueResultBadge } from "../../overview/IssueParts";
 import type { AccessibilityIssue, IssueStatus } from "../../types";
 
 const STATUS_LABEL: Record<IssueStatus, string> = {

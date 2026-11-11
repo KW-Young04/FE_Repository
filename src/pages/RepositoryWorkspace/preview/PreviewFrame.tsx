@@ -84,9 +84,6 @@ export default function PreviewFrame({
   }, [postInteractive, previewSrc, previewRevision]);
 
   useEffect(() => {
-    if (highlights.length === 0) {
-      setOverlayBoxes([]);
-    }
     postIssueHighlights();
   }, [highlights, postIssueHighlights, previewSrc, previewRevision]);
 
@@ -125,8 +122,10 @@ export default function PreviewFrame({
   if (!previewSrc) {
     return (
       <div className="flex h-full min-h-[420px] w-full flex-col items-center justify-center gap-2.5 bg-[#f8f8fb] text-center">
-          <div className="h-[30px] w-[30px] rounded-full border-[3px] border-point-200 border-t-point [animation:spin_0.8s_linear_infinite]" />
-        <strong className="text-base font-bold text-[#202124]">프로젝트를 실행하고 있습니다.</strong>
+        <div className="h-[30px] w-[30px] rounded-full border-[3px] border-point-200 border-t-point [animation:spin_0.8s_linear_infinite]" />
+        <strong className="text-base font-bold text-[#202124]">
+          프로젝트를 실행하고 있습니다.
+        </strong>
         <p className="m-0 max-w-md text-[13px] text-[#8b8d98]">{placeholderMessage}</p>
       </div>
     );
@@ -149,7 +148,7 @@ export default function PreviewFrame({
           window.setTimeout(postIssueHighlights, 1000);
         }}
       />
-      <PreviewIssueOverlays overlays={overlayBoxes} />
+      <PreviewIssueOverlays overlays={highlights.length ? overlayBoxes : []} />
     </div>
   );
 }

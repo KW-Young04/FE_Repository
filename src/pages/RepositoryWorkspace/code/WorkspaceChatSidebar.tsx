@@ -28,10 +28,12 @@ function PlusIcon() {
 }
 
 export default function WorkspaceChatSidebar() {
+  const isChatAvailable = false;
   const [message, setMessage] = useState("");
   const [sentMessages, setSentMessages] = useState<string[]>([]);
 
   const send = (value: string) => {
+    if (!isChatAvailable) return;
     const trimmed = value.trim();
     if (!trimmed) return;
     setSentMessages((items) => [...items, trimmed]);
@@ -50,6 +52,9 @@ export default function WorkspaceChatSidebar() {
         <br />
         수정하고 싶은 내용이 무엇인가요?
       </h2>
+      <p className="mt-2 px-2 text-xs leading-5 text-slate-500">
+        AI 채팅은 준비 중입니다. 수정할 내용은 코드 편집기에서 직접 변경해 주세요.
+      </p>
 
       <div className="scrollbar-subtle mt-4 min-h-0 flex-1 overflow-y-auto">
         {sentMessages.map((item, index) => (
@@ -67,6 +72,7 @@ export default function WorkspaceChatSidebar() {
           <li key={suggestion}>
             <button
               type="button"
+              disabled={!isChatAvailable}
               onClick={() => send(suggestion)}
               className="flex max-w-full items-center gap-2 rounded-full bg-[#f0f0f0] px-4 py-2.5 text-left text-[11px] font-medium hover:bg-point-100"
             >
@@ -88,10 +94,12 @@ export default function WorkspaceChatSidebar() {
         </label>
         <textarea
           id="workspace-chat-input"
+          disabled={!isChatAvailable}
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
+              if (event.nativeEvent.isComposing) return;
               event.preventDefault();
               send(message);
             }
@@ -104,6 +112,8 @@ export default function WorkspaceChatSidebar() {
           <button
             type="button"
             aria-label="첨부 추가"
+            disabled
+            title="파일 첨부는 아직 제공되지 않습니다."
             className="rounded-full p-1 text-xl font-light text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           >
             <PlusIcon />
@@ -111,7 +121,7 @@ export default function WorkspaceChatSidebar() {
           <button
             type="submit"
             aria-label="메시지 보내기"
-            disabled={!message.trim()}
+            disabled={!isChatAvailable || !message.trim()}
             className="grid size-7 place-items-center rounded-full hover:bg-point-100 disabled:text-slate-300"
           >
             <SendIcon />

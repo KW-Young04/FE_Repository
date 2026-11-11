@@ -1,4 +1,9 @@
-import type { AccessibilityCategoryGroup, AccessibilityScoreSummary } from "../types";
+import type {
+  AccessibilityCategoryGroup,
+  AccessibilityScoreSummary,
+  AccessibilityIssue,
+} from "../types";
+import SelectedIssuePanel from "../overview/SelectedIssuePanel";
 import { WorkspaceReauditButton } from "./buttons";
 import AccessibilityDetailSection from "./leftSidebar/AccessibilityDetailSection";
 import AccessibilityScoreCard from "./leftSidebar/AccessibilityScoreCard";
@@ -16,6 +21,9 @@ interface WorkspaceLeftSidebarProps {
   error: string | null;
   onSelectIssue: (issueId: string) => void;
   onReaudit: () => void;
+  detailIssue?: AccessibilityIssue | null;
+  onBackFromIssue?: () => void;
+  onEditInCode?: () => void;
 }
 
 export default function WorkspaceLeftSidebar({
@@ -30,6 +38,9 @@ export default function WorkspaceLeftSidebar({
   error,
   onSelectIssue,
   onReaudit,
+  detailIssue,
+  onBackFromIssue,
+  onEditInCode,
 }: WorkspaceLeftSidebarProps) {
   const statusMessage = error
     ? error
@@ -53,35 +64,53 @@ export default function WorkspaceLeftSidebar({
 
   return (
     <WorkspaceSidebar side="right" label="접근성 검사 사이드바">
-      <AccessibilityScoreCard score={score} />
-
-      {statusMessage && (
-        <p
-          className={`truncate px-2.5 pb-2 text-[11px] font-medium ${
-            error ? "text-rose-500" : "text-slate-400"
-          }`}
-          title={statusMessage}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          inert={Boolean(detailIssue && onBackFromIssue)}
         >
-          {statusMessage}
-        </p>
-      )}
+          <AccessibilityScoreCard score={score} />
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <AccessibilityDetailSection
-          groups={groups}
-          selectedIssueId={selectedIssueId}
-          onSelectIssue={onSelectIssue}
-        />
-      </div>
+          {statusMessage && (
+            <p
+              className={`truncate px-2.5 pb-2 text-[11px] font-medium ${
+                error ? "text-rose-500" : "text-slate-400"
+              }`}
+              title={statusMessage}
+            >
+              {statusMessage}
+            </p>
+          )}
 
-      <div className="mx-2.5 mb-2.5 mt-5 shrink-0">
-        <WorkspaceReauditButton
-          onClick={onReaudit}
-          disabled={!canReaudit}
-          title={reauditDisabledReason}
-        >
-          {isAnalyzing ? "검사 중..." : undefined}
-        </WorkspaceReauditButton>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <AccessibilityDetailSection
+              groups={groups}
+              selectedIssueId={selectedIssueId}
+              onSelectIssue={onSelectIssue}
+            />
+          </div>
+
+          <div className="mx-2.5 mb-2.5 mt-5 shrink-0">
+            <WorkspaceReauditButton
+              onClick={onReaudit}
+              disabled={!canReaudit}
+              title={reauditDisabledReason}
+            >
+              {isAnalyzing ? "검사 중..." : undefined}
+            </WorkspaceReauditButton>
+          </div>
+        </div>
+        {detailIssue && onBackFromIssue ? (
+          <div className="absolute inset-0 z-10 flex min-h-0 min-w-0 flex-col bg-point-50">
+            <SelectedIssuePanel
+              key={detailIssue.id}
+              issue={detailIssue}
+              onClose={onBackFromIssue}
+              onBack={onBackFromIssue}
+              onEditInCode={onEditInCode}
+            />
+          </div>
+        ) : null}
       </div>
     </WorkspaceSidebar>
   );

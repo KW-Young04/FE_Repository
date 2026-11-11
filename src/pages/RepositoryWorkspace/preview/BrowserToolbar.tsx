@@ -54,23 +54,23 @@ export default function BrowserToolbar({
   onNavigate,
 }: BrowserToolbarProps) {
   const [draft, setDraft] = useState(displayUrl);
+  const [draftOwnerUrl, setDraftOwnerUrl] = useState(displayUrl);
+  const [isDirty, setIsDirty] = useState(false);
   const [hasError, setHasError] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
-  const dirtyRef = useRef(false);
   const keepFocusRef = useRef(false);
 
-  useEffect(() => {
-    if (!dirtyRef.current) setDraft(displayUrl);
-  }, [displayUrl]);
+  if (draftOwnerUrl !== displayUrl) {
+    setDraftOwnerUrl(displayUrl);
+    if (!isDirty) setDraft(displayUrl);
+  }
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
       const form = formRef.current;
       const target = event.target;
-      keepFocusRef.current = Boolean(
-        form && target instanceof Node && form.contains(target),
-      );
+      keepFocusRef.current = Boolean(form && target instanceof Node && form.contains(target));
     };
     document.addEventListener("pointerdown", handlePointerDown, true);
     return () => document.removeEventListener("pointerdown", handlePointerDown, true);
@@ -81,14 +81,14 @@ export default function BrowserToolbar({
     const accepted = onNavigate(draft);
     setHasError(!accepted);
     if (accepted) {
-      dirtyRef.current = false;
+      setIsDirty(false);
       keepFocusRef.current = false;
       inputRef.current?.blur();
     }
   };
 
   const revertDraft = () => {
-    dirtyRef.current = false;
+    setIsDirty(false);
     setHasError(false);
     setDraft(displayUrl);
   };
@@ -115,11 +115,7 @@ export default function BrowserToolbar({
         >
           <ForwardIcon />
         </ToolbarIconButton>
-        <ToolbarIconButton
-          label="미리보기 새로고침"
-          disabled={!canNavigate}
-          onClick={onReload}
-        >
+        <ToolbarIconButton label="미리보기 새로고침" disabled={!canNavigate} onClick={onReload}>
           <RefreshIcon />
         </ToolbarIconButton>
       </div>
@@ -158,7 +154,7 @@ export default function BrowserToolbar({
           }
           className="h-full w-full min-w-0 cursor-text border-0 bg-transparent p-0 text-xs text-[#2e3034] outline-none"
           onChange={(event) => {
-            dirtyRef.current = true;
+            setIsDirty(true);
             setDraft(event.target.value);
             setHasError(false);
           }}
@@ -173,11 +169,7 @@ export default function BrowserToolbar({
             window.requestAnimationFrame(() => {
               const active = document.activeElement;
               if (active === inputRef.current) return;
-              if (
-                active == null ||
-                active === document.body ||
-                active.tagName === "IFRAME"
-              ) {
+              if (active == null || active === document.body || active.tagName === "IFRAME") {
                 inputRef.current?.focus();
               }
             });

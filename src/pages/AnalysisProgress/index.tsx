@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "@/components/Button";
+import RepositoryHeader from "@/components/RepositoryHeader";
+import { useAuthStore } from "@/stores/authStore";
+import { getAccessToken } from "@/utils/auth";
 import { type RepositoryTreeResponse } from "@/api/repository";
 import { runAnalysisSnapshotPipeline } from "@/preview-capture/runAnalysisSnapshotPipeline";
 import {
@@ -76,6 +79,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export default function AnalysisProgressPage() {
+  const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const repositoryUrl = searchParams.get("repo") ?? "";
@@ -177,9 +181,7 @@ export default function AnalysisProgressPage() {
         setStepMessages((prev) => {
           const next = [...prev];
           next[1] =
-            tsxCount > 0
-              ? `${visibleCount}/${tsxCount}개 컴포넌트 파싱 중…`
-              : "컴포넌트 없음";
+            tsxCount > 0 ? `${visibleCount}/${tsxCount}개 컴포넌트 파싱 중…` : "컴포넌트 없음";
           return next;
         });
         await wait(parseDelayMs / Math.max(tsxCount, 1));
@@ -348,108 +350,117 @@ export default function AnalysisProgressPage() {
   }`;
 
   return (
-    <main className="flex min-h-screen items-center bg-white px-6 py-10 md:px-10">
-      <section className="mx-auto w-full max-w-5xl -translate-y-6">
-        <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
-          저장소 분석
-        </h1>
-        <p className="mt-3 text-[15px] leading-7 text-slate-500 sm:text-[17px]">
-          {displayName} {branchName && <span className="text-sky-600">({branchName})</span>}
-        </p>
-
-        {fetchError && (
-          <p className="mt-3 text-sm font-medium text-amber-600">
-            저장소 트리를 불러오지 못했습니다. API 서버 상태와 브랜치 이름을 확인해 주세요.
+    <div className="min-h-screen bg-white">
+      <RepositoryHeader
+        showLogout={Boolean(getAccessToken())}
+        onLogout={() => {
+          logout();
+          navigate("/");
+        }}
+      />
+      <main className="px-6 py-10 md:px-10">
+        <section className="mx-auto w-full max-w-5xl">
+          <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+            저장소 분석
+          </h1>
+          <p className="mt-3 text-[15px] leading-7 text-slate-500 sm:text-[17px]">
+            {displayName} {branchName && <span className="text-sky-600">({branchName})</span>}
           </p>
-        )}
 
-        {pipelineError && (
-          <p className="mt-3 text-sm font-medium text-rose-600">
-            스냅샷/분석 오류: {pipelineError}
-          </p>
-        )}
+          {fetchError && (
+            <p className="mt-3 text-sm font-medium text-amber-600">
+              저장소 트리를 불러오지 못했습니다. API 서버 상태와 브랜치 이름을 확인해 주세요.
+            </p>
+          )}
 
-        <ul className="mt-8 space-y-4">
-          {STEPS.map((step, index) => {
-            const status = stepStatuses[index];
-            const isActive = currentStep === index && status === "running";
+          {pipelineError && (
+            <p className="mt-3 text-sm font-medium text-rose-600">
+              스냅샷/분석 오류: {pipelineError}
+            </p>
+          )}
 
-            return (
-              <li
-                key={step.title}
-                className="flex items-center justify-between border border-slate-200 bg-white px-5 py-4"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-lg">
-                    {step.icon}
-                  </span>
-                  <span>
-                    <strong className="block text-[15px] font-bold text-slate-800">
-                      {step.title}
-                    </strong>
-                    <span className="block text-[13px] font-medium text-slate-500">
-                      {stepMessages[index]}
+          <ul className="mt-8 space-y-4">
+            {STEPS.map((step, index) => {
+              const status = stepStatuses[index];
+              const isActive = currentStep === index && status === "running";
+
+              return (
+                <li
+                  key={step.title}
+                  className="flex items-center justify-between border border-slate-200 bg-white px-5 py-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-lg">
+                      {step.icon}
                     </span>
+                    <span>
+                      <strong className="block text-[15px] font-bold text-slate-800">
+                        {step.title}
+                      </strong>
+                      <span className="block text-[13px] font-medium text-slate-500">
+                        {stepMessages[index]}
+                      </span>
+                    </span>
+                  </div>
+
+                  {status === "done" ? (
+                    <span className="text-[14px] font-bold text-green-600">완료</span>
+                  ) : status === "error" ? (
+                    <span className="text-[14px] font-bold text-rose-600">실패</span>
+                  ) : isActive ? (
+                    <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
+                  ) : (
+                    <span className="h-8 w-8 rounded-full border-4 border-slate-100" />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {snapshotImageUrl && (
+            <div className="mt-6 border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <strong className="text-[13px] font-bold text-slate-800">
+                  전송된 렌더링 스냅샷
+                </strong>
+                {analysisResultId != null && (
+                  <span className="text-xs font-semibold text-sky-600">
+                    resultId: {analysisResultId}
                   </span>
-                </div>
-
-                {status === "done" ? (
-                  <span className="text-[14px] font-bold text-green-600">완료</span>
-                ) : status === "error" ? (
-                  <span className="text-[14px] font-bold text-rose-600">실패</span>
-                ) : isActive ? (
-                  <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
-                ) : (
-                  <span className="h-8 w-8 rounded-full border-4 border-slate-100" />
                 )}
-              </li>
-            );
-          })}
-        </ul>
-
-        {snapshotImageUrl && (
-          <div className="mt-6 border border-slate-200 bg-slate-50 p-4">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <strong className="text-[13px] font-bold text-slate-800">
-                전송된 렌더링 스냅샷
-              </strong>
-              {analysisResultId != null && (
-                <span className="text-xs font-semibold text-sky-600">
-                  resultId: {analysisResultId}
-                </span>
-              )}
+              </div>
+              <img
+                src={snapshotImageUrl}
+                alt="Captured repository preview snapshot"
+                className="max-h-80 w-full border border-slate-200 bg-white object-contain"
+              />
             </div>
-            <img
-              src={snapshotImageUrl}
-              alt="Captured repository preview snapshot"
-              className="max-h-80 w-full border border-slate-200 bg-white object-contain"
+          )}
+
+          <div className="mt-6 h-4 w-full overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-sky-500 transition-all duration-500"
+              style={{ width: `${progress}%` }}
             />
           </div>
-        )}
 
-        <div className="mt-6 h-4 w-full overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full rounded-full bg-sky-500 transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+          <p className="mt-4 text-[15px] font-medium text-slate-600 sm:text-[17px]">
+            {isComplete ? "분석 준비가 완료되었습니다." : "분석 진행 중"}{" "}
+            <span className="font-bold text-sky-500">{progress}%</span>
+          </p>
 
-        <p className="mt-4 text-[15px] font-medium text-slate-600 sm:text-[17px]">
-          {isComplete ? "분석 준비가 완료되었습니다." : "분석 진행 중"}{" "}
-          <span className="font-bold text-sky-500">{progress}%</span>
-        </p>
-
-        <div className="mt-6">
-          <Button
-            variant={isComplete ? "default" : "disabled"}
-            disabled={!isComplete}
-            onClick={() => navigate(workspaceUrl)}
-            className="h-14 w-full rounded-none text-[17px]"
-          >
-            결과 확인하기
-          </Button>
-        </div>
-      </section>
-    </main>
+          <div className="mt-6">
+            <Button
+              variant={isComplete ? "default" : "disabled"}
+              disabled={!isComplete}
+              onClick={() => navigate(workspaceUrl)}
+              className="h-14 w-full rounded-none text-[17px]"
+            >
+              결과 확인하기
+            </Button>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }

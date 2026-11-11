@@ -109,6 +109,9 @@ export function useGitWorkspace({
   const [commandFailed, setCommandFailed] = useState(false);
 
   const isMountedRef = useRef(true);
+  const knownChangedPathsRef = useRef(new Set<string>());
+  const diffRequestRef = useRef(0);
+  const refreshRequestRef = useRef(0);
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -122,6 +125,7 @@ export function useGitWorkspace({
   }, [repositoryUrl, branchName]);
 
   const refresh = useCallback(async () => {
+    const request = ++refreshRequestRef.current;
     if (!workspaceParams) {
       setBranches([]);
       setCurrentBranch(branchName);
@@ -141,7 +145,7 @@ export function useGitWorkspace({
       gitApi.getGraph(workspaceParams),
     ]);
 
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || request !== refreshRequestRef.current) return;
 
     let branchNames: string[] = [];
     if (branchResult.status === "fulfilled") {
@@ -165,23 +169,27 @@ export function useGitWorkspace({
         ...(nextStatus.files ?? []).map((file) => file.path),
         ...localChangedFiles.map((file) => file.path),
       ];
+      const added = changedPaths.filter((path) => !knownChangedPathsRef.current.has(path));
+      knownChangedPathsRef.current = new Set(changedPaths);
       // 새로 감지된 변경 파일은 기본 선택, 사라진 파일은 선택 해제한다.
       setSelectedPaths((prev) => {
         const kept = prev.filter((path) => changedPaths.includes(path));
-        const added = changedPaths.filter((path) => !prev.includes(path));
-        return [...kept, ...added];
+        return [...new Set([...kept, ...added])];
       });
     } else {
       setStatus(null);
+      const localPaths = localChangedFiles.map((file) => file.path);
+      const added = localPaths.filter((path) => !knownChangedPathsRef.current.has(path));
+      knownChangedPathsRef.current = new Set(localPaths);
       setSelectedPaths((prev) => {
-        const localPaths = localChangedFiles.map((file) => file.path);
         const kept = prev.filter((path) => localPaths.includes(path));
-        const added = localPaths.filter((path) => !prev.includes(path));
-        return [...kept, ...added];
+        return [...new Set([...kept, ...added])];
       });
     }
 
-    const failure = [branchResult, statusResult].find((result) => result.status === "rejected");
+    const failure = [branchResult, statusResult, graphResult].find(
+      (result) => result.status === "rejected",
+    );
     if (failure && failure.status === "rejected") {
       setError(
         toGitErrorMessage(
@@ -224,26 +232,30 @@ export function useGitWorkspace({
     async (path: string) => {
       if (!workspaceParams) return;
 
+      const request = ++diffRequestRef.current;
+
       setDiffPath(path);
       setDiff(null);
       setIsDiffLoading(true);
 
       try {
         const response = await gitApi.getDiff(workspaceParams, path);
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || request !== diffRequestRef.current) return;
         setDiff(response.diff ?? "");
       } catch (diffError) {
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || request !== diffRequestRef.current) return;
         setDiff(null);
         setError(toGitErrorMessage(diffError, `${path} 의 변경 내용을 불러오지 못했습니다.`));
       } finally {
-        if (isMountedRef.current) setIsDiffLoading(false);
+        if (isMountedRef.current && request === diffRequestRef.current) setIsDiffLoading(false);
       }
     },
     [workspaceParams],
   );
 
   const clearDiff = useCallback(() => {
+    diffRequestRef.current += 1;
+    setIsDiffLoading(false);
     setDiffPath(null);
     setDiff(null);
   }, []);

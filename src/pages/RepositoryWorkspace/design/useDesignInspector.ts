@@ -6,6 +6,7 @@ import type { SelectedPreviewElement, VisualDesignValues } from "../types";
 export const DEFAULT_DESIGN_VALUES: VisualDesignValues = {
   position: "static",
   alignment: "left",
+  verticalAlignment: "normal",
   x: 0,
   y: 0,
   width: 0,
@@ -47,16 +48,23 @@ interface UseDesignInspectorOptions {
   /** 프리뷰가 교체되면 선택 상태를 초기화하기 위한 키 */
   previewSrc: string;
   onDesignPatch: (sourceId: number | null, css: Record<string, string>) => void;
+  isActive?: boolean;
 }
 
-export function useDesignInspector({ previewSrc, onDesignPatch }: UseDesignInspectorOptions) {
+export function useDesignInspector({
+  previewSrc,
+  onDesignPatch,
+  isActive = true,
+}: UseDesignInspectorOptions) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [selectedElement, setSelectedElement] = useState<SelectedPreviewElement | null>(null);
   const [designValues, setDesignValues] = useState<VisualDesignValues>(DEFAULT_DESIGN_VALUES);
   const [inspectedSrc, setInspectedSrc] = useState(previewSrc);
+  const [wasActive, setWasActive] = useState(isActive);
 
   // 프리뷰가 교체되면 이전 선택은 더 이상 유효하지 않다.
-  if (previewSrc !== inspectedSrc) {
+  if (previewSrc !== inspectedSrc || wasActive !== isActive) {
+    setWasActive(isActive);
     setInspectedSrc(previewSrc);
     setSelectedElement(null);
     setDesignValues(DEFAULT_DESIGN_VALUES);
@@ -64,10 +72,19 @@ export function useDesignInspector({ previewSrc, onDesignPatch }: UseDesignInspe
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (
+        event.data?.source === "codee-design-runtime" &&
+        (event.data.type === "ready" || event.data.type === "location-changed")
+      ) {
+        setSelectedElement(null);
+        setDesignValues(DEFAULT_DESIGN_VALUES);
+        return;
+      }
       if (!isDesignRuntimeSelectedMessage(event.data)) return;
       const { values, ...element } = event.data.payload;
       setSelectedElement(element);
-      setDesignValues(values);
+      setDesignValues({ ...DEFAULT_DESIGN_VALUES, ...values });
     };
 
     window.addEventListener("message", handleMessage);
@@ -75,6 +92,7 @@ export function useDesignInspector({ previewSrc, onDesignPatch }: UseDesignInspe
   }, []);
 
   const handleDesignChange = (patch: Partial<VisualDesignValues>) => {
+    if (!selectedElement) return;
     const next = { ...designValues, ...patch };
     setDesignValues(next);
 

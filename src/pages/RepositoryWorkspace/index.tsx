@@ -14,7 +14,7 @@ import CommitDialog from "./layout/git/CommitDialog";
 import LeaveWorkspaceDialog from "./layout/LeaveWorkspaceDialog";
 import WorkspaceLeftSidebar from "./layout/WorkspaceLeftSidebar";
 import WorkspaceRightSidebar from "./layout/WorkspaceRightSidebar";
-import { getWorkspaceLayoutGridClass } from "./layout/WorkspaceSidebar";
+import { getWorkspaceLayoutGridClass } from "./layout/workspaceLayout";
 import WorkspaceTopBar from "./layout/WorkspaceTopBar";
 import { buildPreviewSrc } from "./preview/previewSrc";
 import WorkspacePreviewMain from "./preview/WorkspacePreviewMain";
@@ -133,6 +133,7 @@ export default function RepositoryWorkspacePage() {
 
   const design = useDesignInspector({
     previewSrc,
+    isActive: activeTab === "design",
     onDesignPatch: workspace.onDesignPatch,
   });
 
@@ -151,6 +152,17 @@ export default function RepositoryWorkspacePage() {
       error={analysis.error}
       onSelectIssue={handleSelectIssue}
       onReaudit={analysis.reanalyze}
+      detailIssue={activeTab === "overview" ? null : selectedIssue}
+      onBackFromIssue={() => {
+        setClosingIssue(null);
+        setSelectedIssueId(null);
+      }}
+      onEditInCode={() => {
+        setActiveTab("code");
+        if (selectedIssue?.targetFilePath) {
+          void workspace.onFileClick(selectedIssue.targetFilePath);
+        }
+      }}
     />
   );
 
@@ -191,7 +203,7 @@ export default function RepositoryWorkspacePage() {
     ) : null;
 
   return (
-    <div className="flex h-screen min-w-[1180px] flex-col overflow-hidden bg-white text-[#202124]">
+    <div className="repository-workspace flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white text-[#202124]">
       <WorkspaceTopBar
         activeTab={activeTab}
         changedFileCount={git.changedFiles.length}

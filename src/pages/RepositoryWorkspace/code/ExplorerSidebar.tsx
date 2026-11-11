@@ -57,9 +57,9 @@ export default function ExplorerSidebar({
   );
   const [fallbackBranchId, setFallbackBranchId] = useState(WORKSPACE_BRANCHES[0].id);
 
-  const branchItems = branches?.length ? branches : WORKSPACE_BRANCHES;
-  const selectedBranchId = branches?.length ? (currentBranch ?? "") : fallbackBranchId;
-  const graphCommits = commits?.length ? commits : COMMIT_GRAPH;
+  const branchItems = isGitConnected ? (branches ?? []) : WORKSPACE_BRANCHES;
+  const selectedBranchId = isGitConnected ? (currentBranch ?? "") : fallbackBranchId;
+  const graphCommits = isGitConnected ? (commits ?? []) : COMMIT_GRAPH;
 
   return (
     <aside
@@ -124,8 +124,8 @@ export default function ExplorerSidebar({
       <BranchListSection
         branches={branchItems}
         currentBranchId={selectedBranchId}
-        onSelectBranch={branches?.length ? () => {} : setFallbackBranchId}
-        isReadOnly={Boolean(branches?.length)}
+        onSelectBranch={isGitConnected ? () => {} : setFallbackBranchId}
+        isReadOnly={isGitConnected}
       />
     </aside>
   );

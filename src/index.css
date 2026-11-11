@@ -34,6 +34,10 @@
   }
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family:
@@ -57,6 +61,20 @@ select {
 #root {
   max-width: 100%;
   min-height: 100svh;
+}
+
+/* 작업 공간은 문서 대신 프리뷰·편집기·사이드바 내부에서 스크롤한다. */
+html:has(.repository-workspace),
+body:has(.repository-workspace) {
+  height: 100%;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+#root:has(.repository-workspace) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .scrollbar-subtle {

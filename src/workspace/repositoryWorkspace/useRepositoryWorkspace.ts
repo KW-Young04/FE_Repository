@@ -59,9 +59,10 @@ export function useRepositoryWorkspace(
     onUserContentEdit: notifyUserContentEdit,
   });
 
+  const restartPreview = preview.handleRestartPreview;
   const handleRestartPreview = useCallback(
-    () => preview.handleRestartPreview(loader.filesByPath),
-    [loader.filesByPath, preview.handleRestartPreview],
+    () => restartPreview(loader.filesByPath),
+    [loader.filesByPath, restartPreview],
   );
 
   return {
