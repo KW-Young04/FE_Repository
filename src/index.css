@@ -3,14 +3,14 @@
 
 @theme {
   /* 서비스 포인트 컬러: bg-point, text-point-50, ring-point/40 처럼 사용 */
-  --color-point: #6d3df5;
-  --color-point-hover: #5b2de8;
-  --color-point-50: #f7f4ff;
-  --color-point-100: #ede9fe;
-  --color-point-200: #ddd6fe;
-  --color-point-300: #cbbffb;
-  --color-point-400: #a78bfa;
-  --color-point-500: #8b5cf6;
+  --color-point: #2563eb;
+  --color-point-hover: #1d4ed8;
+  --color-point-50: #eff6ff;
+  --color-point-100: #dbeafe;
+  --color-point-200: #bfdbfe;
+  --color-point-300: #93c5fd;
+  --color-point-400: #60a5fa;
+  --color-point-500: #3b82f6;
 
   --animate-sidebar-slide-in: sidebar-slide-in 260ms ease-out;
   --animate-sidebar-slide-out: sidebar-slide-out 220ms ease-in forwards;

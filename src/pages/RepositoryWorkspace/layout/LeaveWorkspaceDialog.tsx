@@ -65,7 +65,7 @@ export default function LeaveWorkspaceDialog({
             취소
           </button>
           <Button
-            variant="purple"
+            variant="point"
             onClick={onConfirm}
             disabled={isLeaving}
             autoFocus

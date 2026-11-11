@@ -121,7 +121,7 @@ export default function SelectedIssuePanel({
           </p>
         )}
 
-        <Button variant="purple" className="h-[33px] w-full rounded text-[12px]">
+        <Button variant="point" className="h-[33px] w-full rounded text-[12px]">
           ✦ AI 수정 실행
         </Button>
 

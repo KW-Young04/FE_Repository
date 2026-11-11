@@ -198,7 +198,7 @@ export default function BrowserToolbar({
         onClick={onToggleErrors}
         className={[
           "relative inline-flex h-7 w-[78px] items-center rounded-[14px] p-0 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-point",
-          showErrors ? "bg-point" : "bg-[#b8b0d6]",
+          showErrors ? "bg-point" : "bg-[#a9b9d6]",
         ].join(" ")}
       >
         <span
