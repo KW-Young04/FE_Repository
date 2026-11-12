@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   applyChatFixes,
-  getChatMessages,
   sendChatMessage,
   type ChatFixProposal,
   type ChatMessageItem,
@@ -44,7 +43,7 @@ export interface WorkspaceChatController {
   isAvailable: boolean;
   unavailableReason: string | null;
   messages: WorkspaceChatMessage[];
-  isLoadingHistory: boolean;
+  startNewConversation: () => void;
   isSending: boolean;
   error: string | null;
   activePath: string | null;
@@ -77,7 +76,8 @@ export function useWorkspaceChat({
   onApplyExternalContent,
 }: UseWorkspaceChatOptions): WorkspaceChatController {
   const [messages, setMessages] = useState<WorkspaceChatMessage[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const generationRef = useRef(0);
+  const sendingRef = useRef(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesRef = useRef(messages);
@@ -93,37 +93,34 @@ export function useWorkspaceChat({
     ? null
     : "저장소 분석을 먼저 실행하면 AI 채팅을 사용할 수 있습니다.";
 
+  const startNewConversation = useCallback(() => {
+    generationRef.current += 1;
+    sendingRef.current = false;
+    messagesRef.current = [];
+    setMessages([]);
+    setError(null);
+    setIsSending(false);
+  }, []);
+
+  // A workspace visit is a new conversation; never restore repository-wide history.
   useEffect(() => {
-    if (repositoryId == null) {
-      setMessages([]);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoadingHistory(true);
-    getChatMessages(repositoryId)
-      .then((items) => {
-        if (cancelled) return;
-        setMessages(items.map((item) => ({ ...item, fixes: [] })));
-      })
-      .catch((requestError) => {
-        if (cancelled) return;
-        setError(toErrorMessage(requestError, "대화 기록을 불러오지 못했습니다."));
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingHistory(false);
-      });
-
+    startNewConversation();
     return () => {
-      cancelled = true;
+      generationRef.current += 1;
     };
-  }, [repositoryId]);
+  }, [repositoryId, repositoryUrl, branchName, startNewConversation]);
 
   const send = useCallback(
     async (text: string): Promise<boolean> => {
       const message = text.trim();
-      if (!message || repositoryId == null || isSending) return false;
+      if (!message || repositoryId == null || sendingRef.current) return false;
 
+      const generation = generationRef.current;
+      const historyMessageIds = messagesRef.current
+        .filter((item) => item.id > 0)
+        .slice(-10)
+        .map((item) => item.id);
+      sendingRef.current = true;
       const pendingId = pendingIdSeed--;
       setError(null);
       setIsSending(true);
@@ -141,13 +138,17 @@ export function useWorkspaceChat({
       try {
         // AI가 서버 작업 파일을 읽으므로, 편집 중인 내용을 먼저 저장한다.
         await onFlushPendingWrites();
+        if (generation !== generationRef.current) return true;
         const response = await sendChatMessage(repositoryId, {
           message,
           repositoryUrl,
           branchName,
           activeFilePath: activePath,
           selectedLocationId,
+          historyMessageIds,
         });
+
+        if (generation !== generationRef.current) return true;
 
         const fixes: ChatFixEntry[] = response.fixes.map((fix, index) => ({
           ...fix,
@@ -162,23 +163,19 @@ export function useWorkspaceChat({
         ]);
         return true;
       } catch (requestError) {
+        if (generation !== generationRef.current) return true;
         // 서버는 실패 시 질문을 저장하지 않으므로 화면에서도 지운다.
         setMessages((prev) => prev.filter((item) => item.id !== pendingId));
         setError(toErrorMessage(requestError, "AI 응답을 받지 못했습니다."));
         return false;
       } finally {
-        setIsSending(false);
+        if (generation === generationRef.current) {
+          sendingRef.current = false;
+          setIsSending(false);
+        }
       }
     },
-    [
-      activePath,
-      branchName,
-      isSending,
-      onFlushPendingWrites,
-      repositoryId,
-      repositoryUrl,
-      selectedLocationId,
-    ],
+    [activePath, branchName, onFlushPendingWrites, repositoryId, repositoryUrl, selectedLocationId],
   );
 
   const updateFixStatus = useCallback(
@@ -260,7 +257,7 @@ export function useWorkspaceChat({
     isAvailable,
     unavailableReason,
     messages,
-    isLoadingHistory,
+    startNewConversation,
     isSending,
     error,
     activePath,
