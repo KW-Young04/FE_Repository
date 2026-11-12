@@ -26,6 +26,8 @@ export type ChatFileContext = "FULL" | "SNIPPETS" | "NONE";
 
 export interface ChatSendRequest {
   message: string;
+  /** IDs from this conversation only. Empty starts without prior context. */
+  historyMessageIds: number[];
   repositoryUrl: string;
   branchName: string;
   activeFilePath?: string | null;

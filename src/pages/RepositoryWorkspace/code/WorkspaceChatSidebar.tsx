@@ -188,11 +188,19 @@ export default function WorkspaceChatSidebar({ chat }: WorkspaceChatSidebarProps
             : "코드 수정을 요청하려면 수정할 파일을 먼저 열어 주세요."}
       </p>
 
-      <div ref={listRef} className="scrollbar-subtle mt-4 min-h-0 flex-1 overflow-y-auto">
-        {chat?.isLoadingHistory && (
-          <p className="px-2 text-[11px] text-slate-400">대화 기록을 불러오는 중…</p>
-        )}
+      <button
+        type="button"
+        disabled={!chat || messages.length === 0}
+        onClick={() => {
+          chat?.startNewConversation();
+          setMessage("");
+        }}
+        className="mx-2 mt-2 self-end rounded border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-white disabled:opacity-40"
+      >
+        새 대화
+      </button>
 
+      <div ref={listRef} className="scrollbar-subtle mt-4 min-h-0 flex-1 overflow-y-auto">
         {messages.map((item) =>
           item.senderType === "USER" ? (
             <div
